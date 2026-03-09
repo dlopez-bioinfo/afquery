@@ -20,40 +20,41 @@ class Database:
         self,
         chrom: str,
         pos: int,
-        icd10: list[str],
+        phenotype: list[str],
         sex: str = "both",
     ) -> list[QueryResult]:
-        params = QueryParams(chrom=chrom, pos=pos, icd10_codes=icd10, sex_filter=sex)
+        params = QueryParams(chrom=chrom, pos=pos, phenotype_codes=phenotype, sex_filter=sex)
         return self._engine.query(params)
 
     def query_batch(
         self,
         chrom: str,
-        positions: list[int],
-        icd10: list[str],
+        variants: list[tuple[int, str, str]],
+        phenotype: list[str],
         sex: str = "both",
     ) -> list[QueryResult]:
-        return self._engine.query_batch(chrom, positions, icd10, sex)
+        return self._engine.query_batch(chrom, variants, phenotype, sex)
 
     def query_region(
         self,
         chrom: str,
         start: int,
         end: int,
-        icd10: list[str],
+        phenotype: list[str],
         sex: str = "both",
     ) -> list[QueryResult]:
-        return self._engine.query_region(chrom, start, end, icd10, sex)
+        return self._engine.query_region(chrom, start, end, phenotype, sex)
 
     def annotate_vcf(
         self,
         input_vcf: str,
         output_vcf: str,
-        icd10: list[str],
+        phenotype: list[str],
         sex: str = "both",
+        n_workers: int | None = None,
     ) -> dict:
         from .annotate import annotate_vcf as _annotate
-        return _annotate(self._engine, input_vcf, output_vcf, icd10, sex)
+        return _annotate(self._engine, input_vcf, output_vcf, phenotype, sex, n_workers=n_workers)
 
     def add_samples(
         self,
@@ -89,3 +90,15 @@ class Database:
 
     def info(self) -> dict:
         return dict(self._manifest)
+
+    def get_all_phenotypes(self) -> list[str]:
+        """Return all available phenotype codes in the database."""
+        import sqlite3
+        con = sqlite3.connect(str(self._path / "metadata.sqlite"))
+        phenotypes = [
+            row[0] for row in con.execute(
+                "SELECT DISTINCT phenotype_code FROM sample_phenotype ORDER BY phenotype_code"
+            ).fetchall()
+        ]
+        con.close()
+        return phenotypes

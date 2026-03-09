@@ -76,7 +76,7 @@ class TestManifest:
     def test_valid_wgs_manifest(self, tmp_path):
         manifest = self._make_manifest(
             tmp_path,
-            "sample_name\tsex\ttech_name\tvcf_path\ticd10_codes\n"
+            "sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes\n"
             "S00\tmale\twgs\tS00.vcf\tE11.9,J45\n"
             "S01\tfemale\twgs\tS01.vcf\tI10\n",
             vcfs=["S00.vcf", "S01.vcf"],
@@ -86,7 +86,7 @@ class TestManifest:
         assert samples[0].sample_name == "S00"
         assert samples[0].sex == "male"
         assert samples[0].tech_name == "wgs"
-        assert samples[0].icd10_codes == ["E11.9", "J45"]
+        assert samples[0].phenotype_codes == ["E11.9", "J45"]
         assert len(techs) == 1
         assert techs[0].tech_name == "wgs"
         assert techs[0].bed_path is None
@@ -96,7 +96,7 @@ class TestManifest:
         bed.write_text("chr1\t999\t2000\n")
         manifest = self._make_manifest(
             tmp_path,
-            "sample_name\tsex\ttech_name\tvcf_path\ticd10_codes\n"
+            "sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes\n"
             "S00\tmale\twes_kit_a\tS00.vcf\tE11.9\n",
             vcfs=["S00.vcf"],
         )
@@ -106,7 +106,7 @@ class TestManifest:
     def test_missing_required_column_raises(self, tmp_path):
         manifest = self._make_manifest(
             tmp_path,
-            "sample_name\tsex\tvcf_path\ticd10_codes\n"  # missing tech_name
+            "sample_name\tsex\tvcf_path\tphenotype_codes\n"  # missing tech_name
             "S00\tmale\tS00.vcf\tE11.9\n",
             vcfs=["S00.vcf"],
         )
@@ -116,7 +116,7 @@ class TestManifest:
     def test_duplicate_sample_name_raises(self, tmp_path):
         manifest = self._make_manifest(
             tmp_path,
-            "sample_name\tsex\ttech_name\tvcf_path\ticd10_codes\n"
+            "sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes\n"
             "S00\tmale\twgs\tS00.vcf\tE11.9\n"
             "S00\tfemale\twgs\tS01.vcf\tI10\n",
             vcfs=["S00.vcf", "S01.vcf"],
@@ -127,7 +127,7 @@ class TestManifest:
     def test_invalid_sex_raises(self, tmp_path):
         manifest = self._make_manifest(
             tmp_path,
-            "sample_name\tsex\ttech_name\tvcf_path\ticd10_codes\n"
+            "sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes\n"
             "S00\tunknown\twgs\tS00.vcf\tE11.9\n",
             vcfs=["S00.vcf"],
         )
@@ -137,38 +137,38 @@ class TestManifest:
     def test_nonexistent_vcf_raises(self, tmp_path):
         manifest = self._make_manifest(
             tmp_path,
-            "sample_name\tsex\ttech_name\tvcf_path\ticd10_codes\n"
+            "sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes\n"
             "S00\tmale\twgs\tmissing.vcf\tE11.9\n",
         )
         with pytest.raises(ManifestError, match="vcf_path does not exist"):
             parse_manifest(str(manifest))
 
-    def test_empty_icd10_raises(self, tmp_path):
+    def test_empty_phenotype_raises(self, tmp_path):
         manifest = self._make_manifest(
             tmp_path,
-            "sample_name\tsex\ttech_name\tvcf_path\ticd10_codes\n"
+            "sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes\n"
             "S00\tmale\twgs\tS00.vcf\t\n",
             vcfs=["S00.vcf"],
         )
-        with pytest.raises(ManifestError, match="icd10_codes is empty"):
+        with pytest.raises(ManifestError, match="phenotype_codes is empty"):
             parse_manifest(str(manifest))
 
     def test_whitespace_stripping(self, tmp_path):
         manifest = self._make_manifest(
             tmp_path,
-            "sample_name\tsex\ttech_name\tvcf_path\ticd10_codes\n"
+            "sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes\n"
             "S00 \t male \t wgs \t S00.vcf \t E11.9 , J45 \n",
             vcfs=["S00.vcf"],
         )
         samples, _ = parse_manifest(str(manifest))
         assert samples[0].sample_name == "S00"
         assert samples[0].sex == "male"
-        assert samples[0].icd10_codes == ["E11.9", "J45"]
+        assert samples[0].phenotype_codes == ["E11.9", "J45"]
 
     def test_wes_missing_bed_raises(self, tmp_path):
         manifest = self._make_manifest(
             tmp_path,
-            "sample_name\tsex\ttech_name\tvcf_path\ticd10_codes\n"
+            "sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes\n"
             "S00\tmale\twes_kit_x\tS00.vcf\tE11.9\n",
             vcfs=["S00.vcf"],
         )
@@ -181,7 +181,7 @@ class TestManifest:
         _write_vcf(vcf, "S00", [])
         manifest = tmp_path / "manifest.tsv"
         manifest.write_text(
-            "sample_name\tsex\ttech_name\tvcf_path\ticd10_codes\n"
+            "sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes\n"
             "S00\tmale\twgs\tsub/sample.vcf\tE11.9\n"
         )
         samples, _ = parse_manifest(str(manifest))
@@ -191,7 +191,7 @@ class TestManifest:
     def test_technology_deduplication(self, tmp_path):
         manifest = self._make_manifest(
             tmp_path,
-            "sample_name\tsex\ttech_name\tvcf_path\ticd10_codes\n"
+            "sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes\n"
             "S00\tmale\twgs\tS00.vcf\tE11.9\n"
             "S01\tfemale\twgs\tS01.vcf\tI10\n"
             "S02\tmale\twgs\tS02.vcf\tJ45\n",
@@ -465,7 +465,7 @@ def test_preprocess_query_matches_expected(preprocessed_db, data_dir):
         results = db.query(
             chrom=case["chrom"],
             pos=case["pos"],
-            icd10=case["icd10"],
+            phenotype=case["phenotype"],
             sex=case["sex"],
         )
         matching = [

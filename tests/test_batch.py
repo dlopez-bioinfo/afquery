@@ -7,6 +7,12 @@ def _db(test_db):
     return Database(test_db)
 
 
+# Known variants from conftest.py VARIANTS fixture
+_V1 = (1500, "A", "T")
+_V2 = (3500, "G", "C")
+_V3 = (5000, "T", "G")
+
+
 # ---------------------------------------------------------------------------
 # query_batch — correctness
 # ---------------------------------------------------------------------------
@@ -18,7 +24,7 @@ def test_query_batch_matches_single_query(test_db):
         + db.query("chr1", 3500, ["E11.9"])
         + db.query("chr1", 5000, ["E11.9"])
     )
-    batch = db.query_batch("chr1", [1500, 3500, 5000], ["E11.9"])
+    batch = db.query_batch("chr1", [_V1, _V2, _V3], ["E11.9"])
 
     single_idx = {(r.variant.pos, r.variant.alt): r for r in single}
     batch_idx  = {(r.variant.pos, r.variant.alt): r for r in batch}
@@ -30,38 +36,38 @@ def test_query_batch_matches_single_query(test_db):
         assert abs(single_idx[key].AF - batch_idx[key].AF) < 1e-9
 
 
-def test_query_batch_deduplicates_positions(test_db):
+def test_query_batch_deduplicates_variants(test_db):
     db = _db(test_db)
-    results = db.query_batch("chr1", [1500, 1500, 3500], ["E11.9"])
+    results = db.query_batch("chr1", [_V1, _V1, _V2], ["E11.9"])
     positions = [r.variant.pos for r in results]
     assert positions.count(1500) == 1
 
 
 def test_query_batch_sorted_result(test_db):
     db = _db(test_db)
-    results = db.query_batch("chr1", [5000, 1500, 3500], ["E11.9"])
+    results = db.query_batch("chr1", [_V3, _V1, _V2], ["E11.9"])
     positions = [r.variant.pos for r in results]
     assert positions == sorted(positions)
 
 
 def test_query_batch_empty_no_matching_position(test_db):
     db = _db(test_db)
-    results = db.query_batch("chr1", [99999999], ["E11.9"])
+    results = db.query_batch("chr1", [(99999999, "A", "T")], ["E11.9"])
     assert results == []
 
 
-def test_query_batch_all_uncovered_icd10(test_db):
-    """Unknown ICD10 → eligible bitmap empty → AN=0 → no results."""
+def test_query_batch_all_uncovered_phenotype(test_db):
+    """Unknown Phenotype → eligible bitmap empty → AN=0 → no results."""
     db = _db(test_db)
-    results = db.query_batch("chr1", [1500, 3500], ["ZZUNKNOWN"])
+    results = db.query_batch("chr1", [_V1, _V2], ["ZZUNKNOWN"])
     assert results == []
 
 
 def test_query_batch_chrom_normalisation(test_db):
     """chr-prefix should be normalised transparently."""
     db = _db(test_db)
-    r_prefix = db.query_batch("chr1", [1500], ["E11.9"])
-    r_bare   = db.query_batch("1",    [1500], ["E11.9"])
+    r_prefix = db.query_batch("chr1", [_V1], ["E11.9"])
+    r_bare   = db.query_batch("1",    [_V1], ["E11.9"])
     assert len(r_prefix) == len(r_bare)
     if r_prefix:
         assert r_prefix[0].AC == r_bare[0].AC
@@ -71,7 +77,7 @@ def test_query_batch_sex_filter(test_db):
     """Female-only batch should give same result as single query with female filter."""
     db = _db(test_db)
     single = db.query("chr1", 1500, ["E11.9"], sex="female")
-    batch  = db.query_batch("chr1", [1500], ["E11.9"], sex="female")
+    batch  = db.query_batch("chr1", [_V1], ["E11.9"], sex="female")
     assert len(single) == len(batch)
     if single:
         assert single[0].AC == batch[0].AC
@@ -80,8 +86,23 @@ def test_query_batch_sex_filter(test_db):
 
 def test_query_batch_nonexistent_chrom(test_db):
     db = _db(test_db)
-    results = db.query_batch("chr99", [1000], ["E11.9"])
+    results = db.query_batch("chr99", [(1000, "A", "T")], ["E11.9"])
     assert results == []
+
+
+# ---------------------------------------------------------------------------
+# query_batch — multi-ALT at same position
+# ---------------------------------------------------------------------------
+
+def test_query_batch_multi_alt_same_pos(test_db):
+    """Two variants at the same position with different ALTs → independent results."""
+    db = _db(test_db)
+    # Query the known variant plus a fictional one at the same pos; only the
+    # real one should come back.
+    results = db.query_batch("chr1", [_V1, (1500, "A", "X")], ["E11.9"])
+    alts = {r.variant.alt for r in results}
+    assert "T" in alts        # the real ALT is returned
+    assert "X" not in alts    # fictional ALT is absent
 
 
 # ---------------------------------------------------------------------------
@@ -91,8 +112,12 @@ def test_query_batch_nonexistent_chrom(test_db):
 def test_query_batch_large(test_db):
     """≥10 000 unique positions → temp-table path; known variants still returned."""
     db = _db(test_db)
-    positions = list(range(1, 10_001))   # 10 000 positions, includes 1500 & 3500
-    results = db.query_batch("chr1", positions, ["E11.9"])
+    # Generate a large list; include the real known variants so they are found
+    variants = [(i, "A", "T") for i in range(1, 10_001)]
+    # Replace entries for known positions with their real (ref, alt)
+    variants[1499] = _V1   # pos 1500
+    variants[3499] = _V2   # pos 3500
+    results = db.query_batch("chr1", variants, ["E11.9"])
 
     found = {r.variant.pos for r in results}
     assert 1500 in found
@@ -135,10 +160,10 @@ def test_query_region_sorted(test_db):
 
 
 def test_query_region_matches_batch(test_db):
-    """query_region results should be identical to query_batch over the same positions."""
+    """query_region results should be identical to query_batch over the same variants."""
     db = _db(test_db)
     region = db.query_region("chr1", 1, 10_000, ["E11.9"])
-    batch  = db.query_batch("chr1", [1500, 3500, 5000], ["E11.9"])
+    batch  = db.query_batch("chr1", [_V1, _V2, _V3], ["E11.9"])
 
     region_idx = {(r.variant.pos, r.variant.alt): r for r in region}
     batch_idx  = {(r.variant.pos, r.variant.alt): r for r in batch}

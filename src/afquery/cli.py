@@ -15,13 +15,13 @@ def cli():
 @click.option("--db",    required=True, help="Path to database directory.")
 @click.option("--chrom", required=True, help="Chromosome (e.g. 1, chrX).")
 @click.option("--pos",   required=True, type=int, help="1-based position.")
-@click.option("--icd10", required=True, multiple=True, help="ICD10 code(s). Repeatable.")
+@click.option("--phenotype", required=True, multiple=True, help="Phenotype code(s). Repeatable.")
 @click.option("--sex",   default="both", type=click.Choice(["male", "female", "both"]))
 @click.option("--format", "fmt", default="text", type=click.Choice(["text", "json", "tsv"]))
-def query(db, chrom, pos, icd10, sex, fmt):
+def query(db, chrom, pos, phenotype, sex, fmt):
     """Query allele frequency at a single position."""
     database = Database(db)
-    results = database.query(chrom=chrom, pos=pos, icd10=list(icd10), sex=sex)
+    results = database.query(chrom=chrom, pos=pos, phenotype=list(phenotype), sex=sex)
 
     if fmt == "json":
         out = []
@@ -54,19 +54,25 @@ def query(db, chrom, pos, icd10, sex, fmt):
 
 
 @cli.command("query-batch")
-@click.option("--db",        required=True, help="Path to database directory.")
-@click.option("--chrom",     required=True, help="Chromosome (e.g. 1, chrX).")
-@click.option("--positions", required=True, type=click.Path(exists=True), help="File with one 1-based position per line.")
-@click.option("--icd10",     required=True, multiple=True, help="ICD10 code(s). Repeatable.")
-@click.option("--sex",       default="both", type=click.Choice(["male", "female", "both"]))
-@click.option("--format",    "fmt", default="text", type=click.Choice(["text", "json", "tsv"]))
-def query_batch(db, chrom, positions, icd10, sex, fmt):
-    """Query allele frequency at multiple positions (read from file)."""
-    with open(positions) as fh:
-        pos_list = [int(line.strip()) for line in fh if line.strip()]
+@click.option("--db",       required=True, help="Path to database directory.")
+@click.option("--chrom",    required=True, help="Chromosome (e.g. 1, chrX).")
+@click.option("--variants", required=True, type=click.Path(exists=True), help="TSV file with columns: pos ref alt (no header, whitespace-separated).")
+@click.option("--phenotype",    required=True, multiple=True, help="Phenotype code(s). Repeatable.")
+@click.option("--sex",      default="both", type=click.Choice(["male", "female", "both"]))
+@click.option("--format",   "fmt", default="text", type=click.Choice(["text", "json", "tsv"]))
+def query_batch(db, chrom, variants, phenotype, sex, fmt):
+    """Query allele frequency at multiple variants (read from TSV file: pos ref alt)."""
+    variant_list = []
+    with open(variants) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split()
+            variant_list.append((int(parts[0]), parts[1], parts[2]))
 
     database = Database(db)
-    results = database.query_batch(chrom=chrom, positions=pos_list, icd10=list(icd10), sex=sex)
+    results = database.query_batch(chrom=chrom, variants=variant_list, phenotype=list(phenotype), sex=sex)
 
     if fmt == "json":
         out = []
@@ -99,16 +105,19 @@ def query_batch(db, chrom, positions, icd10, sex, fmt):
 
 
 @cli.command()
-@click.option("--db",     required=True, help="Path to database directory.")
-@click.option("--input",  "input_vcf",  required=True, help="Input VCF (plain or .gz).")
-@click.option("--output", "output_vcf", required=True, help="Output annotated VCF.")
-@click.option("--icd10",  required=True, multiple=True, help="ICD10 code(s). Repeatable.")
-@click.option("--sex",    default="both", type=click.Choice(["male", "female", "both"]))
-def annotate(db, input_vcf, output_vcf, icd10, sex):
+@click.option("--db",      required=True, help="Path to database directory.")
+@click.option("--input",   "input_vcf",  required=True, help="Input VCF (plain or .gz).")
+@click.option("--output",  "output_vcf", required=True, help="Output annotated VCF.")
+@click.option("--phenotype",   multiple=True, help="Phenotype code(s). Repeatable. If omitted, all available phenotypes are used.")
+@click.option("--sex",     default="both", type=click.Choice(["male", "female", "both"]))
+@click.option("--threads", default=None, type=int,
+              help="Worker processes for parallel annotation. Default: all CPU cores.")
+def annotate(db, input_vcf, output_vcf, phenotype, sex, threads):
     """Annotate a VCF with AFQUERY_AC / AFQUERY_AN / AFQUERY_AF INFO fields."""
-    from .annotate import annotate_vcf
     database = Database(db)
-    stats = annotate_vcf(database._engine, input_vcf, output_vcf, list(icd10), sex)
+    # If no phenotype specified, use all available phenotypes
+    phenotype_codes = list(phenotype) if phenotype else database.get_all_phenotypes()
+    stats = database.annotate_vcf(input_vcf, output_vcf, phenotype_codes, sex, n_workers=threads)
     click.echo(
         f"Annotated {stats['n_annotated']} variants "
         f"({stats['n_uncovered']} uncovered, {stats['n_variants']} total)."

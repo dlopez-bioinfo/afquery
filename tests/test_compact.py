@@ -81,14 +81,14 @@ def test_compact_query_results_unchanged(compact_db):
     """Queries return same results before and after compact."""
     db_before = Database(compact_db)
     results_before = db_before.query(
-        chrom="chr1", pos=1500, icd10=["E11.9"], sex="both"
+        chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both"
     )
 
     compact_database(Path(compact_db))
 
     db_after = Database(compact_db)
     results_after = db_after.query(
-        chrom="chr1", pos=1500, icd10=["E11.9"], sex="both"
+        chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both"
     )
 
     assert len(results_before) == len(results_after)

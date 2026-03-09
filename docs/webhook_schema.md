@@ -8,7 +8,7 @@
 {
   "chrom":     "chr1",
   "positions": [1000, 2000, 3000],
-  "icd10":     ["E11.9", "I10"],
+  "phenotype":     ["E11.9", "I10"],
   "sex":       "both"
 }
 ```
@@ -17,7 +17,7 @@
 |-------------|-----------------|----------|--------------------------------------------|
 | `chrom`     | string          | yes      | Any form accepted: `"1"`, `"chr1"`, `"X"` |
 | `positions` | array of int    | yes      | 1-based positions; duplicates are ignored  |
-| `icd10`     | array of string | yes      | ICD-10 codes; union semantics              |
+| `phenotype`     | array of string | yes      | phenotype codes; union semantics              |
 | `sex`       | string          | no       | `"both"` (default), `"male"`, `"female"`  |
 
 ### Response
@@ -75,7 +75,7 @@ Same as batch query with a single-element `positions` array.
 
 ```json
 {
-  "icd10": ["E11.9"],
+  "phenotype": ["E11.9"],
   "sex":   "both"
 }
 ```

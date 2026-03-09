@@ -28,7 +28,7 @@ class VariantKey:
 class QueryParams:
     chrom: str
     pos: int               # 1-based
-    icd10_codes: list[str]
+    phenotype_codes: list[str]
     sex_filter: str = "both"  # 'male' | 'female' | 'both'
 
 

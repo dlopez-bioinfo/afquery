@@ -61,11 +61,11 @@ class QueryEngine:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _build_icd10_bitmap(self, icd10_codes: list[str]) -> BitMap:
+    def _build_phenotype_bitmap(self, phenotype_codes: list[str]) -> BitMap:
         bm = BitMap()
-        for code in icd10_codes:
-            if code in self._bitmaps.get("icd10", {}):
-                bm |= self._bitmaps["icd10"][code]
+        for code in phenotype_codes:
+            if code in self._bitmaps.get("phenotype", {}):
+                bm |= self._bitmaps["phenotype"][code]
         return bm
 
     def _build_sex_bitmap(self, sex_filter: str) -> BitMap:
@@ -78,7 +78,7 @@ class QueryEngine:
         self,
         chrom: str,
         pos: int,
-        icd10_bitmap: BitMap,
+        phenotype_bitmap: BitMap,
         sex_bitmap: BitMap,
     ) -> tuple[BitMap, int]:
         """Return (eligible_bitmap, AN) for a single position."""
@@ -86,7 +86,7 @@ class QueryEngine:
         for tech_id, capture_idx in self._capture.items():
             if capture_idx.covers(chrom, pos):
                 covered |= self._tech_bitmaps.get(str(tech_id), BitMap())
-        eligible = icd10_bitmap & sex_bitmap & covered
+        eligible = phenotype_bitmap & sex_bitmap & covered
         sex_bms = self._bitmaps.get("sex", {})
         AN = compute_AN(
             eligible,
@@ -123,9 +123,9 @@ class QueryEngine:
         chrom = normalize_chrom(params.chrom)
         pos = params.pos
 
-        icd10_bitmap = self._build_icd10_bitmap(params.icd10_codes)
+        phenotype_bitmap = self._build_phenotype_bitmap(params.phenotype_codes)
         sex_bitmap = self._build_sex_bitmap(params.sex_filter)
-        eligible, AN = self._compute_eligible(chrom, pos, icd10_bitmap, sex_bitmap)
+        eligible, AN = self._compute_eligible(chrom, pos, phenotype_bitmap, sex_bitmap)
 
         if AN == 0:
             return []
@@ -134,7 +134,7 @@ class QueryEngine:
         if parquet_path is None:
             return []
 
-        con = duckdb.connect()
+        con = duckdb.connect(config={"temp_directory": "/tmp"})
         rows = con.execute(
             "SELECT ref, alt, het_bitmap, hom_bitmap FROM read_parquet(?) WHERE pos = ?",
             [str(parquet_path), pos],
@@ -162,25 +162,34 @@ class QueryEngine:
     def query_batch(
         self,
         chrom: str,
-        positions: list[int],
-        icd10_codes: list[str],
+        variants: list[tuple[int, str, str]],
+        phenotype_codes: list[str],
         sex_filter: str = "both",
     ) -> list[QueryResult]:
-        """Query multiple positions in a single Parquet read."""
+        """Query multiple variants (pos, ref, alt) in a single Parquet read."""
         chrom = normalize_chrom(chrom)
-        unique_positions = list(dict.fromkeys(positions))  # dedup, preserve order
+        # Deduplicate by full variant, preserve order
+        unique_variants = list(dict.fromkeys(variants))
 
-        icd10_bitmap = self._build_icd10_bitmap(icd10_codes)
+        # AN is per-position; collect unique positions
+        unique_positions = list(dict.fromkeys(pos for pos, _ref, _alt in unique_variants))
+
+        phenotype_bitmap = self._build_phenotype_bitmap(phenotype_codes)
         sex_bitmap = self._build_sex_bitmap(sex_filter)
 
         pos_data: dict[int, tuple[BitMap, int]] = {}
         for pos in unique_positions:
-            eligible, AN = self._compute_eligible(chrom, pos, icd10_bitmap, sex_bitmap)
+            eligible, AN = self._compute_eligible(chrom, pos, phenotype_bitmap, sex_bitmap)
             pos_data[pos] = (eligible, AN)
 
         valid_positions = [p for p in unique_positions if pos_data[p][1] > 0]
         if not valid_positions:
             return []
+
+        # Only keep variants whose position has AN > 0
+        requested_variants: set[tuple[int, str, str]] = {
+            (pos, ref, alt) for pos, ref, alt in unique_variants if pos in set(valid_positions)
+        }
 
         parquet_glob = self._parquet_glob(chrom)
         if parquet_glob is None:
@@ -188,7 +197,7 @@ class QueryEngine:
 
         escaped_glob = parquet_glob.replace("'", "''")
 
-        con = duckdb.connect()
+        con = duckdb.connect(config={"temp_directory": "/tmp"})
         if len(valid_positions) < BATCH_IN_THRESHOLD:
             placeholders = ", ".join("?" * len(valid_positions))
             rows = con.execute(
@@ -207,6 +216,8 @@ class QueryEngine:
 
         results = []
         for pos, ref, alt, het_bytes, hom_bytes in rows:
+            if (pos, ref, alt) not in requested_variants:
+                continue
             eligible, AN = pos_data[pos]
             het_bm = deserialize(bytes(het_bytes))
             hom_bm = deserialize(bytes(hom_bytes))
@@ -227,7 +238,7 @@ class QueryEngine:
         chrom: str,
         start: int,
         end: int,
-        icd10_codes: list[str],
+        phenotype_codes: list[str],
         sex_filter: str = "both",
     ) -> list[QueryResult]:
         """Query all variants in a 1-based inclusive range [start, end]."""
@@ -239,10 +250,10 @@ class QueryEngine:
 
         escaped_glob = parquet_glob.replace("'", "''")
 
-        icd10_bitmap = self._build_icd10_bitmap(icd10_codes)
+        phenotype_bitmap = self._build_phenotype_bitmap(phenotype_codes)
         sex_bitmap = self._build_sex_bitmap(sex_filter)
 
-        con = duckdb.connect()
+        con = duckdb.connect(config={"temp_directory": "/tmp"})
         rows = con.execute(
             f"SELECT pos, ref, alt, het_bitmap, hom_bitmap"
             f" FROM read_parquet('{escaped_glob}') WHERE pos BETWEEN ? AND ?",
@@ -256,7 +267,7 @@ class QueryEngine:
         pos_data: dict[int, tuple[BitMap, int]] = {}
         for pos, *_ in rows:
             if pos not in pos_data:
-                eligible, AN = self._compute_eligible(chrom, pos, icd10_bitmap, sex_bitmap)
+                eligible, AN = self._compute_eligible(chrom, pos, phenotype_bitmap, sex_bitmap)
                 pos_data[pos] = (eligible, AN)
 
         results = []

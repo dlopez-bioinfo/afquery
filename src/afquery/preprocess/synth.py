@@ -44,7 +44,7 @@ def generate_synthetic_manifest(
                 unique.append((pos, ref, alt))
         chrom_variants[chrom] = unique
 
-    manifest_lines = ["sample_name\tsex\ttech_name\tvcf_path\ticd10_codes"]
+    manifest_lines = ["sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes"]
 
     for i in range(n_samples):
         sample_name = f"synth_{i:06d}"

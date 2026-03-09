@@ -8,7 +8,7 @@ class ParsedSample:
     sex: str               # 'male' | 'female'
     tech_name: str
     vcf_path: str          # absolute path
-    icd10_codes: list[str]
+    phenotype_codes: list[str]
 
 
 @dataclass
@@ -34,7 +34,7 @@ def parse_manifest(
         raise ManifestError("Manifest is empty")
 
     header = lines[0].split("\t")
-    required_cols = {"sample_name", "sex", "tech_name", "vcf_path", "icd10_codes"}
+    required_cols = {"sample_name", "sex", "tech_name", "vcf_path", "phenotype_codes"}
     missing = required_cols - set(header)
     if missing:
         raise ManifestError(f"Missing required columns: {', '.join(sorted(missing))}")
@@ -55,17 +55,17 @@ def parse_manifest(
         sex = parts[col_idx["sex"]].strip()
         tech_name = parts[col_idx["tech_name"]].strip()
         vcf_path_raw = parts[col_idx["vcf_path"]].strip()
-        icd10_raw = parts[col_idx["icd10_codes"]].strip()
+        phenotype_raw = parts[col_idx["phenotype_codes"]].strip()
 
         if sex not in ("male", "female"):
             raise ManifestError(
                 f"Line {line_num}: invalid sex '{sex}', must be 'male' or 'female'"
             )
 
-        icd10_codes = [c.strip() for c in icd10_raw.split(",") if c.strip()]
-        if not icd10_codes:
+        phenotype_codes = [c.strip() for c in phenotype_raw.split(",") if c.strip()]
+        if not phenotype_codes:
             raise ManifestError(
-                f"Line {line_num}: icd10_codes is empty for sample '{sample_name}'"
+                f"Line {line_num}: phenotype_codes is empty for sample '{sample_name}'"
             )
 
         if os.path.isabs(vcf_path_raw):
@@ -102,7 +102,7 @@ def parse_manifest(
             sex=sex,
             tech_name=tech_name,
             vcf_path=vcf_path,
-            icd10_codes=icd10_codes,
+            phenotype_codes=phenotype_codes,
         ))
 
     technologies = [tech_map[name] for name in tech_order]

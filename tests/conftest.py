@@ -9,7 +9,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from pyroaring import BitMap
 
-from afquery.bitmaps import serialize, build_sex_bitmaps, build_icd10_bitmaps, build_tech_bitmaps
+from afquery.bitmaps import serialize, build_sex_bitmaps, build_phenotype_bitmaps, build_tech_bitmaps
 from afquery.capture import CaptureIndex
 from afquery.models import Sample, Technology
 
@@ -34,7 +34,7 @@ TECHNOLOGIES = [
     (2, "WES_kit_B", "wes_kit_b.bed"),
 ]
 
-SAMPLE_ICD10 = [
+SAMPLE_PHENOTYPE = [
     (0, "E11.9"), (1, "E11.9"), (2, "E11.9"), (5, "E11.9"), (6, "E11.9"), (7, "E11.9"),
     (1, "I10"),   (3, "I10"),   (5, "I10"),   (8, "I10"),   (9, "I10"),
     (2, "C50"),   (4, "C50"),   (6, "C50"),
@@ -103,10 +103,10 @@ def _init_sqlite(con: sqlite3.Connection) -> None:
             tech_name TEXT NOT NULL,
             bed_path  TEXT
         );
-        CREATE TABLE sample_icd10 (
+        CREATE TABLE sample_phenotype (
             sample_id    INTEGER NOT NULL,
-            icd10_code   TEXT NOT NULL,
-            PRIMARY KEY (sample_id, icd10_code)
+            phenotype_code   TEXT NOT NULL,
+            PRIMARY KEY (sample_id, phenotype_code)
         );
         CREATE TABLE precomputed_bitmaps (
             bitmap_type TEXT NOT NULL,
@@ -123,7 +123,7 @@ def _init_sqlite(con: sqlite3.Connection) -> None:
         "INSERT INTO technologies VALUES (?, ?, ?)", TECHNOLOGIES
     )
     con.executemany(
-        "INSERT INTO sample_icd10 VALUES (?, ?)", SAMPLE_ICD10
+        "INSERT INTO sample_phenotype VALUES (?, ?)", SAMPLE_PHENOTYPE
     )
 
     samples = [Sample(s[0], s[1], s[2], s[3]) for s in SAMPLES]
@@ -136,12 +136,12 @@ def _init_sqlite(con: sqlite3.Connection) -> None:
             ("sex", sex, serialize(bm)),
         )
 
-    # ICD10 bitmaps
-    icd10_bms = build_icd10_bitmaps(SAMPLE_ICD10)
-    for code, bm in icd10_bms.items():
+    # Phenotype bitmaps
+    phenotype_bms = build_phenotype_bitmaps(SAMPLE_PHENOTYPE)
+    for code, bm in phenotype_bms.items():
         con.execute(
             "INSERT INTO precomputed_bitmaps VALUES (?, ?, ?)",
-            ("icd10", code, serialize(bm)),
+            ("phenotype", code, serialize(bm)),
         )
 
     # Tech bitmaps (key stored as string)

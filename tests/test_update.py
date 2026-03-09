@@ -33,9 +33,9 @@ def write_vcf(path: str, sample_name: str, variants: list) -> None:
 
 
 def write_manifest(path: str, entries: list) -> None:
-    """Write a TSV manifest. entries: [(name, sex, tech, vcf_path, icd10_csv), ...]"""
+    """Write a TSV manifest. entries: [(name, sex, tech, vcf_path, phenotype_csv), ...]"""
     with open(path, "w") as f:
-        f.write("sample_name\tsex\ttech_name\tvcf_path\ticd10_codes\n")
+        f.write("sample_name\tsex\ttech_name\tvcf_path\tphenotype_codes\n")
         for name, sex, tech, vcf, codes in entries:
             f.write(f"{name}\t{sex}\t{tech}\t{vcf}\t{codes}\n")
 
@@ -166,7 +166,7 @@ def test_add_samples_new_variant(fresh_db, tmp_path):
     add_samples(fresh_db, manifest, threads=1)
 
     db = Database(fresh_db)
-    results = db.query(chrom="chr1", pos=7000, icd10=["E11.9"], sex="both")
+    results = db.query(chrom="chr1", pos=7000, phenotype=["E11.9"], sex="both")
     assert results
     assert any(r.AC >= 1 for r in results)
 
@@ -175,7 +175,7 @@ def test_add_samples_existing_variant(fresh_db, tmp_path):
     # chr1:1500 A>T has het=[0,5], hom=[2] in the base DB
     # S10 (male, wgs, E11.9) also carries chr1:1500 het → AC should increase
     db_before = Database(fresh_db)
-    results_before = db_before.query(chrom="chr1", pos=1500, icd10=["E11.9"], sex="both")
+    results_before = db_before.query(chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both")
     ac_before = results_before[0].AC if results_before else 0
 
     vcf_s10 = str(tmp_path / "S10.vcf")
@@ -187,7 +187,7 @@ def test_add_samples_existing_variant(fresh_db, tmp_path):
     add_samples(fresh_db, manifest, threads=1)
 
     db_after = Database(fresh_db)
-    results_after = db_after.query(chrom="chr1", pos=1500, icd10=["E11.9"], sex="both")
+    results_after = db_after.query(chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both")
     ac_after = results_after[0].AC if results_after else 0
 
     assert ac_after > ac_before
@@ -259,13 +259,13 @@ def test_remove_samples_id_not_reused(fresh_db, tmp_path):
 def test_remove_samples_query_impact(fresh_db):
     # S00 (id=0, male, wgs, E11.9+J45) is het-carrier of chr1:1500 A>T
     db_before = Database(fresh_db)
-    results_before = db_before.query(chrom="chr1", pos=1500, icd10=["E11.9"], sex="both")
+    results_before = db_before.query(chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both")
     ac_before = results_before[0].AC if results_before else 0
 
     remove_samples(fresh_db, ["S00"])
 
     db_after = Database(fresh_db)
-    results_after = db_after.query(chrom="chr1", pos=1500, icd10=["E11.9"], sex="both")
+    results_after = db_after.query(chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both")
     ac_after = results_after[0].AC if results_after else 0
 
     assert ac_after < ac_before

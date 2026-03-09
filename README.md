@@ -29,7 +29,7 @@ Requires Python 3.10+.
 First, prepare a manifest TSV with sample metadata:
 
 ```tsv
-sample_name	sex	tech_name	vcf_path	icd10_codes
+sample_name	sex	tech_name	vcf_path	phenotype_codes
 sample_1	male	wgs	vcfs/sample_1.vcf	E11.9,I10
 sample_2	female	wes_kit_a	vcfs/sample_2.vcf	E11.9
 sample_3	male	wgs	vcfs/sample_3.vcf	I10
@@ -65,7 +65,7 @@ afquery preprocess \
 
 This creates:
 - `my_db/manifest.json` — database metadata
-- `my_db/metadata.sqlite` — samples, technologies, ICD-10 codes, precomputed bitmaps
+- `my_db/metadata.sqlite` — samples, technologies, phenotype codes, precomputed bitmaps
 - `my_db/variants/{chrom}.parquet` — variant data with encoded genotypes
 - `my_db/capture/` — capture regions for each technology
 
@@ -76,10 +76,10 @@ This creates:
 afquery query --db my_db --chrom chr1 --pos 1000 --alt G
 
 # Batch query (100 positions)
-afquery query-batch --db my_db --positions positions.tsv --icd10 E11.9
+afquery query-batch --db my_db --positions positions.tsv --phenotype E11.9
 
 # Region query
-afquery query --db my_db --chrom chr1 --start 1000 --end 10000 --icd10 E11.9 --sex M
+afquery query --db my_db --chrom chr1 --start 1000 --end 10000 --phenotype E11.9 --sex M
 ```
 
 ### 3. Annotate VCF Files
@@ -89,7 +89,7 @@ afquery annotate \
   --db my_db \
   --vcf input.vcf \
   --output annotated.vcf \
-  --icd10 E11.9 \
+  --phenotype E11.9 \
   --tech WGS
 ```
 
@@ -103,21 +103,21 @@ from afquery import Database
 db = Database("/path/to/db")
 
 # Single position query
-# Automatically filters samples by: sex + ICD-10 codes + capture coverage
+# Automatically filters samples by: sex + phenotype codes + capture coverage
 result = db.query(
     chrom="chr1",
     pos=1000,
     alt="G",
-    icd10_codes=["E11.9"],
+    phenotype_codes=["E11.9"],
     sex="both"
 )
 print(f"AC={result.ac}, AN={result.an}, AF={result.af}")
 
-# Batch query (multi-position)
+# Batch query (multi-variant)
 results = db.query_batch(
-    positions=[("chr1", 1000, "G"), ("chr1", 2000, "A")],
-    icd10_codes=["E11.9"],
-    sex="male"
+    "chr1",
+    variants=[(1500, "A", "T"), (3500, "G", "C")],
+    phenotype=["E11.9"],
 )
 
 # Region query (genomic range)
@@ -125,7 +125,7 @@ results = db.query_region(
     chrom="chr1",
     start=1000,
     end=10000,
-    icd10_codes=["E11.9", "I10"]
+    phenotype_codes=["E11.9", "I10"]
 )
 
 # Annotate VCF with allele frequencies
@@ -133,14 +133,14 @@ results = db.query_region(
 db.annotate_vcf(
     vcf_path="input.vcf",
     output_path="annotated.vcf",
-    icd10_codes=["E11.9"],
+    phenotype_codes=["E11.9"],
     tech_name="wgs"  # Only annotate using WGS samples
 )
 ```
 
 **How samples are filtered in queries**:
 - Sex filter: `male`, `female`, or `both`
-- ICD-10 filter: All codes must match
+- phenotype filter: All codes must match
 - Capture filter: Automatic—only samples whose tech's BED covers the position
 
 ## Database Structure
@@ -148,7 +148,7 @@ db.annotate_vcf(
 ```
 my_db/
 ├── manifest.json          # Metadata: genome_build, sample_count, schema_version
-├── metadata.sqlite        # SQLite: samples, technologies, ICD-10 codes, bitmaps
+├── metadata.sqlite        # SQLite: samples, technologies, phenotype codes, bitmaps
 ├── variants/
 │   ├── chr1.parquet
 │   ├── chr2.parquet
@@ -178,12 +178,12 @@ Samples are linked to capture regions through their **technology**:
    - `metadata.sqlite::samples` stores sample_id, sample_name, and tech_id (foreign key)
 4. **Query-time filtering**: When querying, samples are filtered by:
    - Sex (male/female/both)
-   - ICD-10 diagnosis codes
+   - phenotype diagnosis codes
    - Capture region coverage (via tech's BED file)
 
 **Example**: If you have samples on two exome kits:
 ```tsv
-sample_name	sex	tech_name	vcf_path	icd10_codes
+sample_name	sex	tech_name	vcf_path	phenotype_codes
 S001	male	exome_v1	vcfs/S001.vcf	E11.9
 S002	female	exome_v1	vcfs/S002.vcf	E11.9
 S003	male	exome_v2	vcfs/S003.vcf	I10
@@ -243,7 +243,7 @@ AF computation respects chromosome-specific ploidy:
 | chrX (PAR) | `AN = 2 × eligible_samples` |
 | chrX (non-PAR) | `AN = 2 × eligible_females + 1 × eligible_males` |
 
-Where `eligible` = samples matching sex, ICD-10, and technology capture filters.
+Where `eligible` = samples matching sex, phenotype, and technology capture filters.
 
 ## Performance Targets
 

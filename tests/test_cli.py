@@ -35,7 +35,7 @@ def test_info_missing_db(runner):
 def test_query_text_format(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "1", "--pos", "1500", "--icd10", "E11.9",
+        "--chrom", "1", "--pos", "1500", "--phenotype", "E11.9",
     ])
     assert result.exit_code == 0
     assert "AC=4" in result.output
@@ -46,7 +46,7 @@ def test_query_text_format(runner, test_db):
 def test_query_text_no_results(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "1", "--pos", "9999", "--icd10", "UNKNOWN",
+        "--chrom", "1", "--pos", "9999", "--phenotype", "UNKNOWN",
     ])
     assert result.exit_code == 0
     assert "No variants found" in result.output
@@ -57,7 +57,7 @@ def test_query_text_no_results(runner, test_db):
 def test_query_json_format(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500", "--icd10", "E11.9",
+        "--chrom", "chr1", "--pos", "1500", "--phenotype", "E11.9",
         "--format", "json",
     ])
     assert result.exit_code == 0
@@ -71,7 +71,7 @@ def test_query_json_format(runner, test_db):
 def test_query_json_empty(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "9999", "--icd10", "UNKNOWN",
+        "--chrom", "chr1", "--pos", "9999", "--phenotype", "UNKNOWN",
         "--format", "json",
     ])
     assert result.exit_code == 0
@@ -83,7 +83,7 @@ def test_query_json_empty(runner, test_db):
 def test_query_tsv_format(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "1", "--pos", "1500", "--icd10", "E11.9",
+        "--chrom", "1", "--pos", "1500", "--phenotype", "E11.9",
         "--format", "tsv",
     ])
     assert result.exit_code == 0
@@ -100,7 +100,7 @@ def test_query_tsv_format(runner, test_db):
 def test_query_sex_female(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500", "--icd10", "E11.9",
+        "--chrom", "chr1", "--pos", "1500", "--phenotype", "E11.9",
         "--sex", "female", "--format", "json",
     ])
     assert result.exit_code == 0
@@ -109,13 +109,13 @@ def test_query_sex_female(runner, test_db):
     assert data[0]["AN"] == 6
 
 
-# --- multiple ICD10 codes ---
+# --- multiple Phenotype codes ---
 
-def test_query_multiple_icd10(runner, test_db):
+def test_query_multiple_phenotype(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
         "--chrom", "chr1", "--pos", "1500",
-        "--icd10", "E11.9", "--icd10", "I10",
+        "--phenotype", "E11.9", "--phenotype", "I10",
         "--format", "json",
     ])
     assert result.exit_code == 0
@@ -128,13 +128,72 @@ def test_query_multiple_icd10(runner, test_db):
 def test_query_missing_chrom(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--pos", "1500", "--icd10", "E11.9",
+        "--pos", "1500", "--phenotype", "E11.9",
     ])
     assert result.exit_code != 0
 
 
 def test_query_missing_db(runner):
     result = runner.invoke(cli, [
-        "query", "--chrom", "1", "--pos", "1500", "--icd10", "E11.9",
+        "query", "--chrom", "1", "--pos", "1500", "--phenotype", "E11.9",
     ])
     assert result.exit_code != 0
+
+
+# --- afquery annotate ---
+
+def test_annotate_with_phenotype(runner, test_db, tmp_path):
+    """Test annotate command with explicit phenotype."""
+    import cyvcf2
+    from pathlib import Path
+
+    # Create a minimal input VCF
+    input_vcf = tmp_path / "input.vcf"
+    output_vcf = tmp_path / "output.vcf"
+
+    with open(input_vcf, "w") as f:
+        f.write("##fileformat=VCFv4.2\n")
+        f.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
+        f.write("1\t1500\t.\tC\tT\t.\t.\t.\n")
+
+    result = runner.invoke(cli, [
+        "annotate", "--db", test_db,
+        "--input", str(input_vcf),
+        "--output", str(output_vcf),
+        "--phenotype", "E11.9",
+    ])
+    assert result.exit_code == 0
+    assert "Annotated" in result.output
+    assert output_vcf.exists()
+
+
+def test_annotate_without_phenotype(runner, test_db, tmp_path):
+    """Test annotate command without phenotype (should use all phenotypes)."""
+    import cyvcf2
+    from pathlib import Path
+
+    # Create a minimal input VCF
+    input_vcf = tmp_path / "input.vcf"
+    output_vcf = tmp_path / "output.vcf"
+
+    with open(input_vcf, "w") as f:
+        f.write("##fileformat=VCFv4.2\n")
+        f.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
+        f.write("1\t1500\t.\tC\tT\t.\t.\t.\n")
+
+    result = runner.invoke(cli, [
+        "annotate", "--db", test_db,
+        "--input", str(input_vcf),
+        "--output", str(output_vcf),
+    ])
+    assert result.exit_code == 0
+    assert "Annotated" in result.output
+    assert output_vcf.exists()
+
+    # Verify that the output VCF has AFQUERY annotations
+    vcf = cyvcf2.VCF(str(output_vcf))
+    records = list(vcf)
+    assert len(records) > 0
+    # At pos 1500 with multiple phenotypes, AN should be larger than with single phenotype
+    assert records[0].INFO.get("AFQUERY_AN", 0) > 0
+    vcf.close()

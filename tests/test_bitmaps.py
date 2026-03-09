@@ -4,7 +4,7 @@ from afquery.bitmaps import (
     serialize,
     deserialize,
     build_sex_bitmaps,
-    build_icd10_bitmaps,
+    build_phenotype_bitmaps,
     build_tech_bitmaps,
 )
 from afquery.models import Sample
@@ -96,35 +96,35 @@ def test_build_sex_bitmaps_partition():
     assert (result["male"] & result["female"]) == BitMap()
 
 
-# --- build_icd10_bitmaps ---
+# --- build_phenotype_bitmaps ---
 
-def test_build_icd10_bitmaps_single_code():
+def test_build_phenotype_bitmaps_single_code():
     data = [(0, "E11.9"), (1, "E11.9"), (2, "E11.9")]
-    result = build_icd10_bitmaps(data)
+    result = build_phenotype_bitmaps(data)
     assert result["E11.9"] == BitMap([0, 1, 2])
 
 
-def test_build_icd10_bitmaps_multiple_codes():
+def test_build_phenotype_bitmaps_multiple_codes():
     data = [(0, "E11.9"), (1, "I10"), (0, "I10")]
-    result = build_icd10_bitmaps(data)
+    result = build_phenotype_bitmaps(data)
     assert result["E11.9"] == BitMap([0])
     assert result["I10"] == BitMap([0, 1])
 
 
-def test_build_icd10_bitmaps_overlapping():
+def test_build_phenotype_bitmaps_overlapping():
     # Sample 0 appears in two codes
     data = [(0, "A"), (0, "B"), (1, "A")]
-    result = build_icd10_bitmaps(data)
+    result = build_phenotype_bitmaps(data)
     assert result["A"] == BitMap([0, 1])
     assert result["B"] == BitMap([0])
 
 
-def test_build_icd10_bitmaps_known_fixture():
-    sample_icd10 = [
+def test_build_phenotype_bitmaps_known_fixture():
+    sample_phenotype = [
         (0, "E11.9"), (1, "E11.9"), (2, "E11.9"), (5, "E11.9"), (6, "E11.9"), (7, "E11.9"),
         (1, "I10"),   (3, "I10"),   (5, "I10"),   (8, "I10"),   (9, "I10"),
     ]
-    result = build_icd10_bitmaps(sample_icd10)
+    result = build_phenotype_bitmaps(sample_phenotype)
     assert result["E11.9"] == BitMap([0, 1, 2, 5, 6, 7])
     assert result["I10"]   == BitMap([1, 3, 5, 8, 9])
 

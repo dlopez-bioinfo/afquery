@@ -7,7 +7,7 @@ from afquery.benchmark import run_benchmark, run_benchmark_with_synth
 
 
 def test_run_benchmark_returns_expected_keys(test_db):
-    """run_benchmark returns a dict with all required timing keys."""
+    """run_benchmark returns a dict with all required timing and correctness keys."""
     results = run_benchmark(Path(test_db))
 
     assert "error" not in results, f"Unexpected error: {results.get('error')}"
@@ -19,6 +19,11 @@ def test_run_benchmark_returns_expected_keys(test_db):
     for t_key in ("point_cold_ok", "point_warm_ok", "batch_100_ok"):
         assert t_key in results["targets"]
         assert isinstance(results["targets"][t_key], bool)
+
+    assert "correctness" in results
+    assert isinstance(results["correctness"]["point_returned_data"], bool)
+    assert isinstance(results["correctness"]["batch_100_hit_count"], int)
+    assert isinstance(results["correctness"]["batch_1000_hit_count"], int)
 
 
 def test_run_benchmark_positive_timings(test_db):
@@ -90,7 +95,7 @@ def test_benchmark_no_variants_returns_error():
         con.executescript("""
             CREATE TABLE samples (sample_id INTEGER PRIMARY KEY, sample_name TEXT, sex TEXT, tech_id INTEGER);
             CREATE TABLE technologies (tech_id INTEGER PRIMARY KEY, tech_name TEXT, bed_path TEXT);
-            CREATE TABLE sample_icd10 (sample_id INTEGER, icd10_code TEXT, PRIMARY KEY(sample_id, icd10_code));
+            CREATE TABLE sample_phenotype (sample_id INTEGER, phenotype_code TEXT, PRIMARY KEY(sample_id, phenotype_code));
             CREATE TABLE precomputed_bitmaps (bitmap_type TEXT, bitmap_key TEXT, bitmap_data BLOB, PRIMARY KEY(bitmap_type, bitmap_key));
         """)
         con.close()

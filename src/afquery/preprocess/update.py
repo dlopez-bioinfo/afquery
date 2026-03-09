@@ -13,7 +13,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from pyroaring import BitMap
 
-from ..bitmaps import deserialize, serialize, build_icd10_bitmaps, build_sex_bitmaps, build_tech_bitmaps
+from ..bitmaps import deserialize, serialize, build_phenotype_bitmaps, build_sex_bitmaps, build_tech_bitmaps
 from ..constants import VALID_GENOME_BUILDS
 from ..models import Sample, Technology
 from .build import PARQUET_SCHEMA, get_chroms_in_temp_files
@@ -79,8 +79,8 @@ def _regenerate_precomputed_bitmaps(con: sqlite3.Connection) -> None:
     ).fetchall()
     samples = [Sample(r[0], r[1], r[2], r[3]) for r in samples_rows]
 
-    icd10_pairs = con.execute(
-        "SELECT sample_id, icd10_code FROM sample_icd10"
+    phenotype_pairs = con.execute(
+        "SELECT sample_id, phenotype_code FROM sample_phenotype"
     ).fetchall()
 
     con.execute("DELETE FROM precomputed_bitmaps")
@@ -91,10 +91,10 @@ def _regenerate_precomputed_bitmaps(con: sqlite3.Connection) -> None:
             ("sex", sex, serialize(bm)),
         )
 
-    for code, bm in build_icd10_bitmaps(icd10_pairs).items():
+    for code, bm in build_phenotype_bitmaps(phenotype_pairs).items():
         con.execute(
             "INSERT INTO precomputed_bitmaps VALUES (?, ?, ?)",
-            ("icd10", code, serialize(bm)),
+            ("phenotype", code, serialize(bm)),
         )
 
     for tech_id, bm in build_tech_bitmaps(samples).items():
@@ -357,17 +357,17 @@ def add_samples(
                 import shutil
                 shutil.rmtree(tmp_dir, ignore_errors=True)
 
-        # 11. Insert new samples and ICD10 pairs into SQLite
+        # 11. Insert new samples and Phenotype pairs into SQLite
         con.executemany(
             "INSERT INTO samples VALUES (?, ?, ?, ?)",
             [(s.sample_id, s.sample_name, s.sex, s.tech_id) for s in new_samples],
         )
-        sample_icd10_pairs = [
+        sample_phenotype_pairs = [
             (starting_id + i, code)
             for i, ps in enumerate(samples_raw)
-            for code in ps.icd10_codes
+            for code in ps.phenotype_codes
         ]
-        con.executemany("INSERT INTO sample_icd10 VALUES (?, ?)", sample_icd10_pairs)
+        con.executemany("INSERT INTO sample_phenotype VALUES (?, ?)", sample_phenotype_pairs)
 
         # 12. Regenerate precomputed bitmaps
         _regenerate_precomputed_bitmaps(con)
@@ -430,7 +430,7 @@ def remove_samples(db_dir: str, sample_names: list[str]) -> dict:
 
         # 4-5. Delete from SQLite
         ph2 = ",".join("?" * len(id_list))
-        con.execute(f"DELETE FROM sample_icd10 WHERE sample_id IN ({ph2})", id_list)
+        con.execute(f"DELETE FROM sample_phenotype WHERE sample_id IN ({ph2})", id_list)
         con.execute(f"DELETE FROM samples WHERE sample_id IN ({ph2})", id_list)
 
         # 6. Regenerate precomputed bitmaps
@@ -498,7 +498,7 @@ def check_database(db_dir: str) -> list[CheckResult]:
         return results
 
     # Check 6: all 4 tables exist in SQLite
-    required_tables = {"samples", "technologies", "sample_icd10", "precomputed_bitmaps"}
+    required_tables = {"samples", "technologies", "sample_phenotype", "precomputed_bitmaps"}
     try:
         con = sqlite3.connect(sqlite_path)
         existing_tables = {

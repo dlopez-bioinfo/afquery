@@ -1,6 +1,6 @@
 """Tests for annotate_vcf() (Phase 3).
 
-Expected values for icd10=["E11.9"], sex="both", GRCh37:
+Expected values for phenotype=["E11.9"], sex="both", GRCh37:
 
   chr1:1500 A>T   — in DB    — eligible={0,1,2,5,6}  AN=10  AC=4   AF=0.4
   chr1:2000 A>G   — absent   — eligible={0,1,2,5,6}  AN=10  AC=0   AF=0.0
@@ -51,7 +51,7 @@ def test_annotate_known_variant_1500(test_db, tmp_path):
     from afquery.database import Database
     db = Database(test_db)
     out = str(tmp_path / "out.vcf")
-    db.annotate_vcf(DATA_VCF, out, icd10=["E11.9"], sex="both")
+    db.annotate_vcf(DATA_VCF, out, phenotype=["E11.9"], sex="both")
 
     records = _read_annotated(out)
     r = records[1500]
@@ -64,7 +64,7 @@ def test_annotate_known_variant_5000(test_db, tmp_path):
     from afquery.database import Database
     db = Database(test_db)
     out = str(tmp_path / "out.vcf")
-    db.annotate_vcf(DATA_VCF, out, icd10=["E11.9"], sex="both")
+    db.annotate_vcf(DATA_VCF, out, phenotype=["E11.9"], sex="both")
 
     records = _read_annotated(out)
     r = records[5000]
@@ -81,7 +81,7 @@ def test_annotate_absent_covered(test_db, tmp_path):
     from afquery.database import Database
     db = Database(test_db)
     out = str(tmp_path / "out.vcf")
-    db.annotate_vcf(DATA_VCF, out, icd10=["E11.9"], sex="both")
+    db.annotate_vcf(DATA_VCF, out, phenotype=["E11.9"], sex="both")
 
     records = _read_annotated(out)
     r = records[2000]
@@ -98,7 +98,7 @@ def test_annotate_multiallelic(test_db, tmp_path):
     from afquery.database import Database
     db = Database(test_db)
     out = str(tmp_path / "out.vcf")
-    db.annotate_vcf(DATA_VCF, out, icd10=["E11.9"], sex="both")
+    db.annotate_vcf(DATA_VCF, out, phenotype=["E11.9"], sex="both")
 
     records = _read_annotated(out)
     r = records[3500]
@@ -116,11 +116,11 @@ def test_annotate_multiallelic(test_db, tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_annotate_uncovered_position(test_db, tmp_path):
-    """Unknown ICD10 → no eligible samples → AN=0 everywhere."""
+    """Unknown Phenotype → no eligible samples → AN=0 everywhere."""
     from afquery.database import Database
     db = Database(test_db)
     out = str(tmp_path / "out.vcf")
-    db.annotate_vcf(DATA_VCF, out, icd10=["ZZUNKNOWN"], sex="both")
+    db.annotate_vcf(DATA_VCF, out, phenotype=["ZZUNKNOWN"], sex="both")
 
     records = _read_annotated(out)
     for pos, r in records.items():
@@ -137,7 +137,7 @@ def test_annotate_stats(test_db, tmp_path):
     from afquery.database import Database
     db = Database(test_db)
     out = str(tmp_path / "out.vcf")
-    stats = db.annotate_vcf(DATA_VCF, out, icd10=["E11.9"], sex="both")
+    stats = db.annotate_vcf(DATA_VCF, out, phenotype=["E11.9"], sex="both")
 
     assert stats["n_variants"] == 4          # 4 records in input VCF
     assert stats["n_uncovered"] == 0         # all covered with E11.9
@@ -149,7 +149,7 @@ def test_annotate_stats_uncovered(test_db, tmp_path):
     from afquery.database import Database
     db = Database(test_db)
     out = str(tmp_path / "out.vcf")
-    stats = db.annotate_vcf(DATA_VCF, out, icd10=["ZZUNKNOWN"], sex="both")
+    stats = db.annotate_vcf(DATA_VCF, out, phenotype=["ZZUNKNOWN"], sex="both")
 
     assert stats["n_variants"] == 4
     assert stats["n_uncovered"] == 4
@@ -164,7 +164,7 @@ def test_annotate_record_count_preserved(test_db, tmp_path):
     from afquery.database import Database
     db = Database(test_db)
     out = str(tmp_path / "out.vcf")
-    db.annotate_vcf(DATA_VCF, out, icd10=["E11.9"], sex="both")
+    db.annotate_vcf(DATA_VCF, out, phenotype=["E11.9"], sex="both")
 
     in_count  = sum(1 for _ in cyvcf2.VCF(DATA_VCF))
     out_count = sum(1 for _ in cyvcf2.VCF(out))
@@ -179,7 +179,7 @@ def test_annotate_info_headers_present(test_db, tmp_path):
     from afquery.database import Database
     db = Database(test_db)
     out = str(tmp_path / "out.vcf")
-    db.annotate_vcf(DATA_VCF, out, icd10=["E11.9"], sex="both")
+    db.annotate_vcf(DATA_VCF, out, phenotype=["E11.9"], sex="both")
 
     header_str = cyvcf2.VCF(out).raw_header
     assert "AFQUERY_AC" in header_str
@@ -195,7 +195,7 @@ def test_database_annotate_vcf_wrapper(test_db, tmp_path):
     from afquery.database import Database
     db = Database(test_db)
     out = str(tmp_path / "out.vcf")
-    stats = db.annotate_vcf(DATA_VCF, out, icd10=["E11.9"])
+    stats = db.annotate_vcf(DATA_VCF, out, phenotype=["E11.9"])
     assert stats["n_variants"] == 4
 
 
@@ -207,7 +207,7 @@ def test_annotate_sex_filter_female(test_db, tmp_path):
     from afquery.database import Database
     db = Database(test_db)
     out = str(tmp_path / "out.vcf")
-    db.annotate_vcf(DATA_VCF, out, icd10=["E11.9"], sex="female")
+    db.annotate_vcf(DATA_VCF, out, phenotype=["E11.9"], sex="female")
 
     records = _read_annotated(out)
     r = records[1500]
@@ -216,3 +216,97 @@ def test_annotate_sex_filter_female(test_db, tmp_path):
     assert r["AN"] == 6
     assert tuple(r["AC"]) == (3,)
     assert abs(r["AF"][0] - 0.5) < 1e-6
+
+
+# ---------------------------------------------------------------------------
+# Parallel annotation (n_workers)
+# ---------------------------------------------------------------------------
+
+MULTI_CHROM_VCF = "tests/data/annotate_multi_chrom.vcf"
+
+
+def test_annotate_n_workers_1(test_db, tmp_path):
+    """n_workers=1 produces same result as default (in-process path)."""
+    from afquery.database import Database
+    db = Database(test_db)
+    out_default = str(tmp_path / "out_default.vcf")
+    out_w1 = str(tmp_path / "out_w1.vcf")
+    db.annotate_vcf(DATA_VCF, out_default, phenotype=["E11.9"], sex="both")
+    db.annotate_vcf(DATA_VCF, out_w1, phenotype=["E11.9"], sex="both", n_workers=1)
+
+    assert _read_annotated(out_default) == _read_annotated(out_w1)
+
+
+def test_annotate_n_workers_explicit(test_db, tmp_path):
+    """n_workers=2 on single-bucket VCF clamps to 1 work unit (in-process path)."""
+    from afquery.database import Database
+    db = Database(test_db)
+    out = str(tmp_path / "out.vcf")
+    stats = db.annotate_vcf(DATA_VCF, out, phenotype=["E11.9"], sex="both", n_workers=2)
+    assert stats["n_variants"] == 4
+    assert stats["n_annotated"] == 3
+
+
+def test_annotate_multi_chrom_order_preserved(test_db, tmp_path):
+    """Output order matches input order even when n_workers > n_work_units."""
+    from afquery.database import Database
+    db = Database(test_db)
+    out = str(tmp_path / "out.vcf")
+    db.annotate_vcf(MULTI_CHROM_VCF, out, phenotype=["E11.9"], sex="both", n_workers=4)
+
+    out_chroms = [v.CHROM for v in cyvcf2.VCF(out)]
+    in_chroms = [v.CHROM for v in cyvcf2.VCF(MULTI_CHROM_VCF)]
+    assert out_chroms == in_chroms
+
+
+def test_annotate_multi_chrom_correctness(test_db, tmp_path):
+    """Parallel (n_workers=2) and serial (n_workers=1) produce identical annotated VCF."""
+    from afquery.database import Database
+    db = Database(test_db)
+    out_serial = str(tmp_path / "out_serial.vcf")
+    out_parallel = str(tmp_path / "out_parallel.vcf")
+    db.annotate_vcf(MULTI_CHROM_VCF, out_serial, phenotype=["E11.9"], sex="both", n_workers=1)
+    db.annotate_vcf(MULTI_CHROM_VCF, out_parallel, phenotype=["E11.9"], sex="both", n_workers=2)
+
+    assert _read_annotated(out_serial) == _read_annotated(out_parallel)
+
+
+MULTI_BUCKET_VCF = "tests/data/annotate_multi_bucket.vcf"
+
+
+def test_annotate_single_chrom_multi_bucket_parallel(test_db, tmp_path):
+    """Single chrom with 2 buckets → 2 work units → n_workers=2 exercises the process pool."""
+    from afquery.database import Database
+    db = Database(test_db)
+    out_serial = str(tmp_path / "out_serial.vcf")
+    out_parallel = str(tmp_path / "out_parallel.vcf")
+    db.annotate_vcf(MULTI_BUCKET_VCF, out_serial, phenotype=["E11.9"], sex="both", n_workers=1)
+    db.annotate_vcf(MULTI_BUCKET_VCF, out_parallel, phenotype=["E11.9"], sex="both", n_workers=2)
+
+    serial = _read_annotated(out_serial)
+    parallel = _read_annotated(out_parallel)
+    assert serial == parallel
+    # chr1:1500 (bucket 0) is in the DB → annotated
+    assert serial[1500]["AN"] == 10
+    assert tuple(serial[1500]["AC"]) == (4,)
+    # chr1:1500000 (bucket 1) is covered by WGS but not in Parquet → AC=0, AN>0
+    assert serial[1500000]["AN"] == 6
+    assert tuple(serial[1500000]["AC"]) == (0,)
+
+
+def test_annotate_cli_threads_option(test_db, tmp_path):
+    """CLI accepts --threads without error."""
+    from click.testing import CliRunner
+    from afquery.cli import cli
+    out = str(tmp_path / "out.vcf")
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "annotate",
+        "--db", test_db,
+        "--input", DATA_VCF,
+        "--output", out,
+        "--phenotype", "E11.9",
+        "--threads", "1",
+    ])
+    assert result.exit_code == 0, result.output
+    assert "Annotated" in result.output

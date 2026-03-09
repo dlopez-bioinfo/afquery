@@ -20,12 +20,12 @@ def build_sex_bitmaps(samples: list[Sample]) -> dict[str, BitMap]:
     }
 
 
-def build_icd10_bitmaps(
-    sample_icd10: list[tuple[int, str]]  # list of (sample_id, icd10_code)
+def build_phenotype_bitmaps(
+    sample_phenotype: list[tuple[int, str]]  # list of (sample_id, phenotype_code)
 ) -> dict[str, BitMap]:
-    """Returns {icd10_code: BitMap([sample_ids...])}."""
+    """Returns {phenotype_code: BitMap([sample_ids...])}."""
     result: dict[str, list[int]] = {}
-    for sample_id, code in sample_icd10:
+    for sample_id, code in sample_phenotype:
         result.setdefault(code, []).append(sample_id)
     return {code: BitMap(ids) for code, ids in result.items()}
 

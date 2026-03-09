@@ -5,7 +5,7 @@ import sqlite3
 import tempfile
 from datetime import datetime, timezone
 
-from ..bitmaps import serialize, build_sex_bitmaps, build_icd10_bitmaps, build_tech_bitmaps
+from ..bitmaps import serialize, build_sex_bitmaps, build_phenotype_bitmaps, build_tech_bitmaps
 from ..constants import VALID_GENOME_BUILDS
 from ..models import Sample, Technology
 from .build import build_all_parquets
@@ -62,13 +62,13 @@ def run_preprocess(
 
     vcf_paths = [ps.vcf_path for ps in samples_raw]
 
-    sample_icd10_pairs: list[tuple[int, str]] = [
+    sample_phenotype_pairs: list[tuple[int, str]] = [
         (idx, code)
         for idx, ps in enumerate(samples_raw)
-        for code in ps.icd10_codes
+        for code in ps.phenotype_codes
     ]
 
-    _write_sqlite(output_dir, samples, technologies, sample_icd10_pairs)
+    _write_sqlite(output_dir, samples, technologies, sample_phenotype_pairs)
 
     capture_dir = os.path.join(output_dir, "capture")
     build_capture_indices(technologies, capture_dir)
@@ -93,7 +93,7 @@ def _write_sqlite(
     output_dir: str,
     samples: list[Sample],
     technologies: list[Technology],
-    sample_icd10_pairs: list[tuple[int, str]],
+    sample_phenotype_pairs: list[tuple[int, str]],
 ) -> None:
     db_path = os.path.join(output_dir, "metadata.sqlite")
     con = sqlite3.connect(db_path)
@@ -110,10 +110,10 @@ def _write_sqlite(
             tech_name TEXT NOT NULL,
             bed_path  TEXT
         );
-        CREATE TABLE sample_icd10 (
+        CREATE TABLE sample_phenotype (
             sample_id    INTEGER NOT NULL,
-            icd10_code   TEXT NOT NULL,
-            PRIMARY KEY (sample_id, icd10_code)
+            phenotype_code   TEXT NOT NULL,
+            PRIMARY KEY (sample_id, phenotype_code)
         );
         CREATE TABLE precomputed_bitmaps (
             bitmap_type TEXT NOT NULL,
@@ -132,8 +132,8 @@ def _write_sqlite(
         [(t.tech_id, t.tech_name, t.bed_path) for t in technologies],
     )
     con.executemany(
-        "INSERT INTO sample_icd10 VALUES (?, ?)",
-        sample_icd10_pairs,
+        "INSERT INTO sample_phenotype VALUES (?, ?)",
+        sample_phenotype_pairs,
     )
 
     for sex, bm in build_sex_bitmaps(samples).items():
@@ -142,10 +142,10 @@ def _write_sqlite(
             ("sex", sex, serialize(bm)),
         )
 
-    for code, bm in build_icd10_bitmaps(sample_icd10_pairs).items():
+    for code, bm in build_phenotype_bitmaps(sample_phenotype_pairs).items():
         con.execute(
             "INSERT INTO precomputed_bitmaps VALUES (?, ?, ?)",
-            ("icd10", code, serialize(bm)),
+            ("phenotype", code, serialize(bm)),
         )
 
     for tech_id, bm in build_tech_bitmaps(samples).items():

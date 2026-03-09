@@ -18,7 +18,7 @@ def test_query_expected(test_db, case):
     results = db.query(
         chrom=case["chrom"],
         pos=case["pos"],
-        icd10=case["icd10"],
+        phenotype=case["phenotype"],
         sex=case["sex"],
     )
 
@@ -42,43 +42,43 @@ def test_query_an_zero_returns_empty(test_db):
     # C50={2,4,6}, male filter → only sample 4 (male, WES_A tech_id=1)
     # pos=3500 is in WES_B only (3000-4000) → sample 4 NOT covered → eligible={}
     db = Database(test_db)
-    results = db.query(chrom="chr1", pos=3500, icd10=["C50"], sex="male")
+    results = db.query(chrom="chr1", pos=3500, phenotype=["C50"], sex="male")
     assert results == []
 
 
 def test_query_no_variant_at_position(test_db):
     # Position that is covered but has no variant in the Parquet
     db = Database(test_db)
-    results = db.query(chrom="chr1", pos=1000, icd10=["E11.9"], sex="both")
+    results = db.query(chrom="chr1", pos=1000, phenotype=["E11.9"], sex="both")
     assert results == []
 
 
-def test_query_unknown_icd10(test_db):
+def test_query_unknown_phenotype(test_db):
     db = Database(test_db)
-    results = db.query(chrom="chr1", pos=1500, icd10=["UNKNOWN"], sex="both")
+    results = db.query(chrom="chr1", pos=1500, phenotype=["UNKNOWN"], sex="both")
     assert results == []
 
 
 def test_query_chrom_normalization(test_db):
     # "1" should work the same as "chr1"
     db = Database(test_db)
-    r1 = db.query(chrom="chr1", pos=1500, icd10=["E11.9"], sex="both")
-    r2 = db.query(chrom="1",    pos=1500, icd10=["E11.9"], sex="both")
+    r1 = db.query(chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both")
+    r2 = db.query(chrom="1",    pos=1500, phenotype=["E11.9"], sex="both")
     assert len(r1) == len(r2)
     assert r1[0].AC == r2[0].AC
 
 
-def test_query_multiple_icd10_union(test_db):
+def test_query_multiple_phenotype_union(test_db):
     # E11.9 + I10 should give more eligible than E11.9 alone (larger union)
     db = Database(test_db)
-    r_e119 = db.query(chrom="chr1", pos=1500, icd10=["E11.9"],        sex="both")
-    r_both = db.query(chrom="chr1", pos=1500, icd10=["E11.9", "I10"], sex="both")
+    r_e119 = db.query(chrom="chr1", pos=1500, phenotype=["E11.9"],        sex="both")
+    r_both = db.query(chrom="chr1", pos=1500, phenotype=["E11.9", "I10"], sex="both")
     assert r_both[0].n_samples_eligible >= r_e119[0].n_samples_eligible
 
 
 def test_query_nonexistent_chrom(test_db):
     db = Database(test_db)
-    results = db.query(chrom="chr22", pos=1000, icd10=["E11.9"], sex="both")
+    results = db.query(chrom="chr22", pos=1000, phenotype=["E11.9"], sex="both")
     assert results == []
 
 

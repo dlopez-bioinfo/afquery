@@ -110,7 +110,7 @@ def test_empty_eligible():
     assert compute_AN(empty, MALES, FEMALES, "chrM", 100, "GRCh37") == 0
 
 
-def test_icd10_subset_eligible():
+def test_phenotype_subset_eligible():
     # Subset: {0,1,2} — 2 males (0,1), 1 female (2)
     subset = BitMap([0, 1, 2])
     AN = compute_AN(subset, MALES, FEMALES, "chrX", 5_000_000, "GRCh37")
