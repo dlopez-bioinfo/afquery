@@ -3,6 +3,7 @@ import duckdb
 
 from .bitmaps import deserialize
 from .constants import normalize_chrom
+from .models import SampleFilter
 
 
 def _compute_chunk_annotations(
@@ -10,8 +11,7 @@ def _compute_chunk_annotations(
     chrom: str,
     bucket_id: int,
     records: list[tuple[int, str, list[str]]],
-    phenotype_codes: list[str],
-    sex_filter: str,
+    sf: SampleFilter,
 ) -> dict[tuple[int, str, str], tuple[int, int, bool]]:
     """Compute (AC, AN, in_parquet) for each (pos, ref, alt) in a (chrom, bucket) chunk.
 
@@ -21,14 +21,13 @@ def _compute_chunk_annotations(
     from .query import QueryEngine
 
     engine = QueryEngine(db_path)
-    phenotype_bitmap = engine._build_phenotype_bitmap(phenotype_codes)
-    sex_bitmap = engine._build_sex_bitmap(sex_filter)
+    sample_bm = engine._build_sample_bitmap(sf)
 
     unique_positions = list({pos for pos, _ref, _alts in records})
 
     pos_data: dict[int, tuple] = {}
     for pos in unique_positions:
-        eligible, AN = engine._compute_eligible(chrom, pos, phenotype_bitmap, sex_bitmap)
+        eligible, AN = engine._compute_eligible(chrom, pos, sample_bm)
         pos_data[pos] = (eligible, AN)
 
     valid_positions = [p for p in unique_positions if pos_data[p][1] > 0]
@@ -91,8 +90,7 @@ def annotate_vcf(
     engine,
     input_vcf: str,
     output_vcf: str,
-    phenotype_codes: list[str],
-    sex_filter: str = "both",
+    sf: SampleFilter,
     n_workers: int | None = None,
 ) -> dict:
     """Annotate a VCF with AFQUERY_AC / AFQUERY_AN / AFQUERY_AF INFO fields.
@@ -145,14 +143,14 @@ def annotate_vcf(
     if effective == 1:
         for chrom, bucket in work_order:
             unit_annotations[(chrom, bucket)] = _compute_chunk_annotations(
-                db_path, chrom, bucket, query_buffers[(chrom, bucket)], phenotype_codes, sex_filter
+                db_path, chrom, bucket, query_buffers[(chrom, bucket)], sf
             )
     else:
         with ProcessPoolExecutor(max_workers=effective) as executor:
             futures = {
                 executor.submit(
                     _compute_chunk_annotations,
-                    db_path, chrom, bucket, query_buffers[(chrom, bucket)], phenotype_codes, sex_filter,
+                    db_path, chrom, bucket, query_buffers[(chrom, bucket)], sf,
                 ): (chrom, bucket)
                 for chrom, bucket in work_order
             }

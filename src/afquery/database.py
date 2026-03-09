@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from .models import QueryParams, QueryResult
+from .models import QueryParams, QueryResult, SampleFilter
 from .query import QueryEngine
 
 
@@ -16,6 +16,13 @@ class Database:
         self._engine = QueryEngine(str(self._path))
         self._manifest = json.loads((self._path / "manifest.json").read_text())
 
+    def _make_filter(self, phenotype, sex, tech=None) -> SampleFilter:
+        return SampleFilter.parse(
+            phenotype_tokens=phenotype or [],
+            tech_tokens=tech or [],
+            sex=sex,
+        )
+
     def query(
         self,
         chrom: str,
@@ -24,8 +31,10 @@ class Database:
         sex: str = "both",
         ref: str | None = None,
         alt: str | None = None,
+        tech: list[str] | None = None,
     ) -> list[QueryResult]:
-        params = QueryParams(chrom=chrom, pos=pos, phenotype_codes=phenotype or [], sex_filter=sex, ref=ref, alt=alt)
+        sf = self._make_filter(phenotype, sex, tech)
+        params = QueryParams(chrom=chrom, pos=pos, filter=sf, ref=ref, alt=alt)
         return self._engine.query(params)
 
     def query_batch(
@@ -34,8 +43,10 @@ class Database:
         variants: list[tuple[int, str, str]],
         phenotype: list[str] | None = None,
         sex: str = "both",
+        tech: list[str] | None = None,
     ) -> list[QueryResult]:
-        return self._engine.query_batch(chrom, variants, phenotype or [], sex)
+        sf = self._make_filter(phenotype, sex, tech)
+        return self._engine.query_batch(chrom, variants, sf)
 
     def query_region(
         self,
@@ -44,19 +55,23 @@ class Database:
         end: int,
         phenotype: list[str] | None = None,
         sex: str = "both",
+        tech: list[str] | None = None,
     ) -> list[QueryResult]:
-        return self._engine.query_region(chrom, start, end, phenotype or [], sex)
+        sf = self._make_filter(phenotype, sex, tech)
+        return self._engine.query_region(chrom, start, end, sf)
 
     def annotate_vcf(
         self,
         input_vcf: str,
         output_vcf: str,
-        phenotype: list[str],
+        phenotype: list[str] | None = None,
         sex: str = "both",
         n_workers: int | None = None,
+        tech: list[str] | None = None,
     ) -> dict:
+        sf = self._make_filter(phenotype, sex, tech)
         from .annotate import annotate_vcf as _annotate
-        return _annotate(self._engine, input_vcf, output_vcf, phenotype, sex, n_workers=n_workers)
+        return _annotate(self._engine, input_vcf, output_vcf, sf, n_workers=n_workers)
 
     def add_samples(
         self,

@@ -8,7 +8,7 @@ from pyroaring import BitMap
 from .bitmaps import deserialize
 from .capture import CaptureIndex, load_capture_indices
 from .constants import normalize_chrom
-from .models import QueryParams, QueryResult, VariantKey, Sample, Technology
+from .models import QueryParams, QueryResult, VariantKey, Sample, Technology, SampleFilter
 from .ploidy import compute_AN
 
 BATCH_IN_THRESHOLD = 10_000
@@ -48,6 +48,10 @@ class QueryEngine:
         self._tech_map = {t.tech_id: t for t in techs}
         self._capture = load_capture_indices(techs, str(self._db / "capture"))
         self._tech_bitmaps = self._bitmaps.get("tech", {})
+        self._all_samples_bm = BitMap(s.sample_id for s in self._samples)
+        self._tech_name_to_id: dict[str, str] = {
+            t.tech_name: str(t.tech_id) for t in self._tech_map.values()
+        }
 
         # Cache which chroms use partitioned storage (variants/{chrom}/ directory)
         self._partitioned_chroms: set[str] = set()
@@ -61,34 +65,60 @@ class QueryEngine:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _build_phenotype_bitmap(self, phenotype_codes: list[str]) -> BitMap:
-        if not phenotype_codes:
-            return BitMap(s.sample_id for s in self._samples)
-        bm = BitMap()
-        for code in phenotype_codes:
-            if code in self._bitmaps.get("phenotype", {}):
-                bm |= self._bitmaps["phenotype"][code]
-        return bm
+    def _build_sample_bitmap(self, sf: SampleFilter) -> BitMap:
+        """Construye bitmap de samples elegibles según filtros de fenotipo, sexo y tecnología."""
+        # --- Fenotipo ---
+        ph_bms = self._bitmaps.get("phenotype", {})
+        if sf.phenotype_include:
+            ph_bm = BitMap()
+            for code in sf.phenotype_include:
+                if code in ph_bms:
+                    ph_bm |= ph_bms[code]
+        else:
+            ph_bm = BitMap(self._all_samples_bm)  # copia, todas las muestras
+        for code in sf.phenotype_exclude:
+            if code in ph_bms:
+                ph_bm -= ph_bms[code]
 
-    def _build_sex_bitmap(self, sex_filter: str) -> BitMap:
+        # --- Sexo ---
         sex_bms = self._bitmaps.get("sex", {})
-        if sex_filter == "both":
-            return sex_bms.get("male", BitMap()) | sex_bms.get("female", BitMap())
-        return sex_bms.get(sex_filter, BitMap())
+        if sf.sex == "both":
+            sex_bm = sex_bms.get("male", BitMap()) | sex_bms.get("female", BitMap())
+        else:
+            sex_bm = sex_bms.get(sf.sex, BitMap())
+
+        # --- Tecnología (nivel de sample; cobertura por posición sigue en _compute_eligible) ---
+        tech_bms = self._bitmaps.get("tech", {})
+        if sf.tech_include or sf.tech_exclude:
+            if sf.tech_include:
+                tech_bm = BitMap()
+                for name in sf.tech_include:
+                    tid = self._tech_name_to_id.get(name)
+                    if tid and tid in tech_bms:
+                        tech_bm |= tech_bms[tid]
+            else:
+                tech_bm = BitMap(self._all_samples_bm)
+            for name in sf.tech_exclude:
+                tid = self._tech_name_to_id.get(name)
+                if tid and tid in tech_bms:
+                    tech_bm -= tech_bms[tid]
+        else:
+            tech_bm = self._all_samples_bm  # sin copia — solo lectura en la intersección
+
+        return ph_bm & sex_bm & tech_bm
 
     def _compute_eligible(
         self,
         chrom: str,
         pos: int,
-        phenotype_bitmap: BitMap,
-        sex_bitmap: BitMap,
+        sample_bitmap: BitMap,
     ) -> tuple[BitMap, int]:
         """Return (eligible_bitmap, AN) for a single position."""
         covered = BitMap()
         for tech_id, capture_idx in self._capture.items():
             if capture_idx.covers(chrom, pos):
                 covered |= self._tech_bitmaps.get(str(tech_id), BitMap())
-        eligible = phenotype_bitmap & sex_bitmap & covered
+        eligible = sample_bitmap & covered
         sex_bms = self._bitmaps.get("sex", {})
         AN = compute_AN(
             eligible,
@@ -125,9 +155,8 @@ class QueryEngine:
         chrom = normalize_chrom(params.chrom)
         pos = params.pos
 
-        phenotype_bitmap = self._build_phenotype_bitmap(params.phenotype_codes)
-        sex_bitmap = self._build_sex_bitmap(params.sex_filter)
-        eligible, AN = self._compute_eligible(chrom, pos, phenotype_bitmap, sex_bitmap)
+        sample_bm = self._build_sample_bitmap(params.filter)
+        eligible, AN = self._compute_eligible(chrom, pos, sample_bm)
 
         if AN == 0:
             return []
@@ -169,8 +198,7 @@ class QueryEngine:
         self,
         chrom: str,
         variants: list[tuple[int, str, str]],
-        phenotype_codes: list[str],
-        sex_filter: str = "both",
+        sf: SampleFilter,
     ) -> list[QueryResult]:
         """Query multiple variants (pos, ref, alt) in a single Parquet read."""
         chrom = normalize_chrom(chrom)
@@ -180,12 +208,11 @@ class QueryEngine:
         # AN is per-position; collect unique positions
         unique_positions = list(dict.fromkeys(pos for pos, _ref, _alt in unique_variants))
 
-        phenotype_bitmap = self._build_phenotype_bitmap(phenotype_codes)
-        sex_bitmap = self._build_sex_bitmap(sex_filter)
+        sample_bm = self._build_sample_bitmap(sf)
 
         pos_data: dict[int, tuple[BitMap, int]] = {}
         for pos in unique_positions:
-            eligible, AN = self._compute_eligible(chrom, pos, phenotype_bitmap, sex_bitmap)
+            eligible, AN = self._compute_eligible(chrom, pos, sample_bm)
             pos_data[pos] = (eligible, AN)
 
         valid_positions = [p for p in unique_positions if pos_data[p][1] > 0]
@@ -244,8 +271,7 @@ class QueryEngine:
         chrom: str,
         start: int,
         end: int,
-        phenotype_codes: list[str],
-        sex_filter: str = "both",
+        sf: SampleFilter,
     ) -> list[QueryResult]:
         """Query all variants in a 1-based inclusive range [start, end]."""
         chrom = normalize_chrom(chrom)
@@ -256,8 +282,7 @@ class QueryEngine:
 
         escaped_glob = parquet_glob.replace("'", "''")
 
-        phenotype_bitmap = self._build_phenotype_bitmap(phenotype_codes)
-        sex_bitmap = self._build_sex_bitmap(sex_filter)
+        sample_bm = self._build_sample_bitmap(sf)
 
         con = duckdb.connect(config={"temp_directory": "/tmp"})
         rows = con.execute(
@@ -273,7 +298,7 @@ class QueryEngine:
         pos_data: dict[int, tuple[BitMap, int]] = {}
         for pos, *_ in rows:
             if pos not in pos_data:
-                eligible, AN = self._compute_eligible(chrom, pos, phenotype_bitmap, sex_bitmap)
+                eligible, AN = self._compute_eligible(chrom, pos, sample_bm)
                 pos_data[pos] = (eligible, AN)
 
         results = []
