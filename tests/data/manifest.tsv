@@ -1,0 +1,11 @@
+sample_name	sex	tech_name	vcf_path	icd10_codes
+S00	male	wgs	vcfs/S00.vcf	E11.9,J45
+S01	male	wgs	vcfs/S01.vcf	E11.9,I10,G20
+S02	female	wgs	vcfs/S02.vcf	E11.9,C50,G20
+S03	female	wgs	vcfs/S03.vcf	I10,J45,G20
+S04	male	wes_kit_a	vcfs/S04.vcf	C50
+S05	female	wes_kit_a	vcfs/S05.vcf	E11.9,I10,G20
+S06	female	wes_kit_a	vcfs/S06.vcf	E11.9,C50
+S07	male	wes_kit_b	vcfs/S07.vcf	E11.9,J45
+S08	male	wes_kit_b	vcfs/S08.vcf	I10,J45
+S09	female	wes_kit_b	vcfs/S09.vcf	I10,J45

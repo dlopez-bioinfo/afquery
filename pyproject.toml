@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "afquery"
+version = "0.1.0"
+description = "Genomic allele frequency query engine with bitmap-encoded genotypes"
+requires-python = ">=3.10"
+dependencies = [
+    "pyroaring>=0.4.8",
+    "pyarrow>=14.0",
+    "duckdb>=0.10",
+    "pyranges>=0.1.2,<0.2",
+    "click>=8.1",
+    "cyvcf2>=0.30",
+]
+
+[project.scripts]
+afquery = "afquery.cli:cli"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/afquery"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
