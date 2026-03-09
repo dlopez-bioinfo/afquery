@@ -20,30 +20,32 @@ class Database:
         self,
         chrom: str,
         pos: int,
-        phenotype: list[str],
+        phenotype: list[str] | None = None,
         sex: str = "both",
+        ref: str | None = None,
+        alt: str | None = None,
     ) -> list[QueryResult]:
-        params = QueryParams(chrom=chrom, pos=pos, phenotype_codes=phenotype, sex_filter=sex)
+        params = QueryParams(chrom=chrom, pos=pos, phenotype_codes=phenotype or [], sex_filter=sex, ref=ref, alt=alt)
         return self._engine.query(params)
 
     def query_batch(
         self,
         chrom: str,
         variants: list[tuple[int, str, str]],
-        phenotype: list[str],
+        phenotype: list[str] | None = None,
         sex: str = "both",
     ) -> list[QueryResult]:
-        return self._engine.query_batch(chrom, variants, phenotype, sex)
+        return self._engine.query_batch(chrom, variants, phenotype or [], sex)
 
     def query_region(
         self,
         chrom: str,
         start: int,
         end: int,
-        phenotype: list[str],
+        phenotype: list[str] | None = None,
         sex: str = "both",
     ) -> list[QueryResult]:
-        return self._engine.query_region(chrom, start, end, phenotype, sex)
+        return self._engine.query_region(chrom, start, end, phenotype or [], sex)
 
     def annotate_vcf(
         self,

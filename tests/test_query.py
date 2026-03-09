@@ -87,3 +87,60 @@ def test_info(test_db):
     data = db.info()
     assert data["genome_build"] == "GRCh37"
     assert data["sample_count"] == 10
+
+
+def test_query_ref_alt_filter_exact(test_db):
+    # Query at position 1500 which has multiple alleles, then filter to specific ref/alt
+    db = Database(test_db)
+    # Get all results first
+    all_results = db.query(chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both")
+    assert len(all_results) > 0, "Test position should have at least one variant"
+
+    # Get the first result's ref/alt
+    first_ref = all_results[0].variant.ref
+    first_alt = all_results[0].variant.alt
+
+    # Query with that specific ref/alt
+    filtered_results = db.query(
+        chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both",
+        ref=first_ref, alt=first_alt
+    )
+
+    # Should get exactly one result matching that allele
+    assert len(filtered_results) == 1
+    assert filtered_results[0].variant.ref == first_ref
+    assert filtered_results[0].variant.alt == first_alt
+    assert filtered_results[0].AC == all_results[0].AC
+    assert filtered_results[0].AN == all_results[0].AN
+
+
+def test_query_ref_alt_filter_no_match(test_db):
+    # Query with ref/alt that doesn't exist at the position
+    db = Database(test_db)
+    results = db.query(
+        chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both",
+        ref="NONEXIST", alt="ALLELE"
+    )
+    assert results == []
+
+
+def test_query_empty_phenotype_all_samples(test_db):
+    # Query with no phenotype filter should return results with all samples eligible
+    db = Database(test_db)
+    results = db.query(chrom="chr1", pos=1500, phenotype=[], sex="both")
+    assert len(results) > 0, "Query with empty phenotype should return results"
+    # With no phenotype filter, all samples should be eligible (or a larger subset)
+    assert results[0].n_samples_eligible > 0
+
+
+def test_query_empty_phenotype_vs_filtered(test_db):
+    # Empty phenotype should include more eligible samples than a single phenotype filter
+    db = Database(test_db)
+    results_no_pheno = db.query(chrom="chr1", pos=1500, phenotype=[], sex="both")
+    results_e119 = db.query(chrom="chr1", pos=1500, phenotype=["E11.9"], sex="both")
+
+    assert len(results_no_pheno) > 0, "Empty phenotype query should return results"
+    assert len(results_e119) > 0, "E11.9 phenotype query should return results"
+
+    # The unfiltered query should have more or equal eligible samples
+    assert results_no_pheno[0].n_samples_eligible >= results_e119[0].n_samples_eligible

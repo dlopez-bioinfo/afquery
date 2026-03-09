@@ -62,6 +62,8 @@ class QueryEngine:
     # ------------------------------------------------------------------
 
     def _build_phenotype_bitmap(self, phenotype_codes: list[str]) -> BitMap:
+        if not phenotype_codes:
+            return BitMap(s.sample_id for s in self._samples)
         bm = BitMap()
         for code in phenotype_codes:
             if code in self._bitmaps.get("phenotype", {}):
@@ -157,6 +159,10 @@ class QueryEngine:
                 AF=AF,
                 n_samples_eligible=len(eligible),
             ))
+        if params.ref is not None:
+            results = [r for r in results if r.variant.ref == params.ref]
+        if params.alt is not None:
+            results = [r for r in results if r.variant.alt == params.alt]
         return results
 
     def query_batch(

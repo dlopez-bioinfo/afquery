@@ -22,9 +22,8 @@ def run_preprocess(
     output_dir: str,
     genome_build: str,
     bed_dir: str | None = None,
-    n_threads: int = 8,
+    threads: int = 8,
     tmp_dir: str | None = None,
-    n_workers: int | None = None,
 ) -> None:
     if genome_build not in VALID_GENOME_BUILDS:
         raise ValueError(
@@ -78,9 +77,9 @@ def run_preprocess(
         tmp_dir = tempfile.mkdtemp(prefix="afquery_preprocess_")
 
     try:
-        ingest_all(samples, vcf_paths, tmp_dir, n_workers=n_threads)
+        ingest_all(samples, vcf_paths, tmp_dir, n_workers=threads)
         variants_dir = os.path.join(output_dir, "variants")
-        build_all_parquets(tmp_dir, variants_dir, n_workers=n_workers)
+        build_all_parquets(tmp_dir, variants_dir, n_workers=threads)
     finally:
         if auto_tmp:
             import shutil

@@ -61,7 +61,7 @@ def test_benchmark_cli_runs(tmp_path, data_dir):
         output_dir=db_path,
         genome_build="GRCh37",
         bed_dir=str(data_dir / "beds"),
-        n_threads=2,
+        threads=2,
     )
 
     output = str(tmp_path / "bench.json")

@@ -435,7 +435,7 @@ def preprocessed_db(tmp_path_factory):
         output_dir=str(db_path),
         genome_build="GRCh37",
         bed_dir=str(data_dir / "beds"),
-        n_threads=2,
+        threads=2,
     )
     return str(db_path)
 

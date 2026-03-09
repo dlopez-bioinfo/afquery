@@ -15,13 +15,15 @@ def cli():
 @click.option("--db",    required=True, help="Path to database directory.")
 @click.option("--chrom", required=True, help="Chromosome (e.g. 1, chrX).")
 @click.option("--pos",   required=True, type=int, help="1-based position.")
-@click.option("--phenotype", required=True, multiple=True, help="Phenotype code(s). Repeatable.")
+@click.option("--phenotype", multiple=True, help="Phenotype code(s). Repeatable. If omitted, all samples are used.")
 @click.option("--sex",   default="both", type=click.Choice(["male", "female", "both"]))
+@click.option("--ref",   default=None, help="Reference allele (optional filter).")
+@click.option("--alt",   default=None, help="Alternate allele (optional filter).")
 @click.option("--format", "fmt", default="text", type=click.Choice(["text", "json", "tsv"]))
-def query(db, chrom, pos, phenotype, sex, fmt):
+def query(db, chrom, pos, phenotype, sex, ref, alt, fmt):
     """Query allele frequency at a single position."""
     database = Database(db)
-    results = database.query(chrom=chrom, pos=pos, phenotype=list(phenotype), sex=sex)
+    results = database.query(chrom=chrom, pos=pos, phenotype=list(phenotype), sex=sex, ref=ref, alt=alt)
 
     if fmt == "json":
         out = []
@@ -57,7 +59,7 @@ def query(db, chrom, pos, phenotype, sex, fmt):
 @click.option("--db",       required=True, help="Path to database directory.")
 @click.option("--chrom",    required=True, help="Chromosome (e.g. 1, chrX).")
 @click.option("--variants", required=True, type=click.Path(exists=True), help="TSV file with columns: pos ref alt (no header, whitespace-separated).")
-@click.option("--phenotype",    required=True, multiple=True, help="Phenotype code(s). Repeatable.")
+@click.option("--phenotype",    multiple=True, help="Phenotype code(s). Repeatable. If omitted, all samples are used.")
 @click.option("--sex",      default="both", type=click.Choice(["male", "female", "both"]))
 @click.option("--format",   "fmt", default="text", type=click.Choice(["text", "json", "tsv"]))
 def query_batch(db, chrom, variants, phenotype, sex, fmt):
@@ -139,10 +141,9 @@ def info(db):
 @click.option("--output-dir",   required=True, help="Path to output database directory.")
 @click.option("--genome-build", required=True, type=click.Choice(["GRCh37", "GRCh38"]))
 @click.option("--threads",      default=8, show_default=True, type=int)
-@click.option("--workers",      default=None, type=int, help="Workers for parallel Parquet build. Default: all CPUs.")
 @click.option("--tmp-dir",      default=None, help="Temporary directory for Arrow IPC files.")
 @click.option("--bed-dir",      default=None, help="Directory containing BED files for WES technologies.")
-def preprocess(manifest, output_dir, genome_build, threads, workers, tmp_dir, bed_dir):
+def preprocess(manifest, output_dir, genome_build, threads, tmp_dir, bed_dir):
     """Preprocess VCFs from manifest into the query database."""
     from .preprocess import run_preprocess
     from .preprocess.manifest import ManifestError
@@ -153,9 +154,8 @@ def preprocess(manifest, output_dir, genome_build, threads, workers, tmp_dir, be
             output_dir=output_dir,
             genome_build=genome_build,
             bed_dir=bed_dir,
-            n_threads=threads,
+            threads=threads,
             tmp_dir=tmp_dir,
-            n_workers=workers,
         )
         click.echo(f"Database written to {output_dir}")
     except (ManifestError, IngestError) as e:

@@ -89,7 +89,7 @@ def test_synth_integrates_with_preprocess(tmp_path, tmp_path_factory):
         manifest_path=str(manifest_path),
         output_dir=db_path,
         genome_build="GRCh37",
-        n_threads=2,
+        threads=2,
     )
 
     db = Database(db_path)

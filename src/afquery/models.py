@@ -28,8 +28,10 @@ class VariantKey:
 class QueryParams:
     chrom: str
     pos: int               # 1-based
-    phenotype_codes: list[str]
+    phenotype_codes: list[str] = field(default_factory=list)
     sex_filter: str = "both"  # 'male' | 'female' | 'both'
+    ref: str | None = None   # optional filter to specific ref allele
+    alt: str | None = None   # optional filter to specific alt allele
 
 
 @dataclass

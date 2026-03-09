@@ -154,7 +154,7 @@ def test_compact_partitioned_format(tmp_path, data_dir):
         output_dir=str(db_path),
         genome_build="GRCh37",
         bed_dir=str(data_dir / "beds"),
-        n_threads=2,
+        threads=2,
     )
 
     # Remove a sample to create empty-bitmap rows
