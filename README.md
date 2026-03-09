@@ -29,19 +29,37 @@ Requires Python 3.10+.
 First, prepare a manifest TSV with sample metadata:
 
 ```tsv
-sample_name	sex	tech_name	icd10_codes
-sample_1	M	WGS	E11.9,I10
-sample_2	F	WES_kit_A	E11.9
-sample_3	M	WGS	I10
+sample_name	sex	tech_name	vcf_path	icd10_codes
+sample_1	male	wgs	vcfs/sample_1.vcf	E11.9,I10
+sample_2	female	wes_kit_a	vcfs/sample_2.vcf	E11.9
+sample_3	male	wgs	vcfs/sample_3.vcf	I10
+```
+
+**Key points about the manifest:**
+- `tech_name`: Either `wgs` (case-insensitive) for whole genome, or a custom technology name
+- `vcf_path`: Path to the single-sample VCF file (relative to manifest directory, or absolute)
+- For WES/exome technologies, capture regions are loaded from `--bed-dir/{tech_name}.bed`
+  - Example: `tech_name=wes_kit_a` → loads `beds/wes_kit_a.bed`
+
+Organize your files:
+```
+project/
+├── manifest.tsv
+├── vcfs/
+│   ├── sample_1.vcf
+│   ├── sample_2.vcf
+│   └── sample_3.vcf
+└── beds/              # Required for non-WGS technologies
+    └── wes_kit_a.bed  # BED file for WES kit A
 ```
 
 Then preprocess your VCF files:
 
 ```bash
 afquery preprocess \
-  --manifest samples.tsv \
-  --vcf-dir ./vcfs/ \
-  --db-dir ./my_db/ \
+  --manifest manifest.tsv \
+  --bed-dir ./beds/ \
+  --output-dir ./my_db/ \
   --genome-build GRCh38
 ```
 
@@ -85,6 +103,7 @@ from afquery import Database
 db = Database("/path/to/db")
 
 # Single position query
+# Automatically filters samples by: sex + ICD-10 codes + capture coverage
 result = db.query(
     chrom="chr1",
     pos=1000,
@@ -94,14 +113,14 @@ result = db.query(
 )
 print(f"AC={result.ac}, AN={result.an}, AF={result.af}")
 
-# Batch query
+# Batch query (multi-position)
 results = db.query_batch(
     positions=[("chr1", 1000, "G"), ("chr1", 2000, "A")],
     icd10_codes=["E11.9"],
-    sex="M"
+    sex="male"
 )
 
-# Region query
+# Region query (genomic range)
 results = db.query_region(
     chrom="chr1",
     start=1000,
@@ -109,14 +128,20 @@ results = db.query_region(
     icd10_codes=["E11.9", "I10"]
 )
 
-# Annotate VCF
+# Annotate VCF with allele frequencies
+# Note: tech_name filters annotation to samples of that technology
 db.annotate_vcf(
     vcf_path="input.vcf",
     output_path="annotated.vcf",
     icd10_codes=["E11.9"],
-    tech_name="WGS"
+    tech_name="wgs"  # Only annotate using WGS samples
 )
 ```
+
+**How samples are filtered in queries**:
+- Sex filter: `male`, `female`, or `both`
+- ICD-10 filter: All codes must match
+- Capture filter: Automatic—only samples whose tech's BED covers the position
 
 ## Database Structure
 
@@ -139,6 +164,39 @@ Each variant row contains:
 - `alt` — alternate allele
 - `het_bitmap` — Roaring Bitmap of heterozygous samples
 - `hom_bitmap` — Roaring Bitmap of homozygous samples
+
+## How Capture BED Files Are Associated with Samples
+
+Samples are linked to capture regions through their **technology**:
+
+1. **Manifest specifies technology**: Each sample lists `tech_name` (e.g., `wgs`, `wes_kit_a`)
+2. **Technology maps to BED file**:
+   - **WGS**: No BED file needed (always fully covered)
+   - **WES/Custom**: BED file loaded from `{bed_dir}/{tech_name}.bed`
+3. **Storage in database**:
+   - `metadata.sqlite::technologies` stores tech_id, tech_name, and bed_path
+   - `metadata.sqlite::samples` stores sample_id, sample_name, and tech_id (foreign key)
+4. **Query-time filtering**: When querying, samples are filtered by:
+   - Sex (male/female/both)
+   - ICD-10 diagnosis codes
+   - Capture region coverage (via tech's BED file)
+
+**Example**: If you have samples on two exome kits:
+```tsv
+sample_name	sex	tech_name	vcf_path	icd10_codes
+S001	male	exome_v1	vcfs/S001.vcf	E11.9
+S002	female	exome_v1	vcfs/S002.vcf	E11.9
+S003	male	exome_v2	vcfs/S003.vcf	I10
+```
+
+Then provide:
+```
+beds/
+├── exome_v1.bed    # Coverage for samples S001, S002
+└── exome_v2.bed    # Coverage for sample S003
+```
+
+At query time, each sample's eligible regions are determined by its tech's BED file.
 
 ## Advanced Features
 
@@ -244,9 +302,19 @@ See `brain/architecture.md` for detailed system design, data flow, and query alg
 
 ## Technologies Supported
 
-- **WGS** — Whole genome sequencing (always covered, no BED file needed)
+- **WGS** — Whole genome sequencing (always fully covered, no BED file needed)
+  - Manifest: `tech_name = wgs` (case-insensitive)
+  - Query-time: All positions in genome considered covered
+
 - **WES** — Whole exome sequencing (coverage defined by BED file)
-- **Custom** — Any technology with a BED file (e.g., gene panels)
+  - Manifest: `tech_name = wes_kit_a` (or any custom name)
+  - Preprocessing: Loads `{bed_dir}/wes_kit_a.bed` (0-based half-open BED format)
+  - Query-time: Only positions within BED intervals considered covered
+
+- **Custom** — Any technology with a BED file (e.g., gene panels, targeted sequencing)
+  - Manifest: Use any `tech_name`
+  - Preprocessing: Loads `{bed_dir}/{tech_name}.bed`
+  - Query-time: Respects BED file coverage
 
 ## Troubleshooting
 
