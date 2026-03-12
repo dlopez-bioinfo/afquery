@@ -42,14 +42,14 @@ SAMPLE_PHENOTYPE = [
     (1, "G20"),   (2, "G20"),   (3, "G20"),   (5, "G20"),
 ]
 
-# (chrom, pos, ref, alt, het_ids, hom_ids)
+# (chrom, pos, ref, alt, het_ids, hom_ids, fail_ids)
 VARIANTS = [
-    ("chr1",  1500,    "A", "T", [0, 5],    [2]),
-    ("chr1",  3500,    "G", "C", [7],        []),
-    ("chr1",  5000,    "T", "G", [0, 1],    [3]),
-    ("chrX",  5000000, "A", "G", [0, 2],    []),
-    ("chrY",  500000,  "T", "C", [0, 1],    [4]),
-    ("chrM",  100,     "C", "A", [0, 2, 5], []),
+    ("chr1",  1500,    "A", "T", [0, 5],    [2],    [0]),      # S00 fails FILTER
+    ("chr1",  3500,    "G", "C", [7],        [],     []),       # no failures
+    ("chr1",  5000,    "T", "G", [0, 1],    [3],    [1, 3]),   # S01, S03 fail FILTER
+    ("chrX",  5000000, "A", "G", [0, 2],    [],     []),       # no failures
+    ("chrY",  500000,  "T", "C", [0, 1],    [4],    []),       # no failures
+    ("chrM",  100,     "C", "A", [0, 2, 5], [],     [5]),      # S05 fails FILTER
 ]
 
 
@@ -75,6 +75,8 @@ def _build_db(db_path: Path, data_dir: Path) -> None:
         "version": "0.1.0",
         "sample_count": len(SAMPLES),
         "next_sample_id": len(SAMPLES),  # Prevent ID reuse after removals
+        "schema_version": "2.0",
+        "pass_only_filter": True,
         "created_at": "2026-01-01T00:00:00",
     }))
 
@@ -96,7 +98,9 @@ def _init_sqlite(con: sqlite3.Connection) -> None:
             sample_id   INTEGER PRIMARY KEY,
             sample_name TEXT NOT NULL,
             sex         TEXT NOT NULL,
-            tech_id     INTEGER NOT NULL
+            tech_id     INTEGER NOT NULL,
+            vcf_path    TEXT,
+            ingested_at TEXT
         );
         CREATE TABLE technologies (
             tech_id   INTEGER PRIMARY KEY,
@@ -114,10 +118,18 @@ def _init_sqlite(con: sqlite3.Connection) -> None:
             bitmap_data BLOB NOT NULL,
             PRIMARY KEY (bitmap_type, bitmap_key)
         );
+        CREATE TABLE IF NOT EXISTS changelog (
+            event_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type   TEXT NOT NULL,
+            event_time   TEXT NOT NULL,
+            sample_names TEXT,
+            notes        TEXT
+        );
     """)
 
     con.executemany(
-        "INSERT INTO samples VALUES (?, ?, ?, ?)", SAMPLES
+        "INSERT INTO samples (sample_id, sample_name, sex, tech_id) VALUES (?, ?, ?, ?)",
+        SAMPLES
     )
     con.executemany(
         "INSERT INTO technologies VALUES (?, ?, ?)", TECHNOLOGIES
@@ -169,30 +181,34 @@ def _build_capture_indices(db_path: Path, data_dir: Path) -> None:
 
 def _build_parquet(db_path: Path) -> None:
     schema = pa.schema([
-        ("pos",        pa.uint32()),
-        ("ref",        pa.large_utf8()),
-        ("alt",        pa.large_utf8()),
-        ("het_bitmap", pa.large_binary()),
-        ("hom_bitmap", pa.large_binary()),
+        ("pos",         pa.uint32()),
+        ("ref",         pa.large_utf8()),
+        ("alt",         pa.large_utf8()),
+        ("het_bitmap",  pa.large_binary()),
+        ("hom_bitmap",  pa.large_binary()),
+        ("fail_bitmap", pa.large_binary()),
     ])
 
     # Group variants by chromosome
     by_chrom: dict[str, list] = {}
-    for chrom, pos, ref, alt, het_ids, hom_ids in VARIANTS:
-        by_chrom.setdefault(chrom, []).append((pos, ref, alt, het_ids, hom_ids))
+    for chrom, pos, ref, alt, het_ids, hom_ids, fail_ids in VARIANTS:
+        by_chrom.setdefault(chrom, []).append((pos, ref, alt, het_ids, hom_ids, fail_ids))
 
     for chrom, rows in by_chrom.items():
         rows.sort(key=lambda r: r[0])  # sort by pos
         table = pa.table(
             {
-                "pos":        pa.array([r[0] for r in rows], type=pa.uint32()),
-                "ref":        pa.array([r[1] for r in rows], type=pa.large_utf8()),
-                "alt":        pa.array([r[2] for r in rows], type=pa.large_utf8()),
-                "het_bitmap": pa.array(
+                "pos":         pa.array([r[0] for r in rows], type=pa.uint32()),
+                "ref":         pa.array([r[1] for r in rows], type=pa.large_utf8()),
+                "alt":         pa.array([r[2] for r in rows], type=pa.large_utf8()),
+                "het_bitmap":  pa.array(
                     [serialize(BitMap(r[3])) for r in rows], type=pa.large_binary()
                 ),
-                "hom_bitmap": pa.array(
+                "hom_bitmap":  pa.array(
                     [serialize(BitMap(r[4])) for r in rows], type=pa.large_binary()
+                ),
+                "fail_bitmap": pa.array(
+                    [serialize(BitMap(r[5])) for r in rows], type=pa.large_binary()
                 ),
             },
             schema=schema,

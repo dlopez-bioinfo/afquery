@@ -15,6 +15,7 @@ from afquery.preprocess import run_preprocess
 from afquery.preprocess.build import (
     build_all_parquets,
     build_chromosome_parquet,
+    consolidate_temp_files,
     get_chroms_in_temp_files,
 )
 from afquery.preprocess.ingest import INGEST_SCHEMA, IngestError, ingest_sample
@@ -42,15 +43,17 @@ def _write_vcf(path: Path, sample_name: str, records: list[tuple]) -> None:
 
 
 def _write_parquet(path: Path, rows: list[tuple]) -> None:
-    """Write ingest-schema Parquet. rows = [(chrom, pos, ref, alt, gt_ac, sample_id), ...]"""
+    """Write ingest-schema Parquet. rows = [(chrom, pos, ref, alt, gt_ac, sample_id[, filter_pass]), ...]
+    filter_pass defaults to True if not provided."""
     table = pa.table(
         {
-            "chrom":     pa.array([r[0] for r in rows], type=pa.utf8()),
-            "pos":       pa.array([r[1] for r in rows], type=pa.uint32()),
-            "ref":       pa.array([r[2] for r in rows], type=pa.utf8()),
-            "alt":       pa.array([r[3] for r in rows], type=pa.utf8()),
-            "gt_ac":     pa.array([r[4] for r in rows], type=pa.uint8()),
-            "sample_id": pa.array([r[5] for r in rows], type=pa.uint32()),
+            "chrom":       pa.array([r[0] for r in rows], type=pa.utf8()),
+            "pos":         pa.array([r[1] for r in rows], type=pa.uint32()),
+            "ref":         pa.array([r[2] for r in rows], type=pa.utf8()),
+            "alt":         pa.array([r[3] for r in rows], type=pa.utf8()),
+            "gt_ac":       pa.array([r[4] for r in rows], type=pa.uint8()),
+            "sample_id":   pa.array([r[5] for r in rows], type=pa.uint32()),
+            "filter_pass": pa.array([r[6] if len(r) > 6 else True for r in rows], type=pa.bool_()),
         },
         schema=INGEST_SCHEMA,
     )
@@ -240,7 +243,7 @@ class TestIngest:
     def test_het_variant(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("chr1", 1000, "A", "T", "0/1")])
-        out = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
         tbl = pq.read_table(out)
         assert len(tbl) == 1
         assert tbl["gt_ac"][0].as_py() == 1
@@ -249,7 +252,7 @@ class TestIngest:
     def test_hom_alt_variant(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("chr1", 1000, "A", "T", "1/1")])
-        out = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
         tbl = pq.read_table(out)
         assert len(tbl) == 1
         assert tbl["gt_ac"][0].as_py() == 2
@@ -257,21 +260,21 @@ class TestIngest:
     def test_hom_ref_produces_no_rows(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("chr1", 1000, "A", "T", "0/0")])
-        out = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
         tbl = pq.read_table(out)
         assert len(tbl) == 0
 
     def test_missing_genotype_produces_no_rows(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("chr1", 1000, "A", "T", "./.")])
-        out = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
         tbl = pq.read_table(out)
         assert len(tbl) == 0
 
     def test_multiallelic_produces_two_rows(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("chr1", 1000, "A", "T,G", "1/2")])
-        out = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
         tbl = pq.read_table(out)
         assert len(tbl) == 2
         alts = sorted(tbl["alt"].to_pylist())
@@ -280,7 +283,7 @@ class TestIngest:
     def test_chrM_het(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("chrM", 100, "C", "A", "0/1")])
-        out = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
         tbl = pq.read_table(out)
         assert len(tbl) == 1
         assert tbl["chrom"][0].as_py() == "chrM"
@@ -289,7 +292,7 @@ class TestIngest:
     def test_chrom_normalization(self, tmp_path):
         vcf = tmp_path / "s0.vcf"
         _write_vcf(vcf, "S0", [("1", 1000, "A", "T", "0/1")])
-        out = ingest_sample(0, str(vcf), str(tmp_path))
+        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
         tbl = pq.read_table(out)
         assert tbl["chrom"][0].as_py() == "chr1"
 
@@ -303,10 +306,10 @@ class TestBuild:
         variants_dir = tmp_path / "variants"
         variants_dir.mkdir()
         _write_parquet(tmp_path / "sample_0.parquet", [
-            ("chr1", 1000, "A", "T", 1, 0),  # het
+            ("chr1", 1000, "A", "T", 1, 0),  # het, pass
         ])
         _write_parquet(tmp_path / "sample_1.parquet", [
-            ("chr1", 1000, "A", "T", 2, 1),  # hom
+            ("chr1", 1000, "A", "T", 2, 1),  # hom, pass
         ])
         count = build_chromosome_parquet("chr1", str(tmp_path), str(variants_dir))
         assert count == 1
@@ -314,8 +317,10 @@ class TestBuild:
         tbl = pq.read_table(variants_dir / "chr1.parquet")
         het_bm = deserialize(bytes(tbl["het_bitmap"][0].as_py()))
         hom_bm = deserialize(bytes(tbl["hom_bitmap"][0].as_py()))
+        fail_bm = deserialize(bytes(tbl["fail_bitmap"][0].as_py()))
         assert list(het_bm) == [0]
         assert list(hom_bm) == [1]
+        assert list(fail_bm) == []
 
     def test_output_sorted_by_pos_alt(self, tmp_path):
         variants_dir = tmp_path / "variants"
@@ -420,6 +425,65 @@ class TestBuild:
         ])
         result = build_all_parquets(str(tmp_path), str(variants_dir), n_workers=None)
         assert "chr1" in result
+
+    def test_consolidate_creates_partitioned_dir(self, tmp_path):
+        """consolidate_temp_files() creates chrom=X/ subdirectories (Hive partitioning)."""
+        _write_parquet(tmp_path / "sample_0.parquet", [
+            ("chr1", 1000, "A", "T", 1, 0),
+            ("chr2", 2000, "G", "C", 2, 0),
+        ])
+        _write_parquet(tmp_path / "sample_1.parquet", [
+            ("chr1", 1500, "C", "G", 1, 1),
+        ])
+        consolidated = consolidate_temp_files(str(tmp_path))
+        assert os.path.isdir(consolidated), "consolidated path must be a directory"
+        subdirs = {e.name for e in os.scandir(consolidated) if e.is_dir()}
+        assert "chrom=chr1" in subdirs
+        assert "chrom=chr2" in subdirs
+        # Each subdir should contain at least one parquet file
+        assert any((tmp_path / "consolidated" / "chrom=chr1").glob("*.parquet"))
+        assert any((tmp_path / "consolidated" / "chrom=chr2").glob("*.parquet"))
+
+    def test_build_from_partitioned_dir(self, tmp_path):
+        """build_chromosome_parquet() reads correctly from a Hive-partitioned directory."""
+        _write_parquet(tmp_path / "sample_0.parquet", [
+            ("chr1", 1000, "A", "T", 1, 0),  # het sample 0, pass
+        ])
+        _write_parquet(tmp_path / "sample_1.parquet", [
+            ("chr1", 1000, "A", "T", 2, 1),  # hom sample 1, pass
+        ])
+        consolidated = consolidate_temp_files(str(tmp_path))
+        variants_dir = tmp_path / "variants"
+        variants_dir.mkdir()
+        count = build_chromosome_parquet(
+            "chr1", str(tmp_path), str(variants_dir),
+            partitioned=False, consolidated_path=consolidated,
+        )
+        assert count == 1
+        tbl = pq.read_table(variants_dir / "chr1.parquet")
+        het_bm = deserialize(bytes(tbl["het_bitmap"][0].as_py()))
+        hom_bm = deserialize(bytes(tbl["hom_bitmap"][0].as_py()))
+        fail_bm = deserialize(bytes(tbl["fail_bitmap"][0].as_py()))
+        assert list(het_bm) == [0]
+        assert list(hom_bm) == [1]
+        assert list(fail_bm) == []
+
+    def test_build_all_parquets_partitioned_workers(self, tmp_path):
+        """With Hive-partitioned consolidated_path, build_all_parquets uses n_chroms workers (no cap of 4)."""
+        _write_parquet(tmp_path / "sample_0.parquet", [
+            ("chr1", 1000, "A", "T", 1, 0),
+            ("chr2",  500, "G", "C", 1, 0),
+        ])
+        consolidated = consolidate_temp_files(str(tmp_path))
+        variants_dir = tmp_path / "variants"
+        variants_dir.mkdir()
+        # n_workers=8 > 4 (old cap) but only 2 chroms present → should use 2 workers, not fail
+        result = build_all_parquets(
+            str(tmp_path), str(variants_dir),
+            n_workers=8, partitioned=False, consolidated_path=consolidated,
+        )
+        assert "chr1" in result
+        assert "chr2" in result
 
 
 # ---------------------------------------------------------------------------

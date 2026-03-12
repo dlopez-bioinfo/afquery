@@ -1,14 +1,16 @@
+import glob as glob_module
 import json
 import logging
 import os
+import shutil
 import sqlite3
-import tempfile
+import time
 from datetime import datetime, timezone
 
 from ..bitmaps import serialize, build_sex_bitmaps, build_phenotype_bitmaps, build_tech_bitmaps
 from ..constants import VALID_GENOME_BUILDS
 from ..models import Sample, Technology
-from .build import build_all_parquets
+from .build import build_all_parquets, consolidate_temp_files
 from .ingest import ingest_all
 from .manifest import parse_manifest
 from .regions import build_capture_indices
@@ -22,18 +24,47 @@ def run_preprocess(
     output_dir: str,
     genome_build: str,
     bed_dir: str | None = None,
-    threads: int = 8,
+    threads: int | None = None,
+    build_threads: int | None = None,
+    build_memory: str = "2GB",
     tmp_dir: str | None = None,
+    force: bool = False,
+    db_version: str = "1.0",
+    include_all_filters: bool = False,
 ) -> None:
     if genome_build not in VALID_GENOME_BUILDS:
         raise ValueError(
             f"Invalid genome_build '{genome_build}', must be one of {sorted(VALID_GENOME_BUILDS)}"
         )
 
+    # Resolve threads: None → all available CPU cores
+    effective_threads = max(1, os.cpu_count() or 1) if threads is None else max(1, threads)
+
     samples_raw, techs_raw = parse_manifest(manifest_path, bed_dir)
 
-    os.makedirs(os.path.join(output_dir, "variants"), exist_ok=True)
+    logger.info("[preprocess] Manifest: %d sample(s), %d technology/ies, build=%s",
+                len(samples_raw), len(techs_raw), genome_build)
+
+    variants_dir = os.path.join(output_dir, "variants")
+    os.makedirs(variants_dir, exist_ok=True)
     os.makedirs(os.path.join(output_dir, "capture"), exist_ok=True)
+
+    # Resolve tmp_dir: deterministic path so resume can find prior work
+    auto_tmp = tmp_dir is None
+    actual_tmp = tmp_dir if tmp_dir is not None else os.path.join(output_dir, ".tmp_preprocess")
+
+    if force:
+        logger.info("[preprocess] --force: cleaning up existing partial data and starting from scratch.")
+        shutil.rmtree(actual_tmp, ignore_errors=True)
+        shutil.rmtree(variants_dir, ignore_errors=True)
+        os.makedirs(variants_dir, exist_ok=True)
+    elif auto_tmp and os.path.exists(actual_tmp):
+        logger.warning(
+            "[preprocess] Existing partial run detected in %s. Resuming. "
+            "Use --force to restart from scratch.", actual_tmp
+        )
+
+    os.makedirs(actual_tmp, exist_ok=True)
 
     # Assign tech_ids (0-indexed, first-seen order) and sample_ids (0-indexed, manifest order)
     tech_name_to_id: dict[str, int] = {}
@@ -67,25 +98,76 @@ def run_preprocess(
         for code in ps.phenotype_codes
     ]
 
-    _write_sqlite(output_dir, samples, technologies, sample_phenotype_pairs)
+    ingested_at = datetime.now(timezone.utc).isoformat()
 
+    logger.debug("[preprocess] Writing SQLite metadata...")
+    _write_sqlite(output_dir, samples, technologies, sample_phenotype_pairs, vcf_paths, ingested_at)
+
+    logger.debug("[preprocess] Building capture indices...")
     capture_dir = os.path.join(output_dir, "capture")
     build_capture_indices(technologies, capture_dir)
 
-    auto_tmp = tmp_dir is None
-    if auto_tmp:
-        tmp_dir = tempfile.mkdtemp(prefix="afquery_preprocess_")
-
+    success = False
     try:
-        ingest_all(samples, vcf_paths, tmp_dir, n_workers=threads)
-        variants_dir = os.path.join(output_dir, "variants")
-        build_all_parquets(tmp_dir, variants_dir, n_workers=threads)
-    finally:
-        if auto_tmp:
-            import shutil
-            shutil.rmtree(tmp_dir, ignore_errors=True)
+        consolidated_dir = os.path.join(actual_tmp, "consolidated")
 
-    _write_manifest(output_dir, genome_build, len(samples))
+        # If consolidation is already done (sample files gone, consolidated/ dir exists),
+        # skip both ingest and consolidation entirely.
+        sample_files = glob_module.glob(os.path.join(actual_tmp, "sample_*.parquet"))
+        consolidation_done = (
+            not force
+            and os.path.isdir(consolidated_dir)
+            and not sample_files
+        )
+
+        if consolidation_done:
+            logger.info("[build] Skipping ingest + consolidation (already completed in previous run).")
+            consolidated = consolidated_dir
+        else:
+            ingest_all(samples, vcf_paths, actual_tmp, n_workers=effective_threads,
+                       resume=(not force))
+
+            # Re-check after ingest (edge case: consolidation was partially done)
+            sample_files = glob_module.glob(os.path.join(actual_tmp, "sample_*.parquet"))
+            if not force and not sample_files and os.path.isdir(consolidated_dir):
+                logger.info("[build] Skipping consolidation (already done in previous run).")
+                consolidated = consolidated_dir
+            else:
+                if os.path.isdir(consolidated_dir):
+                    shutil.rmtree(consolidated_dir)
+                logger.info("[build] Consolidating %d sample file(s) into per-chromosome Parquet...",
+                            len(samples))
+                consolidated = consolidate_temp_files(actual_tmp, threads=effective_threads)
+                # Free disk space: individual sample files are now redundant
+                for f in glob_module.glob(os.path.join(actual_tmp, "sample_*.parquet")):
+                    os.remove(f)
+
+        # build_threads=N → explicit cap; None → use all effective_threads
+        # (build_all_parquets will further cap to n_chroms for Hive-partitioned mode)
+        build_workers = (
+            min(effective_threads, build_threads) if build_threads is not None
+            else effective_threads
+        )
+        logger.info("[build] Build memory limit: %s per worker", build_memory)
+        pass_only = not include_all_filters
+        build_all_parquets(actual_tmp, variants_dir, n_workers=build_workers,
+                           consolidated_path=consolidated, resume=(not force),
+                           memory_limit=build_memory, pass_only=pass_only)
+        success = True
+    finally:
+        if auto_tmp and success:
+            shutil.rmtree(actual_tmp, ignore_errors=True)
+        elif not success:
+            logger.warning(
+                "[preprocess] Run failed. Partial results preserved in %s. "
+                "Re-run the same command to resume.", actual_tmp
+            )
+
+    logger.debug("[preprocess] Writing manifest.json...")
+    _write_manifest(output_dir, genome_build, len(samples), db_version=db_version,
+                    pass_only=not include_all_filters)
+
+    logger.info("[preprocess] Database complete: %s", output_dir)
 
 
 def _write_sqlite(
@@ -93,8 +175,16 @@ def _write_sqlite(
     samples: list[Sample],
     technologies: list[Technology],
     sample_phenotype_pairs: list[tuple[int, str]],
+    vcf_paths: list[str] | None = None,
+    ingested_at: str | None = None,
 ) -> None:
     db_path = os.path.join(output_dir, "metadata.sqlite")
+
+    # Always start fresh: preprocess is a full rebuild and SQLite creation is instantaneous.
+    # This avoids schema mismatch errors when re-running after a partial failure.
+    if os.path.exists(db_path):
+        os.remove(db_path)
+
     con = sqlite3.connect(db_path)
 
     con.executescript("""
@@ -102,7 +192,9 @@ def _write_sqlite(
             sample_id   INTEGER PRIMARY KEY,
             sample_name TEXT NOT NULL,
             sex         TEXT NOT NULL,
-            tech_id     INTEGER NOT NULL
+            tech_id     INTEGER NOT NULL,
+            vcf_path    TEXT,
+            ingested_at TEXT
         );
         CREATE TABLE technologies (
             tech_id   INTEGER PRIMARY KEY,
@@ -120,11 +212,22 @@ def _write_sqlite(
             bitmap_data BLOB NOT NULL,
             PRIMARY KEY (bitmap_type, bitmap_key)
         );
+        CREATE TABLE changelog (
+            event_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type   TEXT NOT NULL,
+            event_time   TEXT NOT NULL,
+            sample_names TEXT,
+            notes        TEXT
+        );
     """)
 
+
+    paths = vcf_paths if vcf_paths is not None else [None] * len(samples)
     con.executemany(
-        "INSERT INTO samples VALUES (?, ?, ?, ?)",
-        [(s.sample_id, s.sample_name, s.sex, s.tech_id) for s in samples],
+        "INSERT INTO samples (sample_id, sample_name, sex, tech_id, vcf_path, ingested_at)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        [(s.sample_id, s.sample_name, s.sex, s.tech_id, paths[i], ingested_at)
+         for i, s in enumerate(samples)],
     )
     con.executemany(
         "INSERT INTO technologies VALUES (?, ?, ?)",
@@ -153,16 +256,31 @@ def _write_sqlite(
             ("tech", str(tech_id), serialize(bm)),
         )
 
+    sample_names_json = json.dumps([s.sample_name for s in samples])
+    event_time = ingested_at or datetime.now(timezone.utc).isoformat()
+    con.execute(
+        "INSERT INTO changelog (event_type, event_time, sample_names, notes) VALUES (?, ?, ?, ?)",
+        ("preprocess", event_time, sample_names_json, f"{len(samples)} samples ingested"),
+    )
+
     con.commit()
     con.close()
 
 
-def _write_manifest(output_dir: str, genome_build: str, sample_count: int) -> None:
+def _write_manifest(
+    output_dir: str,
+    genome_build: str,
+    sample_count: int,
+    db_version: str = "1.0",
+    pass_only: bool = True,
+) -> None:
     manifest = {
         "genome_build": genome_build,
         "version": "0.1.0",
+        "db_version": db_version,
         "sample_count": sample_count,
-        "schema_version": "1.0",
+        "schema_version": "2.0",
+        "pass_only_filter": pass_only,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     with open(os.path.join(output_dir, "manifest.json"), "w") as f:

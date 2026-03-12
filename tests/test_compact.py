@@ -109,11 +109,15 @@ def test_compact_preserves_active_bitmaps(compact_db):
     con.close()
 
     tbl = pq.read_table(str(Path(compact_db) / "variants" / "chr1.parquet"))
+    has_fail = "fail_bitmap" in tbl.schema.names
     for i in range(len(tbl)):
         het_bm = deserialize(tbl["het_bitmap"][i].as_py())
         hom_bm = deserialize(tbl["hom_bitmap"][i].as_py())
         assert het_bm.issubset(active_ids), f"Row {i}: het_bm contains inactive sample"
         assert hom_bm.issubset(active_ids), f"Row {i}: hom_bm contains inactive sample"
+        if has_fail:
+            fail_bm = deserialize(tbl["fail_bitmap"][i].as_py())
+            assert fail_bm.issubset(active_ids), f"Row {i}: fail_bm contains inactive sample"
 
 
 def test_compact_atomic_write(compact_db, monkeypatch):
@@ -141,6 +145,19 @@ def test_database_compact_method(compact_db):
     stats = db.compact()
     assert "rows_removed" in stats
     assert stats["rows_removed"] >= 1
+
+
+def test_compact_writes_changelog(compact_db):
+    """compact_database appends a changelog entry with event_type='compact'."""
+    compact_database(Path(compact_db))
+    con = sqlite3.connect(str(Path(compact_db) / "metadata.sqlite"))
+    rows = con.execute(
+        "SELECT event_type, notes FROM changelog WHERE event_type='compact'"
+    ).fetchall()
+    con.close()
+    assert len(rows) == 1
+    assert rows[0][0] == "compact"
+    assert "files rewritten" in rows[0][1]
 
 
 def test_compact_partitioned_format(tmp_path, data_dir):

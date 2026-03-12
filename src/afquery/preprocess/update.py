@@ -4,6 +4,7 @@ import logging
 import os
 import sqlite3
 import tempfile
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +20,7 @@ from ..models import Sample, Technology
 from .build import PARQUET_SCHEMA, get_chroms_in_temp_files
 from .ingest import ingest_all
 from .manifest import parse_manifest
+from .migrate import migrate_sqlite
 from .regions import build_capture_indices
 
 logger = logging.getLogger(__name__)
@@ -42,10 +44,20 @@ def _read_manifest(db_dir: str) -> dict:
         return json.load(f)
 
 
+def _bump_version(version: str) -> str:
+    """Auto-increment the last numeric component of a version string."""
+    parts = version.split(".")
+    if parts and parts[-1].isdigit():
+        parts[-1] = str(int(parts[-1]) + 1)
+        return ".".join(parts)
+    return version + ".1"
+
+
 def _update_manifest(
     db_dir: str,
     sample_count: int,
     next_sample_id: int | None = None,
+    db_version: str | None = None,
 ) -> None:
     path = os.path.join(db_dir, "manifest.json")
     try:
@@ -57,6 +69,8 @@ def _update_manifest(
     manifest["updated_at"] = datetime.now(timezone.utc).isoformat()
     if next_sample_id is not None:
         manifest["next_sample_id"] = next_sample_id
+    if db_version is not None:
+        manifest["db_version"] = db_version
     tmp_path = path + ".tmp"
     with open(tmp_path, "w") as f:
         json.dump(manifest, f, indent=2)
@@ -109,22 +123,26 @@ def _merge_chromosome_parquet(
     db_dir: str,
     update_tmp_dir: str,
     row_group_size: int = 100_000,
+    pass_only: bool = True,
 ) -> tuple[int, int]:
     """Merge new temp files into existing chrom Parquet. Returns (new_variants, updated_variants)."""
     variants_dir = os.path.join(db_dir, "variants")
     out_path = os.path.join(variants_dir, f"{chrom}.parquet")
 
     # Read existing Parquet via pyarrow (NOT DuckDB — need Python bitmap deserialization)
-    existing: dict[tuple, tuple[BitMap, BitMap]] = {}
+    existing: dict[tuple, tuple[BitMap, BitMap, BitMap]] = {}
+    existing_has_fail = False
     if os.path.exists(out_path):
         table = pq.read_table(out_path)
+        existing_has_fail = "fail_bitmap" in table.schema.names
         for i in range(len(table)):
             pos = table["pos"][i].as_py()
             ref = table["ref"][i].as_py()
             alt = table["alt"][i].as_py()
             het_bm = deserialize(table["het_bitmap"][i].as_py())
             hom_bm = deserialize(table["hom_bitmap"][i].as_py())
-            existing[(pos, ref, alt)] = (het_bm, hom_bm)
+            fail_bm = deserialize(table["fail_bitmap"][i].as_py()) if existing_has_fail else BitMap()
+            existing[(pos, ref, alt)] = (het_bm, hom_bm, fail_bm)
 
     # Check if there are any new temp files
     parquet_files = glob_module.glob(os.path.join(update_tmp_dir, "sample_*.parquet"))
@@ -138,8 +156,9 @@ def _merge_chromosome_parquet(
         rows = con.execute(
             f"""
             SELECT pos, ref, alt,
-                list(sample_id ORDER BY sample_id),
-                list(gt_ac     ORDER BY sample_id)
+                list(sample_id   ORDER BY sample_id),
+                list(gt_ac       ORDER BY sample_id),
+                list(filter_pass ORDER BY sample_id)
             FROM read_parquet('{glob_pattern}')
             WHERE chrom = ?
             GROUP BY pos, ref, alt
@@ -157,19 +176,25 @@ def _merge_chromosome_parquet(
     new_variants = 0
     updated_variants = 0
 
-    for pos, ref, alt, sample_ids, gt_acs in rows:
+    for pos, ref, alt, sample_ids, gt_acs, filter_passes in rows:
         key = (pos, ref, alt)
-        het_ids = [sid for sid, ac in zip(sample_ids, gt_acs) if ac == 1]
-        hom_ids = [sid for sid, ac in zip(sample_ids, gt_acs) if ac == 2]
+        if pass_only:
+            het_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 1 and fp]
+            hom_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 2 and fp]
+        else:
+            het_ids  = [sid for sid, ac in zip(sample_ids, gt_acs) if ac == 1]
+            hom_ids  = [sid for sid, ac in zip(sample_ids, gt_acs) if ac == 2]
+        fail_ids = [sid for sid, fp in zip(sample_ids, filter_passes) if not fp]
         new_het = BitMap(het_ids)
         new_hom = BitMap(hom_ids)
+        new_fail = BitMap(fail_ids)
 
         if key in existing:
-            old_het, old_hom = existing[key]
-            existing[key] = (old_het | new_het, old_hom | new_hom)
+            old_het, old_hom, old_fail = existing[key]
+            existing[key] = (old_het | new_het, old_hom | new_hom, old_fail | new_fail)
             updated_variants += 1
         else:
-            existing[key] = (new_het, new_hom)
+            existing[key] = (new_het, new_hom, new_fail)
             new_variants += 1
 
     # Sort by (pos, alt) and write atomically
@@ -180,14 +205,16 @@ def _merge_chromosome_parquet(
     alts = [k[2] for k in sorted_keys]
     het_bitmaps = [serialize(existing[k][0]) for k in sorted_keys]
     hom_bitmaps = [serialize(existing[k][1]) for k in sorted_keys]
+    fail_bitmaps = [serialize(existing[k][2]) for k in sorted_keys]
 
     table = pa.table(
         {
-            "pos":        pa.array(positions,   type=pa.uint32()),
-            "ref":        pa.array(refs,        type=pa.large_utf8()),
-            "alt":        pa.array(alts,        type=pa.large_utf8()),
-            "het_bitmap": pa.array(het_bitmaps, type=pa.large_binary()),
-            "hom_bitmap": pa.array(hom_bitmaps, type=pa.large_binary()),
+            "pos":         pa.array(positions,    type=pa.uint32()),
+            "ref":         pa.array(refs,         type=pa.large_utf8()),
+            "alt":         pa.array(alts,         type=pa.large_utf8()),
+            "het_bitmap":  pa.array(het_bitmaps,  type=pa.large_binary()),
+            "hom_bitmap":  pa.array(hom_bitmaps,  type=pa.large_binary()),
+            "fail_bitmap": pa.array(fail_bitmaps, type=pa.large_binary()),
         },
         schema=PARQUET_SCHEMA,
     )
@@ -201,40 +228,66 @@ def _merge_chromosome_parquet(
 
 
 def _clear_bits_from_parquet(parquet_file: str, removal_ids: BitMap) -> None:
-    """Clear removal_ids bits from het/hom bitmaps in a Parquet file. Rewrites atomically if dirty."""
+    """Clear removal_ids bits from het/hom/fail bitmaps in a Parquet file. Rewrites atomically if dirty."""
     table = pq.read_table(parquet_file)
+    has_fail = "fail_bitmap" in table.schema.names
     dirty = False
 
     new_het_list = []
     new_hom_list = []
+    new_fail_list = []
 
     for i in range(len(table)):
         het_bytes = table["het_bitmap"][i].as_py()
         hom_bytes = table["hom_bitmap"][i].as_py()
         het_bm = deserialize(het_bytes)
         hom_bm = deserialize(hom_bytes)
+        fail_bm = deserialize(table["fail_bitmap"][i].as_py()) if has_fail else BitMap()
 
-        if removal_ids & (het_bm | hom_bm):
+        combined = het_bm | hom_bm | fail_bm
+        if removal_ids & combined:
             het_bm = het_bm - removal_ids
             hom_bm = hom_bm - removal_ids
+            fail_bm = fail_bm - removal_ids
             dirty = True
 
         new_het_list.append(serialize(het_bm))
         new_hom_list.append(serialize(hom_bm))
+        new_fail_list.append(serialize(fail_bm))
 
     if not dirty:
         return
 
-    new_table = pa.table(
-        {
-            "pos":        table["pos"],
-            "ref":        table["ref"],
-            "alt":        table["alt"],
-            "het_bitmap": pa.array(new_het_list, type=pa.large_binary()),
-            "hom_bitmap": pa.array(new_hom_list, type=pa.large_binary()),
-        },
-        schema=PARQUET_SCHEMA,
-    )
+    if has_fail:
+        new_table = pa.table(
+            {
+                "pos":         table["pos"],
+                "ref":         table["ref"],
+                "alt":         table["alt"],
+                "het_bitmap":  pa.array(new_het_list,  type=pa.large_binary()),
+                "hom_bitmap":  pa.array(new_hom_list,  type=pa.large_binary()),
+                "fail_bitmap": pa.array(new_fail_list, type=pa.large_binary()),
+            },
+            schema=PARQUET_SCHEMA,
+        )
+    else:
+        _v1_schema = pa.schema([
+            ("pos",        pa.uint32()),
+            ("ref",        pa.large_utf8()),
+            ("alt",        pa.large_utf8()),
+            ("het_bitmap", pa.large_binary()),
+            ("hom_bitmap", pa.large_binary()),
+        ])
+        new_table = pa.table(
+            {
+                "pos":        table["pos"],
+                "ref":        table["ref"],
+                "alt":        table["alt"],
+                "het_bitmap": pa.array(new_het_list, type=pa.large_binary()),
+                "hom_bitmap": pa.array(new_hom_list, type=pa.large_binary()),
+            },
+            schema=_v1_schema,
+        )
 
     tmp_path = parquet_file + ".tmp"
     pq.write_table(new_table, tmp_path)
@@ -246,12 +299,16 @@ def _clear_bits_from_parquet(parquet_file: str, removal_ids: BitMap) -> None:
 def add_samples(
     db_dir: str,
     manifest_path: str,
-    threads: int = 8,
+    threads: int | None = None,
     tmp_dir: str | None = None,
     bed_dir: str | None = None,
     genome_build: str | None = None,
+    db_version: str | None = None,
 ) -> dict:
     """Add new samples to the database without full rebuild."""
+    # Resolve threads: None → all available CPU cores
+    effective_threads = max(1, os.cpu_count() or 1) if threads is None else max(1, threads)
+
     # 1. Read DB manifest
     manifest = _read_manifest(db_dir)
     db_genome_build = manifest["genome_build"]
@@ -265,8 +322,11 @@ def add_samples(
     # 3. Parse new manifest
     samples_raw, techs_raw = parse_manifest(manifest_path, bed_dir)
 
-    # 4. Open SQLite connection
+    logger.info("[add-samples] Adding %d new sample(s)...", len(samples_raw))
+
+    # 4. Migrate SQLite schema and open connection
     db_path = os.path.join(db_dir, "metadata.sqlite")
+    migrate_sqlite(db_path)
     con = sqlite3.connect(db_path)
 
     total_new = 0
@@ -341,26 +401,38 @@ def add_samples(
         if auto_tmp:
             tmp_dir = tempfile.mkdtemp(prefix="afquery_update_")
 
+        # Derive pass_only from schema_version: v2+ DBs use pass-only ingestion
+        schema_ver_str = manifest.get("schema_version", "1.0")
         try:
-            ingest_all(new_samples, vcf_paths, tmp_dir, n_workers=threads)
+            schema_ver = float(schema_ver_str)
+        except (ValueError, TypeError):
+            schema_ver = 1.0
+        pass_only = schema_ver >= 2.0
+
+        try:
+            ingest_all(new_samples, vcf_paths, tmp_dir, n_workers=effective_threads)
 
             # 9. Collect chroms from new temp files
             chroms = get_chroms_in_temp_files(tmp_dir)
 
             # 10. Merge Parquet files
             for chrom in chroms:
-                n, u = _merge_chromosome_parquet(chrom, db_dir, tmp_dir)
+                n, u = _merge_chromosome_parquet(chrom, db_dir, tmp_dir, pass_only=pass_only)
                 total_new += n
                 total_updated += u
+                logger.debug("  [add-samples] Merged %s: %d new, %d updated", chrom, n, u)
         finally:
             if auto_tmp:
                 import shutil
                 shutil.rmtree(tmp_dir, ignore_errors=True)
 
         # 11. Insert new samples and Phenotype pairs into SQLite
+        ingested_at = datetime.now(timezone.utc).isoformat()
         con.executemany(
-            "INSERT INTO samples VALUES (?, ?, ?, ?)",
-            [(s.sample_id, s.sample_name, s.sex, s.tech_id) for s in new_samples],
+            "INSERT INTO samples (sample_id, sample_name, sex, tech_id, vcf_path, ingested_at)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            [(s.sample_id, s.sample_name, s.sex, s.tech_id, vcf_paths[i], ingested_at)
+             for i, s in enumerate(new_samples)],
         )
         sample_phenotype_pairs = [
             (starting_id + i, code)
@@ -371,14 +443,27 @@ def add_samples(
 
         # 12. Regenerate precomputed bitmaps
         _regenerate_precomputed_bitmaps(con)
+
+        # 13. Append changelog entry
+        import json as _json
+        sample_names_json = _json.dumps([s.sample_name for s in new_samples])
+        con.execute(
+            "INSERT INTO changelog (event_type, event_time, sample_names, notes) VALUES (?, ?, ?, ?)",
+            ("add_samples", ingested_at, sample_names_json, f"{len(new_samples)} samples added"),
+        )
         con.commit()
 
     finally:
         con.close()
 
-    # 13. Update manifest (persist next_sample_id so future adds don't reuse IDs)
+    # 14. Update manifest (persist next_sample_id so future adds don't reuse IDs)
     next_id = starting_id + len(new_samples)
-    _update_manifest(db_dir, next_id, next_sample_id=next_id)
+    # Resolve db_version: explicit value overrides auto-bump
+    current_version = manifest.get("db_version", "1.0")
+    new_version = db_version if db_version is not None else _bump_version(current_version)
+    _update_manifest(db_dir, next_id, next_sample_id=next_id, db_version=new_version)
+
+    logger.info("[add-samples] Done. %d sample(s) added.", len(new_samples))
 
     return {
         "new_samples": len(new_samples),
@@ -395,6 +480,7 @@ def remove_samples(db_dir: str, sample_names: list[str]) -> dict:
     manifest = _read_manifest(db_dir)
 
     db_path = os.path.join(db_dir, "metadata.sqlite")
+    migrate_sqlite(db_path)
     con = sqlite3.connect(db_path)
 
     try:
@@ -410,6 +496,8 @@ def remove_samples(db_dir: str, sample_names: list[str]) -> dict:
         if missing:
             raise UpdateError(f"Sample(s) not found: {', '.join(missing)}")
 
+        logger.info("[remove-samples] Removing %d sample(s)...", len(found_names))
+
         removal_ids = BitMap([r[0] for r in rows])
         id_list = list(removal_ids)
 
@@ -420,6 +508,7 @@ def remove_samples(db_dir: str, sample_names: list[str]) -> dict:
                 glob_module.glob(os.path.join(variants_dir, "*.parquet"))
             ):
                 _clear_bits_from_parquet(pq_file, removal_ids)
+                logger.debug("  [remove-samples] %s cleared", os.path.basename(pq_file))
             # Also handle partitioned format (variants/{chrom}/bucket_*.parquet)
             for chrom_dir in sorted(Path(variants_dir).iterdir()):
                 if chrom_dir.is_dir():
@@ -427,6 +516,7 @@ def remove_samples(db_dir: str, sample_names: list[str]) -> dict:
                         glob_module.glob(str(chrom_dir / "bucket_*.parquet"))
                     ):
                         _clear_bits_from_parquet(pq_file, removal_ids)
+                        logger.debug("  [remove-samples] %s cleared", os.path.basename(pq_file))
 
         # 4-5. Delete from SQLite
         ph2 = ",".join("?" * len(id_list))
@@ -435,6 +525,15 @@ def remove_samples(db_dir: str, sample_names: list[str]) -> dict:
 
         # 6. Regenerate precomputed bitmaps
         _regenerate_precomputed_bitmaps(con)
+
+        # Append changelog entry
+        import json as _json
+        removed_names_json = _json.dumps(list(found_names))
+        event_time = datetime.now(timezone.utc).isoformat()
+        con.execute(
+            "INSERT INTO changelog (event_type, event_time, sample_names, notes) VALUES (?, ?, ?, ?)",
+            ("remove_samples", event_time, removed_names_json, f"{len(found_names)} samples removed"),
+        )
         con.commit()
 
         # 7. Get new count and preserve next_sample_id for future adds
@@ -449,6 +548,8 @@ def remove_samples(db_dir: str, sample_names: list[str]) -> dict:
 
     # 8. Update manifest (preserve next_sample_id to prevent reuse after removal)
     _update_manifest(db_dir, new_count, next_sample_id=next_id)
+
+    logger.info("[remove-samples] Done.")
 
     return {"removed": list(sample_names), "not_found": []}
 
