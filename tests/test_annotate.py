@@ -31,13 +31,17 @@ def _as_tuple(val):
 
 
 def _read_annotated(path: str) -> dict[int, dict]:
-    """Return {pos: {"AC": tuple|None, "AN": int|None, "AF": tuple|None}} from annotated VCF."""
+    """Return {pos: {"AC": tuple|None, ...}} from annotated VCF."""
     result = {}
     for v in cyvcf2.VCF(path):
         result[v.POS] = {
             "AC": _as_tuple(v.INFO.get("AFQUERY_AC")),
             "AN": v.INFO.get("AFQUERY_AN"),
             "AF": _as_tuple(v.INFO.get("AFQUERY_AF")),
+            "N_HET": _as_tuple(v.INFO.get("AFQUERY_N_HET")),
+            "N_HOM_ALT": _as_tuple(v.INFO.get("AFQUERY_N_HOM_ALT")),
+            "N_HOM_REF": _as_tuple(v.INFO.get("AFQUERY_N_HOM_REF")),
+            "N_FAIL": v.INFO.get("AFQUERY_N_FAIL"),
             "ALT": list(v.ALT),
         }
     return result
@@ -185,6 +189,9 @@ def test_annotate_info_headers_present(test_db, tmp_path):
     assert "AFQUERY_AC" in header_str
     assert "AFQUERY_AN" in header_str
     assert "AFQUERY_AF" in header_str
+    assert "AFQUERY_N_HET" in header_str
+    assert "AFQUERY_N_HOM_ALT" in header_str
+    assert "AFQUERY_N_HOM_REF" in header_str
 
 
 # ---------------------------------------------------------------------------

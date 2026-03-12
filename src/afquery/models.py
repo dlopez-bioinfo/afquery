@@ -65,3 +65,7 @@ class QueryResult:
     AN: int
     AF: float | None       # None if AN == 0
     n_samples_eligible: int
+    N_HET: int = 0
+    N_HOM_ALT: int = 0
+    N_HOM_REF: int = 0
+    N_FAIL: int | None = None  # None = v1 DB without fail_bitmap

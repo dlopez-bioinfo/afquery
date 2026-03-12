@@ -48,3 +48,33 @@ def compute_AN(
 
     # Autosomes
     return 2 * len(eligible)
+
+
+def split_ploidy(
+    eligible: BitMap,
+    male_bitmap: BitMap,
+    female_bitmap: BitMap,
+    chrom: str,
+    pos: int,
+    genome_build: str,
+) -> tuple[BitMap, BitMap]:
+    """Divide eligible into (haploid_eligible, diploid_eligible).
+
+    Same rules as compute_AN:
+    - chrM: all haploid
+    - chrY: only eligible males, all haploid
+    - chrX non-PAR: males haploid, females diploid
+    - rest (autosomes, PAR): all diploid
+    """
+    chrom = normalize_chrom(chrom)
+
+    if chrom == "chrM":
+        return eligible, BitMap()
+
+    if chrom == "chrY":
+        return eligible & male_bitmap, BitMap()
+
+    if chrom == "chrX" and not is_par(chrom, pos, genome_build):
+        return eligible & male_bitmap, eligible & female_bitmap
+
+    return BitMap(), eligible  # autosomes and PAR: all diploid

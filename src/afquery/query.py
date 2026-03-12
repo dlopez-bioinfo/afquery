@@ -9,7 +9,7 @@ from .bitmaps import deserialize
 from .capture import CaptureIndex, load_capture_indices
 from .constants import normalize_chrom
 from .models import QueryParams, QueryResult, VariantKey, Sample, Technology, SampleFilter
-from .ploidy import compute_AN
+from .ploidy import compute_AN, split_ploidy
 
 BATCH_IN_THRESHOLD = 10_000
 
@@ -46,12 +46,23 @@ class QueryEngine:
 
         self._samples = samples
         self._tech_map = {t.tech_id: t for t in techs}
+        sex_bms = self._bitmaps.get("sex", {})
+        self._male_bm = sex_bms.get("male", BitMap())
+        self._female_bm = sex_bms.get("female", BitMap())
         self._capture = load_capture_indices(techs, str(self._db / "capture"))
         self._tech_bitmaps = self._bitmaps.get("tech", {})
         self._all_samples_bm = BitMap(s.sample_id for s in self._samples)
         self._tech_name_to_id: dict[str, str] = {
             t.tech_name: str(t.tech_id) for t in self._tech_map.values()
         }
+
+        # Detect schema version to know whether fail_bitmap is present
+        schema_ver_str = self._manifest.get("schema_version", "1.0")
+        try:
+            schema_ver = float(schema_ver_str)
+        except (ValueError, TypeError):
+            schema_ver = 1.0
+        self._has_fail_bitmap: bool = schema_ver >= 2.0
 
         # Cache which chroms use partitioned storage (variants/{chrom}/ directory)
         self._partitioned_chroms: set[str] = set()
@@ -166,27 +177,48 @@ class QueryEngine:
             return []
 
         con = duckdb.connect(config={"temp_directory": "/tmp"})
-        rows = con.execute(
-            "SELECT ref, alt, het_bitmap, hom_bitmap FROM read_parquet(?) WHERE pos = ?",
-            [str(parquet_path), pos],
-        ).fetchall()
+        if self._has_fail_bitmap:
+            rows = con.execute(
+                "SELECT ref, alt, het_bitmap, hom_bitmap, fail_bitmap FROM read_parquet(?) WHERE pos = ?",
+                [str(parquet_path), pos],
+            ).fetchall()
+        else:
+            rows = con.execute(
+                "SELECT ref, alt, het_bitmap, hom_bitmap FROM read_parquet(?) WHERE pos = ?",
+                [str(parquet_path), pos],
+            ).fetchall()
         con.close()
 
         if not rows:
             return []
 
         results = []
-        for ref, alt, het_bytes, hom_bytes in rows:
+        for row in rows:
+            if self._has_fail_bitmap:
+                ref, alt, het_bytes, hom_bytes, fail_bytes = row
+            else:
+                ref, alt, het_bytes, hom_bytes = row
+                fail_bytes = None
             het_bm = deserialize(bytes(het_bytes))
             hom_bm = deserialize(bytes(hom_bytes))
-            AC = len(het_bm & eligible) + 2 * len(hom_bm & eligible)
-            AF = AC / AN
+            N_HET = len(het_bm & eligible)
+            N_HOM_ALT = len(hom_bm & eligible)
+            haploid_elig, diploid_elig = split_ploidy(
+                eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
+            )
+            het_elig = het_bm & eligible
+            hom_elig = hom_bm & eligible
+            AC = (len((het_elig | hom_elig) & haploid_elig)
+                  + len(het_elig & diploid_elig)
+                  + 2 * len(hom_elig & diploid_elig))
+            AF = AC / AN if AN > 0 else None
+            fail_bm = deserialize(bytes(fail_bytes)) if fail_bytes is not None else None
+            N_FAIL = len(fail_bm & eligible) if fail_bm is not None else None
+            N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - (N_FAIL or 0)
             results.append(QueryResult(
                 variant=VariantKey(chrom=chrom, pos=pos, ref=ref, alt=alt),
-                AC=AC,
-                AN=AN,
-                AF=AF,
-                n_samples_eligible=len(eligible),
+                AC=AC, AN=AN, AF=AF, n_samples_eligible=len(eligible),
+                N_HET=N_HET, N_HOM_ALT=N_HOM_ALT, N_HOM_REF=N_HOM_REF, N_FAIL=N_FAIL,
             ))
         if params.ref is not None:
             results = [r for r in results if r.variant.ref == params.ref]
@@ -230,11 +262,12 @@ class QueryEngine:
 
         escaped_glob = parquet_glob.replace("'", "''")
 
+        _fail_sel = ", fail_bitmap" if self._has_fail_bitmap else ""
         con = duckdb.connect(config={"temp_directory": "/tmp"})
         if len(valid_positions) < BATCH_IN_THRESHOLD:
             placeholders = ", ".join("?" * len(valid_positions))
             rows = con.execute(
-                f"SELECT pos, ref, alt, het_bitmap, hom_bitmap"
+                f"SELECT pos, ref, alt, het_bitmap, hom_bitmap{_fail_sel}"
                 f" FROM read_parquet('{escaped_glob}') WHERE pos IN ({placeholders})",
                 valid_positions,
             ).fetchall()
@@ -242,26 +275,41 @@ class QueryEngine:
             con.execute("CREATE TEMP TABLE pos_filter (pos UINTEGER)")
             con.executemany("INSERT INTO pos_filter VALUES (?)", [(p,) for p in valid_positions])
             rows = con.execute(
-                f"SELECT v.pos, v.ref, v.alt, v.het_bitmap, v.hom_bitmap"
+                f"SELECT v.pos, v.ref, v.alt, v.het_bitmap, v.hom_bitmap{_fail_sel.replace(', ', ', v.')}"
                 f" FROM read_parquet('{escaped_glob}') v JOIN pos_filter pf ON v.pos = pf.pos"
             ).fetchall()
         con.close()
 
         results = []
-        for pos, ref, alt, het_bytes, hom_bytes in rows:
+        for row in rows:
+            if self._has_fail_bitmap:
+                pos, ref, alt, het_bytes, hom_bytes, fail_bytes = row
+            else:
+                pos, ref, alt, het_bytes, hom_bytes = row
+                fail_bytes = None
             if (pos, ref, alt) not in requested_variants:
                 continue
             eligible, AN = pos_data[pos]
             het_bm = deserialize(bytes(het_bytes))
             hom_bm = deserialize(bytes(hom_bytes))
-            AC = len(het_bm & eligible) + 2 * len(hom_bm & eligible)
-            AF = AC / AN
+            N_HET = len(het_bm & eligible)
+            N_HOM_ALT = len(hom_bm & eligible)
+            haploid_elig, diploid_elig = split_ploidy(
+                eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
+            )
+            het_elig = het_bm & eligible
+            hom_elig = hom_bm & eligible
+            AC = (len((het_elig | hom_elig) & haploid_elig)
+                  + len(het_elig & diploid_elig)
+                  + 2 * len(hom_elig & diploid_elig))
+            AF = AC / AN if AN > 0 else None
+            fail_bm = deserialize(bytes(fail_bytes)) if fail_bytes is not None else None
+            N_FAIL = len(fail_bm & eligible) if fail_bm is not None else None
+            N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - (N_FAIL or 0)
             results.append(QueryResult(
                 variant=VariantKey(chrom=chrom, pos=pos, ref=ref, alt=alt),
-                AC=AC,
-                AN=AN,
-                AF=AF,
-                n_samples_eligible=len(eligible),
+                AC=AC, AN=AN, AF=AF, n_samples_eligible=len(eligible),
+                N_HET=N_HET, N_HOM_ALT=N_HOM_ALT, N_HOM_REF=N_HOM_REF, N_FAIL=N_FAIL,
             ))
         results.sort(key=lambda r: (r.variant.pos, r.variant.alt))
         return results
@@ -284,9 +332,10 @@ class QueryEngine:
 
         sample_bm = self._build_sample_bitmap(sf)
 
+        _fail_sel = ", fail_bitmap" if self._has_fail_bitmap else ""
         con = duckdb.connect(config={"temp_directory": "/tmp"})
         rows = con.execute(
-            f"SELECT pos, ref, alt, het_bitmap, hom_bitmap"
+            f"SELECT pos, ref, alt, het_bitmap, hom_bitmap{_fail_sel}"
             f" FROM read_parquet('{escaped_glob}') WHERE pos BETWEEN ? AND ?",
             [start, end],
         ).fetchall()
@@ -296,26 +345,42 @@ class QueryEngine:
             return []
 
         pos_data: dict[int, tuple[BitMap, int]] = {}
-        for pos, *_ in rows:
+        for row in rows:
+            pos = row[0]
             if pos not in pos_data:
                 eligible, AN = self._compute_eligible(chrom, pos, sample_bm)
                 pos_data[pos] = (eligible, AN)
 
         results = []
-        for pos, ref, alt, het_bytes, hom_bytes in rows:
+        for row in rows:
+            if self._has_fail_bitmap:
+                pos, ref, alt, het_bytes, hom_bytes, fail_bytes = row
+            else:
+                pos, ref, alt, het_bytes, hom_bytes = row
+                fail_bytes = None
             eligible, AN = pos_data[pos]
             if AN == 0:
                 continue
             het_bm = deserialize(bytes(het_bytes))
             hom_bm = deserialize(bytes(hom_bytes))
-            AC = len(het_bm & eligible) + 2 * len(hom_bm & eligible)
-            AF = AC / AN
+            N_HET = len(het_bm & eligible)
+            N_HOM_ALT = len(hom_bm & eligible)
+            haploid_elig, diploid_elig = split_ploidy(
+                eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
+            )
+            het_elig = het_bm & eligible
+            hom_elig = hom_bm & eligible
+            AC = (len((het_elig | hom_elig) & haploid_elig)
+                  + len(het_elig & diploid_elig)
+                  + 2 * len(hom_elig & diploid_elig))
+            AF = AC / AN if AN > 0 else None
+            fail_bm = deserialize(bytes(fail_bytes)) if fail_bytes is not None else None
+            N_FAIL = len(fail_bm & eligible) if fail_bm is not None else None
+            N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - (N_FAIL or 0)
             results.append(QueryResult(
                 variant=VariantKey(chrom=chrom, pos=pos, ref=ref, alt=alt),
-                AC=AC,
-                AN=AN,
-                AF=AF,
-                n_samples_eligible=len(eligible),
+                AC=AC, AN=AN, AF=AF, n_samples_eligible=len(eligible),
+                N_HET=N_HET, N_HOM_ALT=N_HOM_ALT, N_HOM_REF=N_HOM_REF, N_FAIL=N_FAIL,
             ))
         results.sort(key=lambda r: (r.variant.pos, r.variant.alt))
         return results
