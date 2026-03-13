@@ -42,6 +42,23 @@ def _write_vcf(path: Path, sample_name: str, records: list[tuple]) -> None:
             f.write(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\tPASS\t.\tGT\t{gt}\n")
 
 
+def _write_vcf_with_filter(path: Path, sample_name: str, records: list[tuple]) -> None:
+    """Write a minimal VCF. records = [(chrom, pos, ref, alt, gt_str, filter_str), ...]"""
+    contigs = sorted({r[0] for r in records}) if records else ["chr1"]
+    with open(path, "w") as f:
+        f.write("##fileformat=VCFv4.2\n")
+        f.write('##FILTER=<ID=PASS,Description="All filters passed">\n')
+        f.write('##FILTER=<ID=LowQual,Description="Low quality">\n')
+        for contig in contigs:
+            f.write(f"##contig=<ID={contig}>\n")
+        f.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
+        f.write(
+            f"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{sample_name}\n"
+        )
+        for chrom, pos, ref, alt, gt, flt in records:
+            f.write(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t{flt}\t.\tGT\t{gt}\n")
+
+
 def _write_parquet(path: Path, rows: list[tuple]) -> None:
     """Write ingest-schema Parquet. rows = [(chrom, pos, ref, alt, gt_ac, sample_id[, filter_pass]), ...]
     filter_pass defaults to True if not provided."""
@@ -288,6 +305,38 @@ class TestIngest:
         assert len(tbl) == 1
         assert tbl["chrom"][0].as_py() == "chrM"
         assert tbl["gt_ac"][0].as_py() == 1
+
+    def test_missing_gt_pass_produces_no_rows(self, tmp_path):
+        """GT=./. with FILTER=PASS → still no row (no allele information)."""
+        vcf = tmp_path / "s0.vcf"
+        _write_vcf_with_filter(vcf, "S0", [("chr1", 1000, "A", "T", "./.", "PASS")])
+        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
+        tbl = pq.read_table(out)
+        assert len(tbl) == 0
+
+    def test_missing_gt_failed_filter_produces_fail_row(self, tmp_path):
+        """GT=./. with FILTER=LowQual → one row with gt_ac=0, filter_pass=False."""
+        vcf = tmp_path / "s0.vcf"
+        _write_vcf_with_filter(vcf, "S0", [("chr1", 1000, "A", "T", "./.", "LowQual")])
+        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
+        tbl = pq.read_table(out)
+        assert len(tbl) == 1
+        assert tbl["gt_ac"][0].as_py() == 0
+        assert tbl["filter_pass"][0].as_py() == False
+        assert tbl["chrom"][0].as_py() == "chr1"
+        assert tbl["pos"][0].as_py() == 1000
+        assert tbl["alt"][0].as_py() == "T"
+
+    def test_missing_gt_failed_multiallelic_produces_rows_per_alt(self, tmp_path):
+        """GT=./. with FILTER=LowQual at multiallelic site → one row per ALT."""
+        vcf = tmp_path / "s0.vcf"
+        _write_vcf_with_filter(vcf, "S0", [("chr1", 1000, "A", "T,G", "./.", "LowQual")])
+        out, _ = ingest_sample(0, str(vcf), str(tmp_path))
+        tbl = pq.read_table(out)
+        assert len(tbl) == 2
+        assert all(tbl["gt_ac"].to_pylist()[i] == 0 for i in range(2))
+        assert all(not tbl["filter_pass"].to_pylist()[i] for i in range(2))
+        assert sorted(tbl["alt"].to_pylist()) == ["G", "T"]
 
     def test_chrom_normalization(self, tmp_path):
         vcf = tmp_path / "s0.vcf"

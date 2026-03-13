@@ -201,8 +201,6 @@ class QueryEngine:
                 fail_bytes = None
             het_bm = deserialize(bytes(het_bytes))
             hom_bm = deserialize(bytes(hom_bytes))
-            N_HET = len(het_bm & eligible)
-            N_HOM_ALT = len(hom_bm & eligible)
             haploid_elig, diploid_elig = split_ploidy(
                 eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
             )
@@ -211,6 +209,8 @@ class QueryEngine:
             AC = (len((het_elig | hom_elig) & haploid_elig)
                   + len(het_elig & diploid_elig)
                   + 2 * len(hom_elig & diploid_elig))
+            N_HET = len(het_elig & diploid_elig)
+            N_HOM_ALT = len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
             AF = AC / AN if AN > 0 else None
             fail_bm = deserialize(bytes(fail_bytes)) if fail_bytes is not None else None
             N_FAIL = len(fail_bm & eligible) if fail_bm is not None else None
@@ -292,8 +292,6 @@ class QueryEngine:
             eligible, AN = pos_data[pos]
             het_bm = deserialize(bytes(het_bytes))
             hom_bm = deserialize(bytes(hom_bytes))
-            N_HET = len(het_bm & eligible)
-            N_HOM_ALT = len(hom_bm & eligible)
             haploid_elig, diploid_elig = split_ploidy(
                 eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
             )
@@ -302,6 +300,8 @@ class QueryEngine:
             AC = (len((het_elig | hom_elig) & haploid_elig)
                   + len(het_elig & diploid_elig)
                   + 2 * len(hom_elig & diploid_elig))
+            N_HET = len(het_elig & diploid_elig)
+            N_HOM_ALT = len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
             AF = AC / AN if AN > 0 else None
             fail_bm = deserialize(bytes(fail_bytes)) if fail_bytes is not None else None
             N_FAIL = len(fail_bm & eligible) if fail_bm is not None else None
@@ -363,8 +363,6 @@ class QueryEngine:
                 continue
             het_bm = deserialize(bytes(het_bytes))
             hom_bm = deserialize(bytes(hom_bytes))
-            N_HET = len(het_bm & eligible)
-            N_HOM_ALT = len(hom_bm & eligible)
             haploid_elig, diploid_elig = split_ploidy(
                 eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
             )
@@ -373,6 +371,8 @@ class QueryEngine:
             AC = (len((het_elig | hom_elig) & haploid_elig)
                   + len(het_elig & diploid_elig)
                   + 2 * len(hom_elig & diploid_elig))
+            N_HET = len(het_elig & diploid_elig)
+            N_HOM_ALT = len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
             AF = AC / AN if AN > 0 else None
             fail_bm = deserialize(bytes(fail_bytes)) if fail_bytes is not None else None
             N_FAIL = len(fail_bm & eligible) if fail_bm is not None else None

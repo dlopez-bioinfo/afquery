@@ -1,7 +1,10 @@
 import logging
 import os
+import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
+
+import tqdm
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -48,14 +51,27 @@ def ingest_sample(sample_id: int, vcf_path: str, tmp_dir: str) -> tuple[str, flo
 
         gt = variant.genotypes[0]
         alleles = [a for a in gt[:-1] if a >= 0]
-        if not alleles:
-            continue
 
         chrom = normalize_chrom(variant.CHROM)
         pos = variant.POS
         ref = variant.REF
         # cyvcf2: FILTER is None for PASS/missing, string for others (e.g. "LowQual")
         fp = variant.FILTER is None or variant.FILTER == "PASS"
+
+        # Missing GT (./.) at a failed site: track as N_FAIL for all ALTs
+        if not alleles:
+            if not fp:
+                for alt_str in variant.ALT:
+                    if alt_str == "*":
+                        continue
+                    chroms.append(chrom)
+                    positions.append(pos)
+                    refs.append(ref)
+                    alts.append(alt_str)
+                    gt_acs.append(0)
+                    sample_ids.append(sample_id)
+                    filter_passes.append(False)
+            continue
 
         for idx, alt_str in enumerate(variant.ALT):
             if alt_str == "*":
@@ -145,15 +161,23 @@ def ingest_all(
         future_to_args = {
             executor.submit(_ingest_worker, args): args for args in args_list
         }
-        for future in as_completed(future_to_args):
-            args = future_to_args[future]
-            try:
-                out_path, elapsed = future.result()
-                results.append(out_path)
-                logger.debug("  [ingest] sample_id=%d (%s) done in %.2fs",
-                             args[0], os.path.basename(args[1]), elapsed)
-            except Exception as e:
-                errors.append(f"Sample {args[0]} ({args[1]}): {e}")
+        with tqdm.tqdm(
+            total=len(args_list),
+            unit="VCF",
+            desc="[ingest]",
+            dynamic_ncols=True,
+            disable=not sys.stderr.isatty(),
+        ) as bar:
+            for future in as_completed(future_to_args):
+                args = future_to_args[future]
+                try:
+                    out_path, elapsed = future.result()
+                    results.append(out_path)
+                    bar.update(1)
+                    logger.debug("  [ingest] sample_id=%d (%s) done in %.2fs",
+                                 args[0], os.path.basename(args[1]), elapsed)
+                except Exception as e:
+                    errors.append(f"Sample {args[0]} ({args[1]}): {e}")
 
     logger.info("[ingest] Complete: %d ok, %d error(s) (%.1fs)",
                 len(results), len(errors), time.monotonic() - t0)

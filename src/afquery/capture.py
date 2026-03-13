@@ -1,4 +1,5 @@
 import pickle
+import warnings
 import pyranges as pr
 import pandas as pd
 from .models import Technology
@@ -18,7 +19,9 @@ class CaptureIndex:
 
     @classmethod
     def from_bed(cls, bed_path: str) -> "CaptureIndex":
-        ranges = pr.read_bed(bed_path)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=pd.errors.DtypeWarning)
+            ranges = pr.read_bed(bed_path)
         return cls(pyranges_obj=ranges)
 
     def covers(self, chrom: str, pos: int) -> bool:

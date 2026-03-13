@@ -55,3 +55,4 @@ Thumbs.db
 *.duckdb
 *.duckdb.wal
 *.parquet
+db/*

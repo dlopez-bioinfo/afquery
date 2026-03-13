@@ -2,9 +2,12 @@ import glob as glob_module
 import logging
 import multiprocessing
 import os
+import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from concurrent.futures.process import BrokenProcessPool
+
+import tqdm
 
 import duckdb
 import pyarrow as pa
@@ -32,6 +35,7 @@ def _get_chroms_from_file(parquet_path: str) -> list[str]:
     """SELECT DISTINCT chrom from a single consolidated Parquet file."""
     path = parquet_path.replace("'", "''")
     con = duckdb.connect()
+    con.execute("SET enable_progress_bar=false")
     try:
         rows = con.execute(
             f"SELECT DISTINCT chrom FROM read_parquet('{path}')"
@@ -62,6 +66,7 @@ def consolidate_temp_files(
     con = duckdb.connect()
     con.execute(f"SET memory_limit='{memory_limit}'")
     con.execute(f"SET threads={effective_threads}")
+    con.execute("SET enable_progress_bar=false")
     con.execute(
         f"COPY (SELECT * FROM read_parquet('{glob_pattern}')) "
         f"TO '{out_dir_esc}' (FORMAT PARQUET, PARTITION_BY (chrom))"
@@ -94,6 +99,7 @@ def get_chroms_in_temp_files(tmp_dir: str) -> list[str]:
 
     glob_pattern = os.path.join(tmp_dir, "sample_*.parquet").replace("'", "''")
     con = duckdb.connect()
+    con.execute("SET enable_progress_bar=false")
     try:
         rows = con.execute(
             f"SELECT DISTINCT chrom FROM read_parquet('{glob_pattern}')"
@@ -144,9 +150,10 @@ def _discover_bucket_ids(
     if memory_limit:
         con.execute(f"SET memory_limit='{memory_limit}'")
     con.execute("SET threads=1")
+    con.execute("SET enable_progress_bar=false")
     try:
         sql = f"""
-            SELECT DISTINCT CAST(pos AS BIGINT) / {BUCKET_SIZE} AS bucket_id
+            SELECT DISTINCT CAST(CAST(pos AS BIGINT) / {BUCKET_SIZE} AS BIGINT) AS bucket_id
             FROM read_parquet('{source}')
             {base_where}
             ORDER BY 1
@@ -186,6 +193,7 @@ def _build_one_bucket_worker(
         con.execute(f"SET memory_limit='{memory_limit}'")
     con.execute("SET threads=1")
     con.execute("SET preserve_insertion_order=false")
+    con.execute("SET enable_progress_bar=false")
 
     sql = f"""
         SELECT
@@ -293,6 +301,7 @@ def build_chromosome_parquet(
         con.execute(f"SET memory_limit='{memory_limit}'")
     con.execute("SET threads=1")
     con.execute("SET preserve_insertion_order=false")
+    con.execute("SET enable_progress_bar=false")
 
     sql = f"""
         SELECT
@@ -416,6 +425,7 @@ def build_all_parquets(
         all_tasks: list[tuple[str, int, str, str, list, str]] = []
         # (chrom, bucket_id, source, base_where, params, out_path)
         skipped_full_chroms: list[str] = []
+        n_skipped_buckets: int = 0
 
         for chrom in valid_chroms:
             chrom_src_dir = os.path.join(consolidated_path, f"chrom={chrom}")
@@ -433,6 +443,7 @@ def build_all_parquets(
             for bucket_id in bucket_ids:
                 out_path = os.path.join(chrom_out_dir, f"bucket_{bucket_id}.parquet")
                 if resume and os.path.exists(out_path):
+                    n_skipped_buckets += 1
                     continue
                 remaining.append((chrom, bucket_id, source, "", [], out_path))
 
@@ -462,7 +473,16 @@ def build_all_parquets(
             memory_limit, capped_workers, memory_limit,
         )
 
+        if n_buckets > 1_000_000:
+            raise RuntimeError(
+                f"[build] Discovered {n_buckets:,} buckets — this is abnormally high "
+                f"(expected < 100,000 for a human genome). "
+                f"Possible DuckDB float-division bug. Check _discover_bucket_ids."
+            )
+
         result: dict[str, int] = {}
+        total_variants = 0
+        total_discovered_buckets = n_skipped_buckets + n_buckets
         try:
             _spawn_ctx = multiprocessing.get_context("spawn")
             with ProcessPoolExecutor(max_workers=capped_workers, mp_context=_spawn_ctx) as pool:
@@ -474,25 +494,36 @@ def build_all_parquets(
                     ): (chrom, bucket_id)
                     for chrom, bucket_id, source, base_where, params, out_path in all_tasks
                 }
-                for fut in as_completed(futures):
-                    chrom, bucket_id = futures[fut]
-                    try:
-                        _, count, elapsed = fut.result()
-                        if count > 0:
-                            result[chrom] = result.get(chrom, 0) + count
-                        logger.debug(
-                            "  [build] %s bucket_%d: %s variant(s) (%.1fs)",
-                            chrom, bucket_id, f"{count:,}", elapsed,
-                        )
-                    except BrokenProcessPool:
-                        raise RuntimeError(
-                            f"A build worker was killed (likely OOM).\n"
-                            f"  Current settings: --build-memory {memory_limit},"
-                            f" --build-threads {capped_workers}\n"
-                            f"  Try: --build-memory 4GB"
-                            f"  OR  --build-threads {max(1, capped_workers // 4)}\n"
-                            f"  Peak memory = --build-memory × --build-threads"
-                        ) from None
+                with tqdm.tqdm(
+                    total=total_discovered_buckets,
+                    initial=n_skipped_buckets,
+                    unit="bucket",
+                    desc="[build]",
+                    dynamic_ncols=True,
+                    disable=not sys.stderr.isatty(),
+                ) as bar:
+                    for fut in as_completed(futures):
+                        chrom, bucket_id = futures[fut]
+                        try:
+                            _, count, elapsed = fut.result()
+                            if count > 0:
+                                result[chrom] = result.get(chrom, 0) + count
+                                total_variants += count
+                            bar.set_postfix(variants=f"{total_variants:,}", refresh=False)
+                            bar.update(1)
+                            logger.debug(
+                                "  [build] %s bucket_%d: %s variant(s) (%.1fs)",
+                                chrom, bucket_id, f"{count:,}", elapsed,
+                            )
+                        except BrokenProcessPool:
+                            raise RuntimeError(
+                                f"A build worker was killed (likely OOM).\n"
+                                f"  Current settings: --build-memory {memory_limit},"
+                                f" --build-threads {capped_workers}\n"
+                                f"  Try: --build-memory 4GB"
+                                f"  OR  --build-threads {max(1, capped_workers // 4)}\n"
+                                f"  Peak memory = --build-memory × --build-threads"
+                            ) from None
         except BrokenProcessPool:
             raise RuntimeError(
                 f"A build worker was killed (likely OOM).\n"
