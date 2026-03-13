@@ -153,7 +153,7 @@ def _discover_bucket_ids(
     con.execute("SET enable_progress_bar=false")
     try:
         sql = f"""
-            SELECT DISTINCT CAST(CAST(pos AS BIGINT) / {BUCKET_SIZE} AS BIGINT) AS bucket_id
+            SELECT DISTINCT CAST(pos AS BIGINT) // {BUCKET_SIZE} AS bucket_id
             FROM read_parquet('{source}')
             {base_where}
             ORDER BY 1
