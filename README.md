@@ -72,10 +72,10 @@ project/
     └── wes_kit_a.bed  # BED file for WES kit A
 ```
 
-Then preprocess your VCF files:
+Then build your database:
 
 ```bash
-afquery preprocess \
+afquery create-db \
   --manifest manifest.tsv \
   --bed-dir ./beds/ \
   --output-dir ./my_db/ \
@@ -94,8 +94,8 @@ This creates:
 # Point query
 afquery query --db my_db --chrom chr1 --pos 1000 --alt G
 
-# Batch query (100 positions)
-afquery query-batch --db my_db --positions positions.tsv --phenotype E11.9
+# Batch query (from file with columns: pos ref alt)
+afquery query --db my_db --chrom chr1 --from-file positions.tsv --phenotype E11.9
 
 # Region query
 afquery query --db my_db --chrom chr1 --start 1000 --end 10000 --phenotype E11.9 --sex M
@@ -106,7 +106,7 @@ afquery query --db my_db --chrom chr1 --start 1000 --end 10000 --phenotype E11.9
 ```bash
 afquery annotate \
   --db my_db \
-  --vcf input.vcf \
+  --input input.vcf \
   --output annotated.vcf \
   --phenotype E11.9 \
   --tech WGS
@@ -123,14 +123,15 @@ db = Database("/path/to/db")
 
 # Single position query
 # Automatically filters samples by: sex + phenotype codes + capture coverage
-result = db.query(
+results = db.query(
     chrom="chr1",
     pos=1000,
     alt="G",
-    phenotype_codes=["E11.9"],
+    phenotype=["E11.9"],
     sex="both"
 )
-print(f"AC={result.ac}, AN={result.an}, AF={result.af}")
+for r in results:
+    print(f"AC={r.AC}, AN={r.AN}, AF={r.AF}")
 
 # Batch query (multi-variant)
 results = db.query_batch(
@@ -144,16 +145,16 @@ results = db.query_region(
     chrom="chr1",
     start=1000,
     end=10000,
-    phenotype_codes=["E11.9", "I10"]
+    phenotype=["E11.9", "I10"]
 )
 
 # Annotate VCF with allele frequencies
-# Note: tech_name filters annotation to samples of that technology
+# Note: tech filters annotation to samples of that technology
 db.annotate_vcf(
-    vcf_path="input.vcf",
-    output_path="annotated.vcf",
-    phenotype_codes=["E11.9"],
-    tech_name="wgs"  # Only annotate using WGS samples
+    input_vcf="input.vcf",
+    output_vcf="annotated.vcf",
+    phenotype=["E11.9"],
+    tech=["wgs"]  # Only annotate using WGS samples
 )
 ```
 
@@ -219,35 +220,28 @@ At query time, each sample's eligible regions are determined by its tech's BED f
 
 ## Advanced Features
 
-### Incremental Updates (add_samples)
+### Incremental Updates
 
 ```bash
-afquery add-samples \
+afquery update-db \
   --db my_db \
-  --manifest new_samples.tsv \
-  --vcf-dir ./new_vcfs/
+  --add-samples new_samples.tsv
 ```
 
 Adds new samples without rebuilding the entire database.
 
-### Compact Database
+### Remove Samples and Compact
 
 Remove samples and reclaim disk space:
 
 ```bash
-afquery compact --db my_db --samples-to-remove sample_1,sample_2
+afquery update-db --db my_db --remove-samples sample_1,sample_2 --compact
 ```
 
 ### Run Benchmarks
 
 ```bash
-afquery benchmark --db my_db --n-queries 1000 --query-type point
-```
-
-### Generate Synthetic Data
-
-```bash
-afquery synth --output synthetic_db/ --n-samples 5000 --n-variants 100000
+afquery benchmark --n-samples 5000 --n-variants 100000
 ```
 
 ## Ploidy Rules
@@ -275,14 +269,14 @@ Where `eligible` = samples matching sex, phenotype, and technology capture filte
 ## Command Reference
 
 ```
-afquery query                Query single position
-afquery query-batch          Batch query multiple positions
-afquery annotate             Annotate VCF file
-afquery info                 Show database info
-afquery preprocess           Build database from VCFs
-afquery add-samples          Add new samples to database
-afquery compact              Remove samples and reclaim space
-afquery synth                Generate synthetic test database
+afquery query                Query one position, region, or batch (--from-file)
+afquery annotate             Annotate VCF file with AF info fields
+afquery dump                 Export allele frequencies for all variants to CSV
+afquery info                 Show database metadata and sample list
+afquery check                Validate database integrity
+afquery create-db            Build database from a VCF manifest
+afquery update-db            Add/remove samples or compact the database
+afquery version              Show or set the database version label
 afquery benchmark            Run performance benchmarks
 ```
 
@@ -293,7 +287,7 @@ Run `afquery --help` for full options.
 ### Running Tests
 
 ```bash
-# All 190 tests
+# All 330 tests
 python3 -m pytest --tb=short -q
 
 # Specific test module
@@ -371,4 +365,4 @@ If you use afquery in research, please cite:
 
 ---
 
-**Status**: Phase 5 complete (190 tests passing). Active development.
+**Status**: Active development (330 tests passing).

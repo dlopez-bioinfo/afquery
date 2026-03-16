@@ -22,7 +22,6 @@ afquery create-db [OPTIONS]
 | `--build-memory` | TEXT | `2GB` | DuckDB memory limit per build worker |
 | `--tmp-dir` | TEXT | `{output_dir}/.tmp_preprocess` | Temporary directory for intermediate files |
 | `--bed-dir` | TEXT | None | Directory containing BED files for WES technologies |
-| `--include-all-filters` | flag | False | Ingest all variants regardless of FILTER status |
 | `--force` | flag | False | Delete any partial results and restart from scratch |
 | `--db-version` | TEXT | `1.0` | Version label for this database |
 | `-v, --verbose` | flag | False | Verbose output with per-item progress |
