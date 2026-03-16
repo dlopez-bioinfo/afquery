@@ -8,6 +8,7 @@ dynamic = ["version"]
 description = "Genomic allele frequency query engine with bitmap-encoded genotypes"
 readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
 dependencies = [
     "pyroaring>=0.4.8",
     "pyarrow>=14.0",
@@ -43,3 +44,10 @@ packages = ["src/afquery"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src/afquery"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
