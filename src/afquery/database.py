@@ -61,6 +61,32 @@ class Database:
         sf = self._make_filter(phenotype, sex, tech)
         return self._engine.query_region(chrom, start, end, sf)
 
+    def dump(
+        self,
+        output=None,
+        phenotype: list[str] | None = None,
+        sex: str = "both",
+        tech: list[str] | None = None,
+        by_sex: bool = False,
+        by_tech: bool = False,
+        by_phenotype: list[str] | None = None,
+        all_groups: bool = False,
+        chrom: str | None = None,
+        start: int | None = None,
+        end: int | None = None,
+        n_workers: int | None = None,
+    ) -> dict:
+        from .dump import dump_database, _build_groups
+        base_sf = self._make_filter(phenotype, sex, tech)
+        groups = _build_groups(
+            self._engine, base_sf, by_sex, by_tech,
+            by_phenotype or [], all_groups,
+        )
+        return dump_database(
+            self._engine, output, base_sf, groups,
+            chrom, start, end, n_workers,
+        )
+
     def annotate_vcf(
         self,
         input_vcf: str,
