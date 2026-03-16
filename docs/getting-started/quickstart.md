@@ -1,0 +1,145 @@
+# Quickstart
+
+This tutorial walks through building a small AFQuery database and running your first queries. It takes about 5 minutes.
+
+---
+
+## 1. Create a Manifest
+
+The manifest is a TSV file describing your samples. Create `manifest.tsv`:
+
+```tsv
+sample_name	vcf_path	sex	tech	phenotype
+SAMPLE_001	/data/vcfs/sample001.vcf.gz	female	wgs	E11.9,I10
+SAMPLE_002	/data/vcfs/sample002.vcf.gz	male	wgs	E11.9
+SAMPLE_003	/data/vcfs/sample003.vcf.gz	female	wes_v1	I10
+```
+
+Fields:
+- `sample_name` — unique identifier
+- `vcf_path` — path to single-sample VCF (plain or `.gz`)
+- `sex` — `male` or `female`
+- `tech` — sequencing technology name (any string; WES techs need a BED file)
+- `phenotype` — comma-separated ICD codes (optional)
+
+See [Manifest Format](../guides/manifest-format.md) for full details.
+
+---
+
+## 2. Create the Database
+
+```bash
+afquery create-db \
+  --manifest manifest.tsv \
+  --output-dir ./my_db/ \
+  --genome-build GRCh38
+```
+
+For WES technologies, provide the directory containing BED files named `<tech>.bed`:
+
+```bash
+afquery create-db \
+  --manifest manifest.tsv \
+  --output-dir ./my_db/ \
+  --genome-build GRCh38 \
+  --bed-dir ./beds/
+```
+
+The command will:
+1. Ingest all VCFs into SQLite
+2. Build Roaring Bitmap Parquet files per chromosome/bucket
+3. Write `manifest.json` and `metadata.sqlite`
+
+---
+
+## 3. Inspect the Database
+
+```bash
+afquery info --db ./my_db/
+```
+
+Example output:
+```
+Database: ./my_db/
+Schema version: 2.0
+Genome build:   GRCh38
+Samples:        3
+Technologies:   wgs, wes_v1
+Chromosomes:    chr1, chr2, ..., chrX, chrY, chrMT
+```
+
+Run a validation check:
+
+```bash
+afquery check --db ./my_db/
+```
+
+---
+
+## 4. Query a Single Position
+
+```bash
+afquery query --db ./my_db/ --chrom chr1 --pos 925952
+```
+
+Example output:
+```
+chr1:925952
+  REF=G  ALT=A  AC=2  AN=6  AF=0.3333  N_HET=2  N_HOM_ALT=0
+```
+
+Filter to female samples with a specific phenotype:
+
+```bash
+afquery query \
+  --db ./my_db/ \
+  --chrom chr1 \
+  --pos 925952 \
+  --sex female \
+  --phenotype E11.9
+```
+
+---
+
+## 5. Query a Region
+
+```bash
+afquery query \
+  --db ./my_db/ \
+  --chrom chr1 \
+  --region 900000-1000000
+```
+
+---
+
+## 6. Annotate a VCF
+
+Given a VCF with variants you want to annotate:
+
+```bash
+afquery annotate \
+  --db ./my_db/ \
+  --input variants.vcf \
+  --output annotated.vcf
+```
+
+The output VCF gains INFO fields:
+
+| Field | Description |
+|-------|-------------|
+| `AFQUERY_AC` | Allele count |
+| `AFQUERY_AN` | Allele number |
+| `AFQUERY_AF` | Allele frequency |
+| `AFQUERY_N_HET` | Heterozygous sample count |
+| `AFQUERY_N_HOM_ALT` | Homozygous alt sample count |
+| `AFQUERY_N_HOM_REF` | Homozygous ref sample count |
+| `AFQUERY_N_FAIL` | Samples with FILTER≠PASS (schema v2 only) |
+
+---
+
+## Next Steps
+
+- [Manifest Format](../guides/manifest-format.md) — full column specification
+- [Query Guide](../guides/query.md) — batch queries, output formats, filter syntax
+- [Sample Filtering](../guides/sample-filtering.md) — phenotype, sex, technology filters
+- [CLI Reference](../reference/cli.md) — all options for every command

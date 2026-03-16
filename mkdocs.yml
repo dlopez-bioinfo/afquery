@@ -1,0 +1,74 @@
+site_name: AFQuery
+site_description: Fast, file-based genomic allele frequency queries for large cohorts
+repo_url: https://github.com/davidlaewen/afquery
+repo_name: afquery
+edit_uri: edit/master/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quickstart: getting-started/quickstart.md
+    - Key Concepts: getting-started/concepts.md
+  - Guides:
+    - Manifest Format: guides/manifest-format.md
+    - Create a Database: guides/create-database.md
+    - Query Allele Frequencies: guides/query.md
+    - Annotate a VCF: guides/annotate-vcf.md
+    - Update a Database: guides/update-database.md
+    - Bulk Export (dump): guides/dump-export.md
+    - Sample Filtering: guides/sample-filtering.md
+  - Reference:
+    - CLI Reference: reference/cli.md
+    - Python API: reference/python-api.md
+    - Data Model: reference/data-model.md
+  - Advanced:
+    - Performance Tuning: advanced/performance.md
+    - Ploidy & Sex Chromosomes: advanced/ploidy-and-sex-chroms.md
+    - FILTER=PASS Tracking: advanced/filter-pass-tracking.md
+    - Benchmarking: advanced/benchmarking.md
+  - Troubleshooting: troubleshooting.md
+  - FAQ: faq.md

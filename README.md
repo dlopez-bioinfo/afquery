@@ -1,23 +1,42 @@
-# afquery
+# AFQuery
 
-Genomic allele frequency query engine with bitmap-encoded genotypes. Fast, file-based queries over 10K-50K samples at sub-100ms latency.
+Fast, file-based genomic allele frequency queries for large cohorts (10K–50K samples).
+No server, no cloud — just files. Sub-100ms point queries with flexible filtering
+by sex, phenotype (ICD codes), and sequencing technology.
+
+## Quick Example
+
+```bash
+pip install afquery
+
+# Build database from your VCFs
+afquery create-db --manifest samples.tsv --output-dir ./db/ --genome-build GRCh38
+
+# Query allele frequency
+afquery query --db ./db/ --chrom chr1 --pos 123456 --phenotype E11.9 --sex female
+
+# Annotate a VCF
+afquery annotate --db ./db/ --input variants.vcf --output annotated.vcf
+```
+
+**[Full documentation →](https://davidlaewen.github.io/afquery/)**
 
 ## Features
 
-- **Fast point queries**: <100ms cold start, ~10ms warm queries on single positions
-- **Batch queries**: Multi-position queries via SQL IN clauses or temporary tables
-- **Region queries**: Genomic range queries with automatic partitioning
-- **VCF annotation**: Annotate VCF files with computed allele frequencies and sample genotypes
-- **Ploidy-aware**: Correct AN/AC computation for autosomes, chrX, chrY, and chrM
-- **Bitmap compression**: Roaring Bitmaps for efficient genotype storage
-- **In-process**: No server process—queries run locally with DuckDB
-- **Incremental updates**: Add new samples to existing databases
-- **Multiple genome builds**: Support for GRCh37 and GRCh38
+- Sub-100ms point queries on 50K-sample cohorts
+- Filter by sex, phenotype (ICD codes), and sequencing technology
+- Bitmap-compressed storage (Roaring Bitmaps + Parquet)
+- Incremental updates (add/remove samples without full rebuild)
+- VCF annotation with custom sample subsets
+- Ploidy-aware AN for sex chromosomes (X/Y/MT)
+- Zero infrastructure — purely file-based
 
 ## Installation
 
 ```bash
-pip install -e /home/dan/projects/afquery/ --break-system-packages
+pip install afquery
+# or
+conda install -c bioconda -c conda-forge afquery
 ```
 
 Requires Python 3.10+.
