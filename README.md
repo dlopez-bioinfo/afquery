@@ -28,7 +28,7 @@ afquery query --db ./db/ --chrom chr1 --pos 123456 --phenotype E11.9 --sex femal
 afquery annotate --db ./db/ --input variants.vcf --output annotated.vcf
 ```
 
-**[Full documentation →](https://davidlaewen.github.io/afquery/)**
+**[Full documentation →](https://dlopez-bioinfo.github.io/afquery/)**
 
 ## Features
 

@@ -16,7 +16,7 @@ pip install afquery
 To install the latest development version directly from GitHub:
 
 ```bash
-pip install git+https://github.com/davidlaewen/afquery.git
+pip install git+https://github.com/dlopez-bioinfo/afquery.git
 ```
 
 ---
@@ -41,7 +41,7 @@ mamba install -c bioconda -c conda-forge afquery
 ## From Source
 
 ```bash
-git clone https://github.com/davidlaewen/afquery.git
+git clone https://github.com/dlopez-bioinfo/afquery.git
 cd afquery
 pip install -e .
 ```
