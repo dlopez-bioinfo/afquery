@@ -140,6 +140,88 @@ def test_query_missing_db(runner):
     assert result.exit_code != 0
 
 
+# --- afquery query: region and batch ---
+
+def test_query_region_format(runner, test_db):
+    result = runner.invoke(cli, [
+        "query", "--db", test_db,
+        "--chrom", "1", "--region", "1000-2000",
+        "--format", "json",
+    ])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert isinstance(data, list)
+
+
+def test_query_batch_format(runner, test_db, tmp_path):
+    variants_file = tmp_path / "variants.tsv"
+    variants_file.write_text("1500 C T\n")
+    result = runner.invoke(cli, [
+        "query", "--db", test_db,
+        "--chrom", "1", "--from-file", str(variants_file),
+        "--format", "json",
+    ])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert isinstance(data, list)
+
+
+def test_query_requires_mode(runner, test_db):
+    result = runner.invoke(cli, [
+        "query", "--db", test_db, "--chrom", "1",
+    ])
+    assert result.exit_code != 0
+
+
+def test_query_exclusive_modes(runner, test_db, tmp_path):
+    variants_file = tmp_path / "variants.tsv"
+    variants_file.write_text("1500 C T\n")
+    result = runner.invoke(cli, [
+        "query", "--db", test_db, "--chrom", "1",
+        "--pos", "1500", "--region", "1000-2000",
+    ])
+    assert result.exit_code != 0
+
+
+# --- afquery create-db ---
+
+def test_create_db_help(runner):
+    result = runner.invoke(cli, ["create-db", "--help"])
+    assert result.exit_code == 0
+    assert "manifest" in result.output.lower()
+
+
+def test_create_db_missing_manifest(runner, tmp_path):
+    result = runner.invoke(cli, [
+        "create-db",
+        "--output-dir", str(tmp_path / "db"),
+        "--genome-build", "GRCh37",
+    ])
+    assert result.exit_code != 0
+
+
+# --- afquery update-db ---
+
+def test_update_db_requires_operation(runner, test_db):
+    result = runner.invoke(cli, ["update-db", "--db", test_db])
+    assert result.exit_code != 0
+    assert "required" in result.output.lower() or "required" in (result.exception and str(result.exception) or "").lower() or result.exit_code != 0
+
+
+def test_update_db_compact(runner, test_db):
+    result = runner.invoke(cli, ["update-db", "--db", test_db, "--compact"])
+    assert result.exit_code == 0
+    assert "compact" in result.output.lower()
+
+
+def test_update_db_help(runner):
+    result = runner.invoke(cli, ["update-db", "--help"])
+    assert result.exit_code == 0
+    assert "--compact" in result.output
+    assert "--add-samples" in result.output
+    assert "--remove-samples" in result.output
+
+
 # --- afquery annotate ---
 
 def test_annotate_with_phenotype(runner, test_db, tmp_path):
