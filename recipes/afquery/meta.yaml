@@ -31,6 +31,8 @@ requirements:
     - cyvcf2 >=0.30
     - tqdm >=4.60
     # Note: pyranges may not be in bioconda — check before adding
+  run_exports:
+    - python >=3.10
 
 test:
   imports:
