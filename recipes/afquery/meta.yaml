@@ -22,6 +22,8 @@ build:
     - duckdb >=0.10
     - click >=8.1
     - cyvcf2 >=0.30
+    - tqdm >=4.60
+    - pyranges >=0.1.2,<0.2
 
 requirements:
   host:
@@ -37,7 +39,7 @@ requirements:
     - click >=8.1
     - cyvcf2 >=0.30
     - tqdm >=4.60
-    # Note: pyranges may not be in bioconda — check before adding
+    - pyranges >=0.1.2,<0.2
 
 test:
   imports:
