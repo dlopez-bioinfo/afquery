@@ -9,7 +9,7 @@
 Query a single genomic position:
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --pos 925952
+afquery query --db ./db/ --chrom chr1 --pos 92595
 ```
 
 Output (default `text` format):
