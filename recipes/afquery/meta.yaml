@@ -10,6 +10,7 @@ source:
   sha256: PLACEHOLDER
 
 build:
+  noarch: python
   number: 0
   script: {{ PYTHON }} -m pip install . --no-deps --no-build-isolation -vv
   entry_points:
