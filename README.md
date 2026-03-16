@@ -296,7 +296,7 @@ Run `afquery --help` for full options.
 ### Running Tests
 
 ```bash
-# All 330 tests
+# All tests
 python3 -m pytest --tb=short -q
 
 # Specific test module
@@ -313,30 +313,11 @@ python3 -m pytest tests/test_query.py -v
 - `afquery.ploidy` — Chromosome-specific ploidy rules
 - `afquery.models` — Data classes (QueryResult, ParsedSample, etc.)
 
-### Architecture
-
-See `brain/architecture.md` for detailed system design, data flow, and query algorithm.
 
 ## Genome Builds
 
 - **GRCh37** (hg19) — PAR regions: chrX:1-2649520
 - **GRCh38** (hg38) — PAR regions: chrX:1-3099677
-
-## Technologies Supported
-
-- **WGS** — Whole genome sequencing (always fully covered, no BED file needed)
-  - Manifest: `tech_name = wgs` (case-insensitive)
-  - Query-time: All positions in genome considered covered
-
-- **WES** — Whole exome sequencing (coverage defined by BED file)
-  - Manifest: `tech_name = wes_kit_a` (or any custom name)
-  - Preprocessing: Loads `{bed_dir}/wes_kit_a.bed` (0-based half-open BED format)
-  - Query-time: Only positions within BED intervals considered covered
-
-- **Custom** — Any technology with a BED file (e.g., gene panels, targeted sequencing)
-  - Manifest: Use any `tech_name`
-  - Preprocessing: Loads `{bed_dir}/{tech_name}.bed`
-  - Query-time: Respects BED file coverage
 
 ## Troubleshooting
 
@@ -347,18 +328,6 @@ See `brain/architecture.md` for detailed system design, data flow, and query alg
 ### DuckDB Temp Files
 
 Uses Parquet format (not Arrow IPC) for compatibility. Set `DUCKDB_TEMP_DIRECTORY` if needed.
-
-### Sample IDs
-
-Sample IDs are 0-indexed and monotonically increasing. Never reuse removed IDs—use `compact` to reclaim space.
-
-## Contributing
-
-1. Read `brain/project_state.json` for current phase and test count
-2. Read `brain/architecture.md` for system design
-3. Follow code conventions in `CLAUDE.md`
-4. Update `brain/` docs after architectural changes
-5. Run tests before submitting
 
 ## License
 
@@ -373,5 +342,3 @@ If you use afquery in research, please cite:
 ```
 
 ---
-
-**Status**: Active development (330 tests passing).
