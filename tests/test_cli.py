@@ -8,6 +8,14 @@ from afquery.cli import cli
 
 
 @pytest.fixture
+def db_copy(test_db, tmp_path):
+    """Fresh writable copy of test_db for tests that mutate the DB."""
+    copy_path = str(tmp_path / "db_copy")
+    shutil.copytree(test_db, copy_path)
+    return copy_path
+
+
+@pytest.fixture
 def runner():
     return CliRunner()
 
@@ -282,3 +290,176 @@ def test_annotate_without_phenotype(runner, test_db, tmp_path):
     # At pos 1500 with multiple phenotypes, AN should be larger than with single phenotype
     assert records[0].INFO.get("AFQUERY_AN", 0) > 0
     vcf.close()
+
+
+# --- afquery info: formats ---
+
+def test_info_json_format(runner, test_db):
+    result = runner.invoke(cli, ["info", "--db", test_db, "--format", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "genome_build" in data
+    assert "sample_count" in data
+    assert data["genome_build"] == "GRCh37"
+
+
+def test_info_tsv_format(runner, test_db):
+    result = runner.invoke(cli, ["info", "--db", test_db, "--format", "tsv"])
+    assert result.exit_code == 0
+    lines = result.output.strip().splitlines()
+    keys = [line.split("\t")[0] for line in lines]
+    assert "genome_build" in keys
+    assert "sample_count" in keys
+
+
+def test_info_samples_table(runner, test_db):
+    result = runner.invoke(cli, ["info", "--db", test_db, "--samples"])
+    assert result.exit_code == 0
+    assert "Name" in result.output
+    assert "S00" in result.output
+
+
+def test_info_samples_json(runner, test_db):
+    result = runner.invoke(cli, ["info", "--db", test_db, "--samples", "--format", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert isinstance(data, list)
+    assert any(s["sample_name"] == "S00" for s in data)
+
+
+def test_info_samples_tsv(runner, test_db):
+    result = runner.invoke(cli, ["info", "--db", test_db, "--samples", "--format", "tsv"])
+    assert result.exit_code == 0
+    lines = result.output.strip().splitlines()
+    assert lines[0].startswith("sample_id\t")
+    assert len(lines) > 1  # header + at least one sample
+
+
+def test_info_changelog(runner, test_db):
+    result = runner.invoke(cli, ["info", "--db", test_db, "--changelog"])
+    assert result.exit_code == 0
+
+
+def test_info_changelog_json(runner, test_db):
+    result = runner.invoke(cli, ["info", "--db", test_db, "--changelog", "--format", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert isinstance(data, list)
+
+
+def test_info_changelog_tsv(runner, test_db):
+    result = runner.invoke(cli, ["info", "--db", test_db, "--changelog", "--format", "tsv"])
+    assert result.exit_code == 0
+    lines = result.output.strip().splitlines()
+    assert lines[0].startswith("event_id\t")
+
+
+# --- afquery version ---
+
+def test_version_show(runner, test_db):
+    result = runner.invoke(cli, ["version", "show", "--db", test_db])
+    assert result.exit_code == 0
+    assert result.output.strip() != ""
+
+
+def test_version_set(runner, db_copy):
+    result = runner.invoke(cli, ["version", "set", "--db", db_copy, "NEW_VER"])
+    assert result.exit_code == 0
+    assert "NEW_VER" in result.output
+
+
+def test_version_set_then_show(runner, db_copy):
+    runner.invoke(cli, ["version", "set", "--db", db_copy, "MYVER"])
+    result = runner.invoke(cli, ["version", "show", "--db", db_copy])
+    assert result.exit_code == 0
+    assert "MYVER" in result.output
+
+
+# --- afquery check ---
+
+def test_check_ok(runner, test_db):
+    result = runner.invoke(cli, ["check", "--db", test_db])
+    assert result.exit_code == 0
+
+
+def test_check_missing_db(runner):
+    result = runner.invoke(cli, ["check", "--db", "/nonexistent/afquery_path_xyz"])
+    assert result.exit_code != 0
+
+
+# --- afquery query: ref/alt/tech filters and edge cases ---
+
+def test_query_ref_alt_filter(runner, test_db):
+    result = runner.invoke(cli, [
+        "query", "--db", test_db,
+        "--chrom", "chr1", "--pos", "1500",
+        "--ref", "A", "--alt", "T",
+        "--format", "json",
+    ])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert isinstance(data, list)
+    if data:
+        assert data[0]["ref"] == "A"
+        assert data[0]["alt"] == "T"
+
+
+def test_query_tech_filter(runner, test_db):
+    result = runner.invoke(cli, [
+        "query", "--db", test_db,
+        "--chrom", "chr1", "--pos", "1500",
+        "--tech", "WGS", "--format", "json",
+    ])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert isinstance(data, list)
+
+
+def test_query_region_invalid_fmt(runner, test_db):
+    result = runner.invoke(cli, [
+        "query", "--db", test_db,
+        "--chrom", "chr1", "--region", "notaregion",
+    ])
+    assert result.exit_code != 0
+
+
+def test_query_tsv_with_fail_col(runner, test_db):
+    result = runner.invoke(cli, [
+        "query", "--db", test_db,
+        "--chrom", "chr1", "--pos", "1500",
+        "--format", "tsv",
+    ])
+    assert result.exit_code == 0
+    lines = result.output.strip().splitlines()
+    assert len(lines) >= 2
+    assert "N_FAIL" in lines[0]
+
+
+# --- afquery annotate: verbose flag ---
+
+def test_annotate_verbose(runner, test_db, tmp_path):
+    input_vcf = tmp_path / "input.vcf"
+    output_vcf = tmp_path / "output.vcf"
+    with open(input_vcf, "w") as f:
+        f.write("##fileformat=VCFv4.2\n")
+        f.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
+        f.write("1\t1500\t.\tA\tT\t.\t.\t.\n")
+    result = runner.invoke(cli, [
+        "annotate", "--db", test_db,
+        "--input", str(input_vcf),
+        "--output", str(output_vcf),
+        "--verbose",
+    ])
+    assert result.exit_code == 0
+    assert "Annotated" in result.output
+
+
+# --- afquery update-db --remove-samples ---
+
+def test_update_db_remove_samples(runner, db_copy):
+    result = runner.invoke(cli, [
+        "update-db", "--db", db_copy,
+        "--remove-samples", "S00",
+    ])
+    assert result.exit_code == 0
+    assert "Removed 1 sample(s)" in result.output

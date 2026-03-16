@@ -1,6 +1,8 @@
 import json
 import os
 import pickle
+import sqlite3
+import time as _time
 from pathlib import Path
 
 import pyarrow as pa
@@ -11,8 +13,12 @@ from pyroaring import BitMap
 from afquery.bitmaps import deserialize
 from afquery.capture import CaptureIndex
 from afquery.database import Database
-from afquery.preprocess import run_preprocess
+from afquery.models import Sample, Technology
+from afquery.preprocess import run_preprocess, _write_sqlite, _write_manifest
 from afquery.preprocess.build import (
+    _build_chrom_worker,
+    _get_chroms_from_consolidated,
+    _get_chroms_from_file,
     build_all_parquets,
     build_chromosome_parquet,
     consolidate_temp_files,
@@ -593,3 +599,211 @@ def test_preprocess_query_matches_expected(preprocessed_db, data_dir):
         assert r.n_samples_eligible == case["n_eligible"], (
             f"{case['description']}: n_eligible {r.n_samples_eligible} != {case['n_eligible']}"
         )
+
+
+# ---------------------------------------------------------------------------
+# _get_chroms_from_file unit tests
+# ---------------------------------------------------------------------------
+
+class TestGetChromsFromFile:
+    def test_single_chrom(self, tmp_path):
+        _write_parquet(tmp_path / "s.parquet", [
+            ("chr1", 1000, "A", "T", 1, 0),
+        ])
+        chroms = _get_chroms_from_file(str(tmp_path / "s.parquet"))
+        assert chroms == ["chr1"]
+
+    def test_multiple_chroms(self, tmp_path):
+        _write_parquet(tmp_path / "s.parquet", [
+            ("chr1", 1000, "A", "T", 1, 0),
+            ("chrX", 5000, "G", "C", 1, 0),
+        ])
+        chroms = _get_chroms_from_file(str(tmp_path / "s.parquet"))
+        assert "chr1" in chroms
+        assert "chrX" in chroms
+
+    def test_invalid_path_returns_empty(self, tmp_path):
+        chroms = _get_chroms_from_file(str(tmp_path / "nonexistent.parquet"))
+        assert chroms == []
+
+    def test_unknown_contig_filtered(self, tmp_path):
+        _write_parquet(tmp_path / "s.parquet", [
+            ("chrFAKE", 1000, "A", "T", 1, 0),
+        ])
+        chroms = _get_chroms_from_file(str(tmp_path / "s.parquet"))
+        assert "chrFAKE" not in chroms
+
+
+# ---------------------------------------------------------------------------
+# _get_chroms_from_consolidated unit tests
+# ---------------------------------------------------------------------------
+
+class TestGetChromsFromConsolidated:
+    def test_hive_directory_returns_chroms(self, tmp_path):
+        (tmp_path / "chrom=chr1").mkdir()
+        (tmp_path / "chrom=chr1" / "data.parquet").touch()
+        (tmp_path / "chrom=chrX").mkdir()
+        (tmp_path / "chrom=chrX" / "data.parquet").touch()
+        chroms = _get_chroms_from_consolidated(str(tmp_path))
+        assert "chr1" in chroms
+        assert "chrX" in chroms
+
+    def test_hive_no_chrom_dirs_returns_empty(self, tmp_path):
+        (tmp_path / "other_dir").mkdir()
+        (tmp_path / "another").mkdir()
+        chroms = _get_chroms_from_consolidated(str(tmp_path))
+        assert chroms == []
+
+    def test_hive_unknown_chroms_filtered(self, tmp_path):
+        (tmp_path / "chrom=chrFAKE").mkdir()
+        (tmp_path / "chrom=chrFAKE" / "data.parquet").touch()
+        chroms = _get_chroms_from_consolidated(str(tmp_path))
+        assert "chrFAKE" not in chroms
+
+    def test_single_file_delegates(self, tmp_path):
+        _write_parquet(tmp_path / "consolidated.parquet", [
+            ("chr1", 1000, "A", "T", 1, 0),
+        ])
+        chroms = _get_chroms_from_consolidated(str(tmp_path / "consolidated.parquet"))
+        assert "chr1" in chroms
+
+
+# ---------------------------------------------------------------------------
+# _build_chrom_worker unit tests
+# ---------------------------------------------------------------------------
+
+class TestBuildChromWorker:
+    def test_returns_tuple(self, tmp_path):
+        variants_dir = tmp_path / "variants"
+        variants_dir.mkdir()
+        _write_parquet(tmp_path / "sample_0.parquet", [
+            ("chr1", 1000, "A", "T", 1, 0),
+        ])
+        result = _build_chrom_worker(
+            "chr1", str(tmp_path), str(variants_dir), 100_000, False
+        )
+        chrom, count, elapsed = result
+        assert chrom == "chr1"
+        assert count == 1
+        assert elapsed >= 0.0
+
+    def test_empty_source_returns_zero(self, tmp_path):
+        variants_dir = tmp_path / "variants"
+        variants_dir.mkdir()
+        _write_parquet(tmp_path / "sample_0.parquet", [])
+        result = _build_chrom_worker(
+            "chr1", str(tmp_path), str(variants_dir), 100_000, False
+        )
+        chrom, count, elapsed = result
+        assert chrom == "chr1"
+        assert count == 0
+
+
+# ---------------------------------------------------------------------------
+# build_all_parquets: resume and force behaviors
+# ---------------------------------------------------------------------------
+
+class TestBuildAllParquetsResume:
+    def test_resume_skips_existing_file(self, tmp_path):
+        variants_dir = tmp_path / "variants"
+        variants_dir.mkdir()
+        _write_parquet(tmp_path / "sample_0.parquet", [
+            ("chr1", 1000, "A", "T", 1, 0),
+        ])
+        build_all_parquets(str(tmp_path), str(variants_dir), partitioned=False)
+        out_file = variants_dir / "chr1.parquet"
+        assert out_file.exists()
+        mtime_before = out_file.stat().st_mtime
+
+        # Second call with resume=True should skip
+        result2 = build_all_parquets(
+            str(tmp_path), str(variants_dir), partitioned=False, resume=True
+        )
+        assert result2 == {}
+        assert out_file.stat().st_mtime == mtime_before
+
+    def test_resume_false_rebuilds(self, tmp_path):
+        variants_dir = tmp_path / "variants"
+        variants_dir.mkdir()
+        _write_parquet(tmp_path / "sample_0.parquet", [
+            ("chr1", 1000, "A", "T", 1, 0),
+        ])
+        build_all_parquets(str(tmp_path), str(variants_dir), partitioned=False)
+        out_file = variants_dir / "chr1.parquet"
+        mtime_before = out_file.stat().st_mtime
+
+        _time.sleep(0.05)
+        result2 = build_all_parquets(
+            str(tmp_path), str(variants_dir), partitioned=False, resume=False
+        )
+        assert "chr1" in result2
+        assert out_file.stat().st_mtime > mtime_before
+
+
+# ---------------------------------------------------------------------------
+# _write_sqlite and _write_manifest unit tests
+# ---------------------------------------------------------------------------
+
+class TestWriteSqliteAndManifest:
+    def test_write_sqlite_creates_all_tables(self, tmp_path):
+        samples = [Sample(0, "S00", "male", 0), Sample(1, "S01", "female", 0)]
+        technologies = [Technology(0, "WGS", None)]
+        pairs = [(0, "E11.9"), (1, "I10")]
+        ingested_at = "2026-01-01T00:00:00+00:00"
+
+        _write_sqlite(str(tmp_path), samples, technologies, pairs,
+                      vcf_paths=None, ingested_at=ingested_at)
+
+        con = sqlite3.connect(str(tmp_path / "metadata.sqlite"))
+        tables = {r[0] for r in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        con.close()
+
+        assert "samples" in tables
+        assert "technologies" in tables
+        assert "sample_phenotype" in tables
+        assert "precomputed_bitmaps" in tables
+        assert "changelog" in tables
+
+    def test_write_sqlite_inserts_samples(self, tmp_path):
+        samples = [Sample(0, "S00", "male", 0), Sample(1, "S01", "female", 0)]
+        technologies = [Technology(0, "WGS", None)]
+        pairs = [(0, "E11.9")]
+
+        _write_sqlite(str(tmp_path), samples, technologies, pairs)
+
+        con = sqlite3.connect(str(tmp_path / "metadata.sqlite"))
+        count = con.execute("SELECT COUNT(*) FROM samples").fetchone()[0]
+        con.close()
+        assert count == 2
+
+    def test_write_sqlite_adds_changelog_entry(self, tmp_path):
+        samples = [Sample(0, "S00", "male", 0)]
+        technologies = [Technology(0, "WGS", None)]
+        pairs = [(0, "E11.9")]
+
+        _write_sqlite(str(tmp_path), samples, technologies, pairs)
+
+        con = sqlite3.connect(str(tmp_path / "metadata.sqlite"))
+        row = con.execute(
+            "SELECT event_type, notes FROM changelog WHERE event_type='preprocess'"
+        ).fetchone()
+        con.close()
+        assert row is not None
+        assert "1 samples ingested" in row[1]
+
+    def test_write_manifest_fields(self, tmp_path):
+        _write_manifest(str(tmp_path), "GRCh37", 5, db_version="1.0")
+        manifest = json.loads((tmp_path / "manifest.json").read_text())
+        assert manifest["genome_build"] == "GRCh37"
+        assert manifest["schema_version"] == "2.0"
+        assert manifest["pass_only_filter"] is True
+        assert manifest["sample_count"] == 5
+        assert "created_at" in manifest
+
+    def test_write_manifest_custom_version(self, tmp_path):
+        _write_manifest(str(tmp_path), "GRCh38", 3, db_version="2.5")
+        manifest = json.loads((tmp_path / "manifest.json").read_text())
+        assert manifest["db_version"] == "2.5"
+        assert manifest["genome_build"] == "GRCh38"

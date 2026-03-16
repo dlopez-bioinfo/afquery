@@ -2,13 +2,14 @@
 import csv
 import io
 import json
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
 from afquery.cli import cli
 from afquery.database import Database
-from afquery.dump import _build_groups, _dump_bucket_worker
+from afquery.dump import _build_groups, _dump_bucket_worker, _discover_flat_buckets
 from afquery.models import SampleFilter
 from afquery.query import QueryEngine
 
@@ -385,3 +386,92 @@ class TestDumpCLI:
         assert result.exit_code == 0
         # stats line should be emitted (CliRunner merges stderr into output by default)
         assert "row(s) exported" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Unit tests: _discover_flat_buckets
+# ---------------------------------------------------------------------------
+
+class TestDiscoverFlatBuckets:
+    def test_basic_returns_bucket_ids(self, test_db):
+        flat_path = Path(test_db) / "variants" / "chr1.parquet"
+        buckets = _discover_flat_buckets(str(flat_path), None, None)
+        assert isinstance(buckets, list)
+        assert len(buckets) > 0
+        # All chr1 variants (pos 1500, 3500, 5000) are in bucket 0 (< 1M)
+        assert 0 in buckets
+
+    def test_range_excludes_variants(self, test_db):
+        flat_path = Path(test_db) / "variants" / "chr1.parquet"
+        # Start > all chr1 variant positions → no buckets
+        buckets = _discover_flat_buckets(str(flat_path), 9_000_000, None)
+        assert buckets == []
+
+    def test_range_includes_variants(self, test_db):
+        flat_path = Path(test_db) / "variants" / "chr1.parquet"
+        # pos_start=1000, pos_end=6000 covers all chr1 variants
+        buckets = _discover_flat_buckets(str(flat_path), 1000, 6000)
+        assert 0 in buckets
+
+
+# ---------------------------------------------------------------------------
+# Worker path coverage
+# ---------------------------------------------------------------------------
+
+class TestDumpWorkerPaths:
+    def test_single_worker_explicit(self, test_db):
+        """n_workers=1 uses serial path; results match default."""
+        buf1 = io.StringIO()
+        database = Database(test_db)
+        database.dump(output=buf1, chrom="chr1", n_workers=1)
+        rows1 = _parse_csv(buf1.getvalue())
+
+        buf2 = io.StringIO()
+        database.dump(output=buf2, chrom="chr1")
+        rows2 = _parse_csv(buf2.getvalue())
+
+        assert len(rows1) == len(rows2)
+        for r1, r2 in zip(rows1, rows2):
+            assert r1["pos"] == r2["pos"]
+            assert r1["AC"] == r2["AC"]
+
+    def test_multiworker_all_chroms(self, test_db):
+        """n_workers=2 across all chroms exercises ProcessPoolExecutor path."""
+        buf = io.StringIO()
+        database = Database(test_db)
+        stats = database.dump(output=buf, n_workers=2)
+        rows = _parse_csv(buf.getvalue())
+        assert stats["n_rows"] == len(rows)
+        assert len(rows) > 0
+
+
+# ---------------------------------------------------------------------------
+# Output and edge-case coverage
+# ---------------------------------------------------------------------------
+
+class TestDumpEdgeCases:
+    def test_empty_region_returns_zero_rows(self, test_db):
+        """A region with no variants yields 0 rows without error."""
+        buf = io.StringIO()
+        database = Database(test_db)
+        stats = database.dump(output=buf, chrom="chr1", start=9_000_000, end=9_100_000)
+        assert stats["n_rows"] == 0
+        assert stats["n_buckets"] == 0
+
+    def test_dump_to_filelike_object(self, test_db):
+        """Passing a StringIO as output writes CSV content correctly."""
+        buf = io.StringIO()
+        database = Database(test_db)
+        stats = database.dump(output=buf, chrom="chr1")
+        content = buf.getvalue()
+        assert content.startswith("chrom,pos,ref,alt")
+        assert stats["n_rows"] > 0
+
+    def test_dump_chrom_filter_cli(self, test_db):
+        runner = CliRunner()
+        result = runner.invoke(cli, [
+            "dump", "--db", test_db, "--chrom", "chr1",
+        ])
+        assert result.exit_code == 0
+        assert "chrom,pos,ref,alt" in result.output
+        assert "chr1" in result.output
