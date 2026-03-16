@@ -9,6 +9,12 @@ description = "Genomic allele frequency query engine with bitmap-encoded genotyp
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = [
     "pyroaring>=0.4.8",
     "pyarrow>=14.0",

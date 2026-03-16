@@ -3,7 +3,8 @@
 [![CI](https://github.com/dlopez-bioinfo/afquery/actions/workflows/ci.yml/badge.svg)](https://github.com/dlopez-bioinfo/afquery/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/dlopez-bioinfo/afquery/graph/badge.svg)](https://codecov.io/gh/dlopez-bioinfo/afquery)
 [![Docs](https://img.shields.io/website?url=https%3A%2F%2Fdlopez-bioinfo.github.io%2Fafquery%2F&label=docs)](https://dlopez-bioinfo.github.io/afquery/)
-[![PyPI](https://img.shields.io/pypi/v/afquery.svg)](https://pypi.org/project/afquery/)
+<br>
+[![PyPI](https://img.shields.io/pypi/v/afquery.svg?color=blue)](https://pypi.org/project/afquery/)
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/afquery.svg)](https://anaconda.org/bioconda/afquery)
 [![Python](https://img.shields.io/pypi/pyversions/afquery.svg)](https://pypi.org/project/afquery/)
 [![License: MIT](https://img.shields.io/github/license/dlopez-bioinfo/afquery)](https://github.com/dlopez-bioinfo/afquery/blob/master/LICENSE)
