@@ -1,4 +1,5 @@
 import json
+import shutil
 
 import pytest
 from click.testing import CliRunner
@@ -208,8 +209,10 @@ def test_update_db_requires_operation(runner, test_db):
     assert "required" in result.output.lower() or "required" in (result.exception and str(result.exception) or "").lower() or result.exit_code != 0
 
 
-def test_update_db_compact(runner, test_db):
-    result = runner.invoke(cli, ["update-db", "--db", test_db, "--compact"])
+def test_update_db_compact(runner, test_db, tmp_path):
+    db_copy = str(tmp_path / "compact_db")
+    shutil.copytree(test_db, db_copy)
+    result = runner.invoke(cli, ["update-db", "--db", db_copy, "--compact"])
     assert result.exit_code == 0
     assert "compact" in result.output.lower()
 
