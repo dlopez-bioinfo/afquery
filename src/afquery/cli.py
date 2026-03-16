@@ -60,26 +60,20 @@ def query(db, chrom, pos, phenotype, sex, ref, alt, tech, fmt):
                 "ref": r.variant.ref, "alt": r.variant.alt,
                 "AC": r.AC, "AN": r.AN, "AF": r.AF, "n_eligible": r.n_samples_eligible,
                 "N_HET": r.N_HET, "N_HOM_ALT": r.N_HOM_ALT, "N_HOM_REF": r.N_HOM_REF,
+                "N_FAIL": r.N_FAIL,
             }
-            if r.N_FAIL is not None:
-                entry["N_FAIL"] = r.N_FAIL
             out.append(entry)
         click.echo(json.dumps(out, indent=2))
     elif fmt == "tsv":
-        has_fail = any(r.N_FAIL is not None for r in results)
-        header = "chrom\tpos\tref\talt\tAC\tAN\tAF\tn_eligible\tN_HET\tN_HOM_ALT\tN_HOM_REF"
-        if has_fail:
-            header += "\tN_FAIL"
+        header = "chrom\tpos\tref\talt\tAC\tAN\tAF\tn_eligible\tN_HET\tN_HOM_ALT\tN_HOM_REF\tN_FAIL"
         click.echo(header)
         for r in results:
             af = f"{r.AF:.6f}" if r.AF is not None else "NA"
             line = (
                 f"{r.variant.chrom}\t{r.variant.pos}\t{r.variant.ref}\t"
                 f"{r.variant.alt}\t{r.AC}\t{r.AN}\t{af}\t{r.n_samples_eligible}\t"
-                f"{r.N_HET}\t{r.N_HOM_ALT}\t{r.N_HOM_REF}"
+                f"{r.N_HET}\t{r.N_HOM_ALT}\t{r.N_HOM_REF}\t{r.N_FAIL}"
             )
-            if has_fail:
-                line += f"\t{r.N_FAIL if r.N_FAIL is not None else '?'}"
             click.echo(line)
     else:  # text
         if not results:
@@ -87,11 +81,10 @@ def query(db, chrom, pos, phenotype, sex, ref, alt, tech, fmt):
             return
         for r in results:
             af = f"{r.AF:.4f}" if r.AF is not None else "NA"
-            fail_str = f"  N_FAIL={r.N_FAIL}" if r.N_FAIL is not None else ""
             click.echo(
                 f"{r.variant.chrom}:{r.variant.pos} {r.variant.ref}>{r.variant.alt}  "
                 f"AC={r.AC}  AN={r.AN}  AF={af}  n_eligible={r.n_samples_eligible}  "
-                f"N_HET={r.N_HET}  N_HOM_ALT={r.N_HOM_ALT}  N_HOM_REF={r.N_HOM_REF}{fail_str}"
+                f"N_HET={r.N_HET}  N_HOM_ALT={r.N_HOM_ALT}  N_HOM_REF={r.N_HOM_REF}  N_FAIL={r.N_FAIL}"
             )
 
 
@@ -363,10 +356,8 @@ def version_set(db, new_version):
 @click.option("--bed-dir",      default=None, help="Directory containing BED files for WES technologies.")
 @click.option("--force", is_flag=True, default=False, help="Delete any partial results and restart from scratch. (default: False)")
 @click.option("--db-version", "db_version", default="1.0", help="Version label for this database. (default: 1.0)")
-@click.option("--include-all-filters", "include_all_filters", is_flag=True, default=False,
-              help="Count all variants regardless of FILTER field (default: PASS-only).")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output with per-item progress. (default: false)")
-def preprocess(manifest, output_dir, genome_build, threads: int | None, build_threads: int | None, build_memory: str, tmp_dir, bed_dir, force, db_version, include_all_filters, verbose):
+def preprocess(manifest, output_dir, genome_build, threads: int | None, build_threads: int | None, build_memory: str, tmp_dir, bed_dir, force, db_version, verbose):
     """Preprocess VCFs from manifest into the query database."""
     _configure_logging(verbose)
     from .preprocess import run_preprocess
@@ -384,7 +375,6 @@ def preprocess(manifest, output_dir, genome_build, threads: int | None, build_th
             tmp_dir=tmp_dir,
             force=force,
             db_version=db_version,
-            include_all_filters=include_all_filters,
         )
         click.echo(f"Database written to {output_dir}")
     except (ManifestError, IngestError) as e:

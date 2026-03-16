@@ -20,7 +20,6 @@ from ..models import Sample, Technology
 from .build import PARQUET_SCHEMA, get_chroms_in_temp_files
 from .ingest import ingest_all
 from .manifest import parse_manifest
-from .migrate import migrate_sqlite
 from .regions import build_capture_indices
 
 logger = logging.getLogger(__name__)
@@ -123,7 +122,6 @@ def _merge_chromosome_parquet(
     db_dir: str,
     update_tmp_dir: str,
     row_group_size: int = 100_000,
-    pass_only: bool = True,
 ) -> tuple[int, int]:
     """Merge new temp files into existing chrom Parquet. Returns (new_variants, updated_variants)."""
     variants_dir = os.path.join(db_dir, "variants")
@@ -178,12 +176,8 @@ def _merge_chromosome_parquet(
 
     for pos, ref, alt, sample_ids, gt_acs, filter_passes in rows:
         key = (pos, ref, alt)
-        if pass_only:
-            het_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 1 and fp]
-            hom_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 2 and fp]
-        else:
-            het_ids  = [sid for sid, ac in zip(sample_ids, gt_acs) if ac == 1]
-            hom_ids  = [sid for sid, ac in zip(sample_ids, gt_acs) if ac == 2]
+        het_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 1 and fp]
+        hom_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 2 and fp]
         fail_ids = [sid for sid, fp in zip(sample_ids, filter_passes) if not fp]
         new_het = BitMap(het_ids)
         new_hom = BitMap(hom_ids)
@@ -230,7 +224,6 @@ def _merge_chromosome_parquet(
 def _clear_bits_from_parquet(parquet_file: str, removal_ids: BitMap) -> None:
     """Clear removal_ids bits from het/hom/fail bitmaps in a Parquet file. Rewrites atomically if dirty."""
     table = pq.read_table(parquet_file)
-    has_fail = "fail_bitmap" in table.schema.names
     dirty = False
 
     new_het_list = []
@@ -242,7 +235,7 @@ def _clear_bits_from_parquet(parquet_file: str, removal_ids: BitMap) -> None:
         hom_bytes = table["hom_bitmap"][i].as_py()
         het_bm = deserialize(het_bytes)
         hom_bm = deserialize(hom_bytes)
-        fail_bm = deserialize(table["fail_bitmap"][i].as_py()) if has_fail else BitMap()
+        fail_bm = deserialize(table["fail_bitmap"][i].as_py())
 
         combined = het_bm | hom_bm | fail_bm
         if removal_ids & combined:
@@ -258,36 +251,17 @@ def _clear_bits_from_parquet(parquet_file: str, removal_ids: BitMap) -> None:
     if not dirty:
         return
 
-    if has_fail:
-        new_table = pa.table(
-            {
-                "pos":         table["pos"],
-                "ref":         table["ref"],
-                "alt":         table["alt"],
-                "het_bitmap":  pa.array(new_het_list,  type=pa.large_binary()),
-                "hom_bitmap":  pa.array(new_hom_list,  type=pa.large_binary()),
-                "fail_bitmap": pa.array(new_fail_list, type=pa.large_binary()),
-            },
-            schema=PARQUET_SCHEMA,
-        )
-    else:
-        _v1_schema = pa.schema([
-            ("pos",        pa.uint32()),
-            ("ref",        pa.large_utf8()),
-            ("alt",        pa.large_utf8()),
-            ("het_bitmap", pa.large_binary()),
-            ("hom_bitmap", pa.large_binary()),
-        ])
-        new_table = pa.table(
-            {
-                "pos":        table["pos"],
-                "ref":        table["ref"],
-                "alt":        table["alt"],
-                "het_bitmap": pa.array(new_het_list, type=pa.large_binary()),
-                "hom_bitmap": pa.array(new_hom_list, type=pa.large_binary()),
-            },
-            schema=_v1_schema,
-        )
+    new_table = pa.table(
+        {
+            "pos":         table["pos"],
+            "ref":         table["ref"],
+            "alt":         table["alt"],
+            "het_bitmap":  pa.array(new_het_list,  type=pa.large_binary()),
+            "hom_bitmap":  pa.array(new_hom_list,  type=pa.large_binary()),
+            "fail_bitmap": pa.array(new_fail_list, type=pa.large_binary()),
+        },
+        schema=PARQUET_SCHEMA,
+    )
 
     tmp_path = parquet_file + ".tmp"
     pq.write_table(new_table, tmp_path)
@@ -324,9 +298,8 @@ def add_samples(
 
     logger.info("[add-samples] Adding %d new sample(s)...", len(samples_raw))
 
-    # 4. Migrate SQLite schema and open connection
+    # 4. Open connection
     db_path = os.path.join(db_dir, "metadata.sqlite")
-    migrate_sqlite(db_path)
     con = sqlite3.connect(db_path)
 
     total_new = 0
@@ -401,14 +374,6 @@ def add_samples(
         if auto_tmp:
             tmp_dir = tempfile.mkdtemp(prefix="afquery_update_")
 
-        # Derive pass_only from schema_version: v2+ DBs use pass-only ingestion
-        schema_ver_str = manifest.get("schema_version", "1.0")
-        try:
-            schema_ver = float(schema_ver_str)
-        except (ValueError, TypeError):
-            schema_ver = 1.0
-        pass_only = schema_ver >= 2.0
-
         try:
             ingest_all(new_samples, vcf_paths, tmp_dir, n_workers=effective_threads)
 
@@ -417,7 +382,7 @@ def add_samples(
 
             # 10. Merge Parquet files
             for chrom in chroms:
-                n, u = _merge_chromosome_parquet(chrom, db_dir, tmp_dir, pass_only=pass_only)
+                n, u = _merge_chromosome_parquet(chrom, db_dir, tmp_dir)
                 total_new += n
                 total_updated += u
                 logger.debug("  [add-samples] Merged %s: %d new, %d updated", chrom, n, u)
@@ -480,7 +445,6 @@ def remove_samples(db_dir: str, sample_names: list[str]) -> dict:
     manifest = _read_manifest(db_dir)
 
     db_path = os.path.join(db_dir, "metadata.sqlite")
-    migrate_sqlite(db_path)
     con = sqlite3.connect(db_path)
 
     try:
@@ -722,11 +686,7 @@ def check_database(db_dir: str) -> list[CheckResult]:
                             f"{max(bm)} > max sample_id {max_sample_id}"
                         )
 
-    # Check 14: schema_version key absent → warning
-    if "schema_version" not in manifest:
-        warn("manifest.json missing 'schema_version' key")
-
-    # Check 15: info summary
+    # Check 14: info summary
     info(
         f"genome_build={manifest['genome_build']}, "
         f"sample_count={manifest['sample_count']}, "

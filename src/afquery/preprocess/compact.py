@@ -63,7 +63,6 @@ def compact_database(db_path: Path) -> dict:
     for parquet_file in all_parquets:
         table = pq.read_table(str(parquet_file))
         rows_processed += len(table)
-        has_fail = "fail_bitmap" in table.schema.names
 
         keep_indices = []
         new_het_list = []
@@ -74,7 +73,7 @@ def compact_database(db_path: Path) -> dict:
         for i in range(len(table)):
             het_bm = deserialize(table["het_bitmap"][i].as_py())
             hom_bm = deserialize(table["hom_bitmap"][i].as_py())
-            fail_bm = deserialize(table["fail_bitmap"][i].as_py()) if has_fail else BitMap()
+            fail_bm = deserialize(table["fail_bitmap"][i].as_py())
 
             new_het = het_bm & active_ids
             new_hom = hom_bm & active_ids
@@ -100,37 +99,17 @@ def compact_database(db_path: Path) -> dict:
 
         # Build new table with kept rows and updated bitmaps
         orig_keep = table.take(keep_indices)
-        if has_fail:
-            new_table = pa.table(
-                {
-                    "pos":         orig_keep["pos"],
-                    "ref":         orig_keep["ref"],
-                    "alt":         orig_keep["alt"],
-                    "het_bitmap":  pa.array(new_het_list,  type=pa.large_binary()),
-                    "hom_bitmap":  pa.array(new_hom_list,  type=pa.large_binary()),
-                    "fail_bitmap": pa.array(new_fail_list, type=pa.large_binary()),
-                },
-                schema=PARQUET_SCHEMA,
-            )
-        else:
-            from .build import PARQUET_SCHEMA as _FULL_SCHEMA
-            _v1_schema = pa.schema([
-                ("pos",        pa.uint32()),
-                ("ref",        pa.large_utf8()),
-                ("alt",        pa.large_utf8()),
-                ("het_bitmap", pa.large_binary()),
-                ("hom_bitmap", pa.large_binary()),
-            ])
-            new_table = pa.table(
-                {
-                    "pos":        orig_keep["pos"],
-                    "ref":        orig_keep["ref"],
-                    "alt":        orig_keep["alt"],
-                    "het_bitmap": pa.array(new_het_list, type=pa.large_binary()),
-                    "hom_bitmap": pa.array(new_hom_list, type=pa.large_binary()),
-                },
-                schema=_v1_schema,
-            )
+        new_table = pa.table(
+            {
+                "pos":         orig_keep["pos"],
+                "ref":         orig_keep["ref"],
+                "alt":         orig_keep["alt"],
+                "het_bitmap":  pa.array(new_het_list,  type=pa.large_binary()),
+                "hom_bitmap":  pa.array(new_hom_list,  type=pa.large_binary()),
+                "fail_bitmap": pa.array(new_fail_list, type=pa.large_binary()),
+            },
+            schema=PARQUET_SCHEMA,
+        )
 
         tmp_path = str(parquet_file) + ".tmp"
         pq.write_table(new_table, tmp_path)

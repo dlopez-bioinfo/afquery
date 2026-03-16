@@ -109,15 +109,13 @@ def test_compact_preserves_active_bitmaps(compact_db):
     con.close()
 
     tbl = pq.read_table(str(Path(compact_db) / "variants" / "chr1.parquet"))
-    has_fail = "fail_bitmap" in tbl.schema.names
     for i in range(len(tbl)):
         het_bm = deserialize(tbl["het_bitmap"][i].as_py())
         hom_bm = deserialize(tbl["hom_bitmap"][i].as_py())
         assert het_bm.issubset(active_ids), f"Row {i}: het_bm contains inactive sample"
         assert hom_bm.issubset(active_ids), f"Row {i}: hom_bm contains inactive sample"
-        if has_fail:
-            fail_bm = deserialize(tbl["fail_bitmap"][i].as_py())
-            assert fail_bm.issubset(active_ids), f"Row {i}: fail_bm contains inactive sample"
+        fail_bm = deserialize(tbl["fail_bitmap"][i].as_py())
+        assert fail_bm.issubset(active_ids), f"Row {i}: fail_bm contains inactive sample"
 
 
 def test_compact_atomic_write(compact_db, monkeypatch):

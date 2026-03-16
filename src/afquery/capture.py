@@ -1,3 +1,4 @@
+import bisect
 import pickle
 import warnings
 import pyranges as pr
@@ -8,10 +9,21 @@ from .models import Technology
 class CaptureIndex:
     _always_covered: bool
     _pr: "pr.PyRanges | None"
+    # Per-chrom sorted interval index: {chrom: (sorted_starts, corresponding_ends)}
+    _index: "dict[str, tuple[list[int], list[int]]]"
 
     def __init__(self, *, always_covered: bool = False, pyranges_obj=None):
         self._always_covered = always_covered
         self._pr = pyranges_obj
+        self._index = {}
+        if pyranges_obj is not None:
+            df = pyranges_obj.df
+            for chrom, group in df.groupby("Chromosome", observed=True):
+                pairs = sorted(zip(group["Start"].tolist(), group["End"].tolist()))
+                self._index[str(chrom)] = (
+                    [s for s, _ in pairs],
+                    [e for _, e in pairs],
+                )
 
     @classmethod
     def wgs(cls) -> "CaptureIndex":
@@ -31,11 +43,36 @@ class CaptureIndex:
         """
         if self._always_covered:
             return True
-        df = self._pr.df
-        chrom_df = df[df["Chromosome"] == chrom]
-        if chrom_df.empty:
+        entry = self._index.get(chrom)
+        if entry is None:
             return False
-        return bool(((chrom_df["Start"] < pos) & (pos <= chrom_df["End"])).any())
+        starts, ends = entry
+        # Find rightmost interval whose Start < pos (0-based start, so Start < pos_1based)
+        # bisect_left gives insertion point for pos in starts; all starts[:idx] < pos
+        idx = bisect.bisect_left(starts, pos) - 1
+        # Check candidates from idx downward: intervals may overlap, so we scan
+        # backwards until Start is so small it can't possibly reach pos
+        while idx >= 0:
+            if ends[idx] >= pos:
+                return True
+            # Since starts are sorted ascending, once we go far enough back,
+            # no remaining interval can cover pos either
+            idx -= 1
+        return False
+
+    def __setstate__(self, state: dict) -> None:
+        """Rebuild _index when loading pickles saved before the binary-search refactor."""
+        self.__dict__.update(state)
+        if not hasattr(self, "_index"):
+            self._index = {}
+            if getattr(self, "_pr", None) is not None:
+                df = self._pr.df
+                for chrom, group in df.groupby("Chromosome", observed=True):
+                    pairs = sorted(zip(group["Start"].tolist(), group["End"].tolist()))
+                    self._index[str(chrom)] = (
+                        [s for s, _ in pairs],
+                        [e for _, e in pairs],
+                    )
 
     def save(self, path: str) -> None:
         with open(path, "wb") as f:

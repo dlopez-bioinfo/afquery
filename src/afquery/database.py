@@ -3,14 +3,12 @@ import sqlite3
 from pathlib import Path
 
 from .models import QueryParams, QueryResult, SampleFilter
-from .preprocess.migrate import migrate_sqlite
 from .query import QueryEngine
 
 
 class Database:
     def __init__(self, db_path: str):
         self._path = Path(db_path)
-        migrate_sqlite(self._path / "metadata.sqlite")
         self._engine = QueryEngine(db_path)
         self._manifest = json.loads((self._path / "manifest.json").read_text())
 
@@ -151,8 +149,8 @@ class Database:
         return {
             "db_path": str(self._path),
             "db_version": m.get("db_version", "unknown"),
-            "genome_build": m.get("genome_build", "unknown"),
-            "schema_version": m.get("schema_version", "unknown"),
+            "genome_build": m["genome_build"],
+            "schema_version": m["schema_version"],
             "created_at": m.get("created_at"),
             "updated_at": m.get("updated_at"),
             "sample_count": total,

@@ -6,80 +6,8 @@ from pathlib import Path
 import pytest
 
 from afquery.database import Database
-from afquery.preprocess.migrate import migrate_sqlite
 from afquery.preprocess import _write_sqlite
 from afquery.models import Sample, Technology
-
-
-# ---------------------------------------------------------------------------
-# Migration tests
-# ---------------------------------------------------------------------------
-
-class TestMigrate:
-    def _make_old_db(self, path: Path) -> Path:
-        """Create a SQLite DB with the pre-migration 4-column samples schema."""
-        db = path / "metadata.sqlite"
-        con = sqlite3.connect(str(db))
-        con.executescript("""
-            CREATE TABLE samples (
-                sample_id   INTEGER PRIMARY KEY,
-                sample_name TEXT NOT NULL,
-                sex         TEXT NOT NULL,
-                tech_id     INTEGER NOT NULL
-            );
-            CREATE TABLE technologies (
-                tech_id   INTEGER PRIMARY KEY,
-                tech_name TEXT NOT NULL,
-                bed_path  TEXT
-            );
-            CREATE TABLE sample_phenotype (
-                sample_id      INTEGER NOT NULL,
-                phenotype_code TEXT NOT NULL,
-                PRIMARY KEY (sample_id, phenotype_code)
-            );
-            CREATE TABLE precomputed_bitmaps (
-                bitmap_type TEXT NOT NULL,
-                bitmap_key  TEXT NOT NULL,
-                bitmap_data BLOB NOT NULL,
-                PRIMARY KEY (bitmap_type, bitmap_key)
-            );
-        """)
-        con.execute("INSERT INTO samples VALUES (0, 'S0', 'male', 0)")
-        con.commit()
-        con.close()
-        return db
-
-    def test_migrate_adds_columns_to_old_db(self, tmp_path):
-        db = self._make_old_db(tmp_path)
-        migrate_sqlite(db)
-        con = sqlite3.connect(str(db))
-        cols = {row[1] for row in con.execute("PRAGMA table_info(samples)").fetchall()}
-        con.close()
-        assert "vcf_path" in cols
-        assert "ingested_at" in cols
-
-    def test_migrate_creates_changelog_table(self, tmp_path):
-        db = self._make_old_db(tmp_path)
-        migrate_sqlite(db)
-        con = sqlite3.connect(str(db))
-        tables = {r[0] for r in con.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()}
-        con.close()
-        assert "changelog" in tables
-
-    def test_migrate_idempotent(self, tmp_path):
-        db = self._make_old_db(tmp_path)
-        migrate_sqlite(db)
-        migrate_sqlite(db)  # second call must not raise
-
-    def test_migrate_preserves_existing_rows(self, tmp_path):
-        db = self._make_old_db(tmp_path)
-        migrate_sqlite(db)
-        con = sqlite3.connect(str(db))
-        rows = con.execute("SELECT sample_name FROM samples").fetchall()
-        con.close()
-        assert rows == [("S0",)]
 
 
 # ---------------------------------------------------------------------------

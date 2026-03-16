@@ -49,7 +49,7 @@ def test_fail_samples_returned(test_db):
     assert results, "Expected at least one result"
     r = next((x for x in results if x.variant.ref == "A" and x.variant.alt == "T"), None)
     assert r is not None
-    assert r.N_FAIL is not None, "v2 DB should return N_FAIL"
+    assert r.N_FAIL >= 0, "v2 DB should return N_FAIL"
     assert r.N_FAIL == 1  # only S00 (id=0) fails
 
 
@@ -60,7 +60,7 @@ def test_fail_samples_zero_when_no_failures(test_db):
     results = db.query(chrom="chr1", pos=3500)
     assert results
     r = results[0]
-    assert r.N_FAIL is not None
+    assert r.N_FAIL >= 0
     assert r.N_FAIL == 0
 
 
@@ -72,7 +72,7 @@ def test_fail_samples_chrM(test_db):
     assert results
     r = next((x for x in results if x.variant.ref == "C" and x.variant.alt == "A"), None)
     assert r is not None
-    assert r.N_FAIL is not None
+    assert r.N_FAIL >= 0
     # S05 (fail carrier) is WES_kit_A — WES_kit_A BED doesn't cover chrM.
     # Only WGS samples are eligible, none of which fail at this position.
     assert r.N_FAIL == 0
@@ -88,57 +88,9 @@ def test_fail_samples_filtered_by_eligible(test_db):
     if results:
         r = next((x for x in results if x.variant.ref == "A"), None)
         if r:
-            assert r.N_FAIL is not None
+            assert r.N_FAIL >= 0
             # S00 (fail) is WGS, not WES_kit_A — not eligible under this filter
             assert r.N_FAIL == 0
-
-
-def test_v1_db_returns_none_fail_samples(tmp_path, data_dir):
-    """A v1 DB (no schema_version or schema_version=1.0) returns N_FAIL=None."""
-    import shutil
-    from conftest import _build_db, _build_parquet
-
-    # Build a v2 db first, then patch manifest to v1
-    db_path = tmp_path / "v1_db"
-    db_path.mkdir()
-    _build_db(db_path, data_dir)
-
-    # Downgrade schema_version to 1.0 and rebuild parquet WITHOUT fail_bitmap
-    manifest = json.loads((db_path / "manifest.json").read_text())
-    manifest["schema_version"] = "1.0"
-    (db_path / "manifest.json").write_text(json.dumps(manifest))
-
-    # Rewrite parquet files without fail_bitmap
-    v1_schema = pa.schema([
-        ("pos",        pa.uint32()),
-        ("ref",        pa.large_utf8()),
-        ("alt",        pa.large_utf8()),
-        ("het_bitmap", pa.large_binary()),
-        ("hom_bitmap", pa.large_binary()),
-    ])
-    by_chrom: dict[str, list] = {}
-    for chrom, pos, ref, alt, het_ids, hom_ids, _fail_ids in VARIANTS:
-        by_chrom.setdefault(chrom, []).append((pos, ref, alt, het_ids, hom_ids))
-    for chrom, rows in by_chrom.items():
-        rows.sort(key=lambda r: r[0])
-        table = pa.table(
-            {
-                "pos":        pa.array([r[0] for r in rows], type=pa.uint32()),
-                "ref":        pa.array([r[1] for r in rows], type=pa.large_utf8()),
-                "alt":        pa.array([r[2] for r in rows], type=pa.large_utf8()),
-                "het_bitmap": pa.array([serialize(BitMap(r[3])) for r in rows], type=pa.large_binary()),
-                "hom_bitmap": pa.array([serialize(BitMap(r[4])) for r in rows], type=pa.large_binary()),
-            },
-            schema=v1_schema,
-        )
-        pq.write_table(table, db_path / "variants" / f"{chrom}.parquet")
-
-    db = Database(str(db_path))
-    results = db.query(chrom="chr1", pos=1500)
-    assert results
-    r = results[0]
-    assert r.N_FAIL is None, "v1 DB should return N_FAIL=None"
-
 
 def test_fail_samples_in_query_region(test_db):
     """query_region also returns N_FAIL for v2 DBs."""
@@ -146,7 +98,7 @@ def test_fail_samples_in_query_region(test_db):
     results = db.query_region(chrom="chr1", start=1000, end=2000)
     assert results
     for r in results:
-        assert r.N_FAIL is not None, "query_region should return N_FAIL for v2 DB"
+        assert r.N_FAIL >= 0, "query_region should return N_FAIL for v2 DB"
 
 
 def test_fail_samples_in_query_batch(test_db):
@@ -155,7 +107,7 @@ def test_fail_samples_in_query_batch(test_db):
     results = db.query_batch(chrom="chr1", variants=[(1500, "A", "T"), (3500, "G", "C")])
     assert results
     for r in results:
-        assert r.N_FAIL is not None, "query_batch should return N_FAIL for v2 DB"
+        assert r.N_FAIL >= 0, "query_batch should return N_FAIL for v2 DB"
 
 
 # ---------------------------------------------------------------------------
@@ -200,32 +152,6 @@ def test_pass_only_default_in_preprocess(tmp_path):
     assert r.N_FAIL == 1, f"Expected N_FAIL=1, got {r.N_FAIL}"
 
 
-def test_include_all_filters_in_preprocess(tmp_path):
-    """With --include-all-filters, non-PASS calls DO count in AC."""
-    records_by_sample = {
-        "S00": [("chr1", 1000, "A", "T", "0/1", "PASS")],
-        "S01": [("chr1", 1000, "A", "T", "0/1", "LowQual")],
-    }
-    manifest_path = _make_vcf_manifest(tmp_path, records_by_sample)
-    db_path = tmp_path / "db_all"
-    db_path.mkdir()
-    run_preprocess(
-        manifest_path=str(manifest_path),
-        output_dir=str(db_path),
-        genome_build="GRCh37",
-        threads=1,
-        include_all_filters=True,
-    )
-    db = Database(str(db_path))
-    results = db.query(chrom="chr1", pos=1000)
-    assert results
-    r = results[0]
-    # AC should count both S00 and S01 (include-all-filters)
-    assert r.AC == 2, f"Expected AC=2 (all-filters mode), got AC={r.AC}"
-    # N_FAIL should still report non-PASS count
-    assert r.N_FAIL == 1, f"Expected N_FAIL=1, got {r.N_FAIL}"
-
-
 def test_variant_with_only_fail_appears(tmp_path):
     """A variant where all carriers fail FILTER (AC=0) still appears in v2 DB with FAIL>0."""
     records_by_sample = {
@@ -265,23 +191,3 @@ def test_schema_version_in_manifest(tmp_path):
     manifest = json.loads((db_path / "manifest.json").read_text())
     assert manifest.get("schema_version") == "2.0"
     assert manifest.get("pass_only_filter") is True
-
-
-def test_include_all_filters_manifest(tmp_path):
-    """--include-all-filters sets pass_only_filter=False in manifest."""
-    records_by_sample = {
-        "S00": [("chr1", 1000, "A", "T", "0/1", "PASS")],
-    }
-    manifest_path = _make_vcf_manifest(tmp_path, records_by_sample)
-    db_path = tmp_path / "db_all_manifest"
-    db_path.mkdir()
-    run_preprocess(
-        manifest_path=str(manifest_path),
-        output_dir=str(db_path),
-        genome_build="GRCh37",
-        threads=1,
-        include_all_filters=True,
-    )
-    manifest = json.loads((db_path / "manifest.json").read_text())
-    assert manifest.get("schema_version") == "2.0"
-    assert manifest.get("pass_only_filter") is False

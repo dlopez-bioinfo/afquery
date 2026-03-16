@@ -5,7 +5,9 @@
     "pos": 1500,
     "ref": "A",
     "alt": "T",
-    "phenotype": ["E11.9"],
+    "phenotype": [
+      "E11.9"
+    ],
     "sex": "both",
     "AC": 4,
     "AN": 10,
@@ -18,7 +20,9 @@
     "pos": 1500,
     "ref": "A",
     "alt": "T",
-    "phenotype": ["E11.9"],
+    "phenotype": [
+      "E11.9"
+    ],
     "sex": "female",
     "AC": 3,
     "AN": 6,
@@ -31,7 +35,9 @@
     "pos": 5000000,
     "ref": "A",
     "alt": "G",
-    "phenotype": ["E11.9"],
+    "phenotype": [
+      "E11.9"
+    ],
     "sex": "both",
     "AC": 2,
     "AN": 4,
@@ -44,7 +50,9 @@
     "pos": 500000,
     "ref": "T",
     "alt": "C",
-    "phenotype": ["J45"],
+    "phenotype": [
+      "J45"
+    ],
     "sex": "both",
     "AC": 1,
     "AN": 1,
@@ -57,11 +65,13 @@
     "pos": 100,
     "ref": "C",
     "alt": "A",
-    "phenotype": ["E11.9"],
+    "phenotype": [
+      "E11.9"
+    ],
     "sex": "both",
-    "AC": 2,
-    "AN": 3,
-    "AF": 0.6666666666666666,
+    "AC": 3,
+    "AN": 4,
+    "AF": 0.75,
     "n_eligible": 3
   }
 ]

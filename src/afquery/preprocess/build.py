@@ -174,7 +174,6 @@ def _build_one_bucket_worker(
     out_path: str,
     row_group_size: int,
     memory_limit: str,
-    pass_only: bool = True,
 ) -> tuple[int, int, float]:
     """Build one bucket Parquet file. Returns (bucket_id, variant_count, elapsed_seconds).
 
@@ -220,12 +219,8 @@ def _build_one_bucket_worker(
     fail_bitmaps = []
 
     for pos, ref, alt, sample_ids, gt_acs, filter_passes in rows:
-        if pass_only:
-            het_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 1 and fp]
-            hom_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 2 and fp]
-        else:
-            het_ids  = [sid for sid, ac in zip(sample_ids, gt_acs) if ac == 1]
-            hom_ids  = [sid for sid, ac in zip(sample_ids, gt_acs) if ac == 2]
+        het_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 1 and fp]
+        hom_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 2 and fp]
         fail_ids = [sid for sid, fp in zip(sample_ids, filter_passes) if not fp]
         if not het_ids and not hom_ids and not fail_ids:
             continue
@@ -258,7 +253,6 @@ def build_chromosome_parquet(
     partitioned: bool = False,
     memory_limit: str = "2GB",
     consolidated_path: str | None = None,
-    pass_only: bool = True,
 ) -> int:
     """Build Parquet for one chromosome. Returns variant count."""
     params: list = []
@@ -290,7 +284,7 @@ def build_chromosome_parquet(
             out_path = os.path.join(variants_dir, chrom, f"bucket_{bucket_id}.parquet")
             _, count, _ = _build_one_bucket_worker(
                 source, where_clause, params, bucket_id, out_path,
-                row_group_size, memory_limit, pass_only,
+                row_group_size, memory_limit,
             )
             total_count += count
         return total_count
@@ -328,12 +322,8 @@ def build_chromosome_parquet(
     fail_bitmaps = []
 
     for pos, ref, alt, sample_ids, gt_acs, filter_passes in rows:
-        if pass_only:
-            het_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 1 and fp]
-            hom_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 2 and fp]
-        else:
-            het_ids  = [sid for sid, ac in zip(sample_ids, gt_acs) if ac == 1]
-            hom_ids  = [sid for sid, ac in zip(sample_ids, gt_acs) if ac == 2]
+        het_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 1 and fp]
+        hom_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 2 and fp]
         fail_ids = [sid for sid, fp in zip(sample_ids, filter_passes) if not fp]
         if not het_ids and not hom_ids and not fail_ids:
             continue
@@ -366,13 +356,12 @@ def _build_chrom_worker(
     partitioned: bool,
     memory_limit: str = "2GB",
     consolidated_path: str | None = None,
-    pass_only: bool = True,
 ) -> tuple[str, int, float]:
     """Top-level worker for ProcessPoolExecutor (must be picklable). Returns (chrom, count, elapsed)."""
     t0 = time.monotonic()
     count = build_chromosome_parquet(
         chrom, tmp_dir, variants_dir, row_group_size, partitioned, memory_limit,
-        consolidated_path, pass_only,
+        consolidated_path,
     )
     return chrom, count, time.monotonic() - t0
 
@@ -386,7 +375,6 @@ def build_all_parquets(
     memory_limit: str = "2GB",
     consolidated_path: str | None = None,
     resume: bool = True,
-    pass_only: bool = True,
 ) -> dict[str, int]:
     """Build Parquet for all discovered chromosomes. Returns {chrom: count}.
 
@@ -490,7 +478,7 @@ def build_all_parquets(
                     pool.submit(
                         _build_one_bucket_worker,
                         source, base_where, params, bucket_id, out_path,
-                        row_group_size, memory_limit, pass_only,
+                        row_group_size, memory_limit,
                     ): (chrom, bucket_id)
                     for chrom, bucket_id, source, base_where, params, out_path in all_tasks
                 }
@@ -585,7 +573,7 @@ def build_all_parquets(
                 pool.submit(
                     _build_chrom_worker,
                     chrom, tmp_dir, variants_dir, row_group_size, partitioned, memory_limit,
-                    consolidated_path, pass_only,
+                    consolidated_path,
                 ): chrom
                 for chrom in to_build
             }

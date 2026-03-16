@@ -109,15 +109,6 @@ def ingest_sample(sample_id: int, vcf_path: str, tmp_dir: str) -> tuple[str, flo
     return out_path, elapsed
 
 
-def _has_filter_pass_column(path: str) -> bool:
-    """Return True if the Parquet file contains a 'filter_pass' column."""
-    try:
-        schema = pq.read_schema(path)
-        return "filter_pass" in schema.names
-    except Exception:
-        return False
-
-
 def _ingest_worker(args: tuple) -> str:
     sample_id, vcf_path, tmp_dir = args
     return ingest_sample(sample_id, vcf_path, tmp_dir)
@@ -138,7 +129,7 @@ def ingest_all(
         n_skip = 0
         for a in args_list:
             parquet_path = os.path.join(tmp_dir, f"sample_{a[0]}.parquet")
-            if os.path.exists(parquet_path) and _has_filter_pass_column(parquet_path):
+            if os.path.exists(parquet_path):
                 n_skip += 1
             else:
                 pending.append(a)

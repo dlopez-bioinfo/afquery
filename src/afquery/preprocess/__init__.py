@@ -30,7 +30,6 @@ def run_preprocess(
     tmp_dir: str | None = None,
     force: bool = False,
     db_version: str = "1.0",
-    include_all_filters: bool = False,
 ) -> None:
     if genome_build not in VALID_GENOME_BUILDS:
         raise ValueError(
@@ -149,10 +148,9 @@ def run_preprocess(
             else effective_threads
         )
         logger.info("[build] Build memory limit: %s per worker", build_memory)
-        pass_only = not include_all_filters
         build_all_parquets(actual_tmp, variants_dir, n_workers=build_workers,
                            consolidated_path=consolidated, resume=(not force),
-                           memory_limit=build_memory, pass_only=pass_only)
+                           memory_limit=build_memory)
         success = True
     finally:
         if auto_tmp and success:
@@ -164,8 +162,7 @@ def run_preprocess(
             )
 
     logger.debug("[preprocess] Writing manifest.json...")
-    _write_manifest(output_dir, genome_build, len(samples), db_version=db_version,
-                    pass_only=not include_all_filters)
+    _write_manifest(output_dir, genome_build, len(samples), db_version=db_version)
 
     logger.info("[preprocess] Database complete: %s", output_dir)
 
@@ -272,7 +269,6 @@ def _write_manifest(
     genome_build: str,
     sample_count: int,
     db_version: str = "1.0",
-    pass_only: bool = True,
 ) -> None:
     manifest = {
         "genome_build": genome_build,
@@ -280,7 +276,7 @@ def _write_manifest(
         "db_version": db_version,
         "sample_count": sample_count,
         "schema_version": "2.0",
-        "pass_only_filter": pass_only,
+        "pass_only_filter": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     with open(os.path.join(output_dir, "manifest.json"), "w") as f:

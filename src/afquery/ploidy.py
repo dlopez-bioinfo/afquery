@@ -1,10 +1,9 @@
 from pyroaring import BitMap
-from .constants import PAR, normalize_chrom
+from .constants import PAR
 
 
 def is_par(chrom: str, pos: int, genome_build: str) -> bool:
-    """Return True if pos is inside a PAR region on chrX or chrY."""
-    chrom = normalize_chrom(chrom)
+    """Return True if pos is inside a PAR region on chrX or chrY. Caller must pass normalized chrom."""
     if chrom not in ("chrX", "chrY"):
         return False
     for start, end in PAR[genome_build].get(chrom, []):
@@ -23,6 +22,8 @@ def compute_AN(
 ) -> int:
     """Compute ploidy-aware AN for a set of eligible samples.
 
+    Caller must pass a normalized chrom (e.g. 'chr1', 'chrX').
+
     Rules:
     - Autosomes: AN = 2 × len(eligible)
     - chrM: AN = len(eligible)
@@ -30,7 +31,6 @@ def compute_AN(
     - chrX PAR: AN = 2 × len(eligible)
     - chrX non-PAR: females=2, males=1 → AN = 2×females + 1×males
     """
-    chrom = normalize_chrom(chrom)
 
     if chrom == "chrM":
         return len(eligible)
@@ -60,14 +60,14 @@ def split_ploidy(
 ) -> tuple[BitMap, BitMap]:
     """Divide eligible into (haploid_eligible, diploid_eligible).
 
+    Caller must pass a normalized chrom (e.g. 'chr1', 'chrX').
+
     Same rules as compute_AN:
     - chrM: all haploid
     - chrY: only eligible males, all haploid
     - chrX non-PAR: males haploid, females diploid
     - rest (autosomes, PAR): all diploid
     """
-    chrom = normalize_chrom(chrom)
-
     if chrom == "chrM":
         return eligible, BitMap()
 
