@@ -73,10 +73,8 @@ afquery annotate --db ./db/ --input patient.vcf --output annotated.vcf --threads
 
 ## Documentation
 
-- Installation: https://dlopez-bioinfo.github.io/afquery/getting-started/installation/
-- Quick Start: https://dlopez-bioinfo.github.io/afquery/getting-started/quickstart/
-- Key Concepts: https://dlopez-bioinfo.github.io/afquery/getting-started/concepts/
-- FAQ: https://dlopez-bioinfo.github.io/afquery/faq/
+- Full Documentation: https://dlopez-bioinfo.github.io/afquery/
+- Getting Started: https://dlopez-bioinfo.github.io/afquery/getting-started/
 
 ## Citation
 
