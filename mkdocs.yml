@@ -1,0 +1,98 @@
+site_name: AFQuery
+site_description: Fast, file-based genomic allele frequency queries for large cohorts
+repo_url: https://github.com/dlopez-bioinfo/afquery
+repo_name: afquery
+edit_uri: edit/master/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Preprocessing: getting-started/preprocessing.md
+    - 5-Min Quick Start: getting-started/quickstart.md
+    - Understanding Output: getting-started/understanding-output.md
+  - User Guides:
+    - Bioinformatics Workflows:
+      - Create a Database: guides/create-database.md
+      - Manifest Format: guides/manifest-format.md
+      - Update a Database: guides/update-database.md
+      - Query Allele Frequencies: guides/query.md
+      - Annotate a VCF: guides/annotate-vcf.md
+      - Bulk Export: guides/dump-export.md
+      - Sample Filtering: guides/sample-filtering.md
+    - Clinical Workflows:
+      - ACMG Criteria (BA1/PM2/PS4): clinical/acmg-use-cases.md
+      - Clinical Prioritization: use-cases/clinical-prioritization.md
+      - Pseudo-controls: use-cases/pseudo-controls.md
+      - Population-Specific AF: use-cases/population-specific-af.md
+      - Sex-Specific AF: use-cases/sex-specific-af.md
+      - Cohort Stratification: use-cases/cohort-stratification.md
+      - Technology Integration: use-cases/technology-integration.md
+  - Core Concepts: getting-started/concepts.md
+  - Reference:
+    - CLI Reference: reference/cli.md
+    - Python API: reference/python-api.md
+    - Data Model: reference/data-model.md
+    - Glossary: reference/glossary.md
+  - Advanced:
+    - Performance Tuning: advanced/performance.md
+    - Benchmarking: advanced/benchmarking.md
+    - Ploidy & Sex Chromosomes: advanced/ploidy-and-sex-chroms.md
+    - FILTER=PASS Tracking: advanced/filter-pass-tracking.md
+    - Pipeline Integration: advanced/pipeline-integration.md
+    - Multi-cohort Strategies: advanced/multi-cohort-strategies.md
+    - Debugging Results: advanced/debugging-results.md
+  - Publication:
+    - Scientific Overview: publication/scientific-overview.md
+    - Benchmarks Methodology: publication/benchmarks-methodology.md
+    - Comparison Table: publication/comparison-table.md
+  - FAQ & Troubleshooting:
+    - FAQ: faq.md
+    - Troubleshooting: troubleshooting.md

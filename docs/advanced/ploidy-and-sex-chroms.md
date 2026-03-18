@@ -1,0 +1,100 @@
+# Ploidy & Sex Chromosomes
+
+AFQuery computes ploidy-aware AN for sex chromosomes. This ensures that allele frequencies are correct when querying chrX, chrY, and chrMT.
+
+---
+
+## Ploidy Rules
+
+| Chromosome | Female AN contribution | Male AN contribution |
+|------------|----------------------|---------------------|
+| Autosomes (chr1–22) | 2 | 2 |
+| chrX (non-PAR) | 2 | 1 |
+| chrX (PAR1, PAR2) | 2 | 2 |
+| chrY | 0 | 1 |
+| chrMT | 1 | 1 |
+
+For each eligible sample at a given position, AFQuery adds the appropriate ploidy count to AN based on the sample's sex and the chromosome/position.
+
+---
+
+## Pseudoautosomal Regions (PAR)
+
+The pseudoautosomal regions on chrX behave like autosomes — both males and females contribute AN=2. PAR coordinates by genome build:
+
+### GRCh38
+
+| Region | Start | End |
+|--------|-------|-----|
+| PAR1 | 60,001 | 2,699,520 |
+| PAR2 | 154,931,044 | 155,270,560 |
+
+### GRCh37 / hg19
+
+| Region | Start | End |
+|--------|-------|-----|
+| PAR1 | 60,001 | 2,699,520 |
+| PAR2 | 154,931,044 | 155,270,560 |
+
+Positions within PAR1 or PAR2 on chrX are treated as diploid for all samples.
+
+---
+
+## Effect on AF Queries
+
+### chrY
+
+Querying chrY with `--sex female` returns `AN=0` (females have no Y chromosome):
+
+```bash
+afquery query --db ./db/ --chrom chrY --pos 2787758 --sex female
+# chrY:2787758 — no results (AN=0 for all variants)
+
+afquery query --db ./db/ --chrom chrY --pos 2787758 --sex male
+# chrY:2787758  REF=C  ALT=T  AC=3  AN=856  AF=0.0035
+```
+
+### chrX non-PAR
+
+Male samples contribute AN=1, female samples contribute AN=2. This means a cohort of 500 females and 500 males has AN = 500×2 + 500×1 = 1500 at a non-PAR X position.
+
+```bash
+afquery query --db ./db/ --chrom chrX --pos 100000000
+# N_total = 1000 samples, AN = 1500 (not 2000)
+```
+
+### chrMT
+
+All samples are haploid at mitochondrial loci:
+
+```bash
+afquery query --db ./db/ --chrom chrMT --pos 3243
+# AN = n_samples (one allele per sample)
+```
+
+---
+
+## Genotype Counting
+
+At non-PAR chrX positions:
+- A male with GT=`1` contributes AC=1, AN=1
+- A female with GT=`0/1` contributes AC=1, AN=2
+- A female with GT=`1/1` contributes AC=2, AN=2
+
+N_HET and N_HOM_ALT are counted per sample (not per allele):
+- Males at chrX are counted in N_HET if GT=1 (single alt allele)
+- The distinction between het/hom is less meaningful for haploid calls
+
+---
+
+## Sex Filter Interaction
+
+When `--sex female` is used on chrX (non-PAR), AN is purely diploid:
+- Each eligible female contributes AN=2
+- AF is computed over a fully diploid denominator
+
+When `--sex male` is used on chrX (non-PAR), AN is purely haploid:
+- Each eligible male contributes AN=1
+- AF reflects the observed allele frequency in haploid male calls
+
+This makes it straightforward to compare X-linked variant frequencies between sexes without manual ploidy adjustment.

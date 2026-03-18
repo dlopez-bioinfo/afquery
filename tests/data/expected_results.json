@@ -1,0 +1,77 @@
+[
+  {
+    "description": "chr1:1500 E11.9 both sexes",
+    "chrom": "chr1",
+    "pos": 1500,
+    "ref": "A",
+    "alt": "T",
+    "phenotype": [
+      "E11.9"
+    ],
+    "sex": "both",
+    "AC": 4,
+    "AN": 10,
+    "AF": 0.4,
+    "n_eligible": 5
+  },
+  {
+    "description": "chr1:1500 E11.9 female only",
+    "chrom": "chr1",
+    "pos": 1500,
+    "ref": "A",
+    "alt": "T",
+    "phenotype": [
+      "E11.9"
+    ],
+    "sex": "female",
+    "AC": 3,
+    "AN": 6,
+    "AF": 0.5,
+    "n_eligible": 3
+  },
+  {
+    "description": "chrX:5000000 non-PAR E11.9 both sexes (ploidy: 2F+1M)",
+    "chrom": "chrX",
+    "pos": 5000000,
+    "ref": "A",
+    "alt": "G",
+    "phenotype": [
+      "E11.9"
+    ],
+    "sex": "both",
+    "AC": 2,
+    "AN": 4,
+    "AF": 0.5,
+    "n_eligible": 3
+  },
+  {
+    "description": "chrY:500000 J45 both sexes (only males count for AN)",
+    "chrom": "chrY",
+    "pos": 500000,
+    "ref": "T",
+    "alt": "C",
+    "phenotype": [
+      "J45"
+    ],
+    "sex": "both",
+    "AC": 1,
+    "AN": 1,
+    "AF": 1.0,
+    "n_eligible": 2
+  },
+  {
+    "description": "chrM:100 E11.9 both sexes (ploidy=1 for all)",
+    "chrom": "chrM",
+    "pos": 100,
+    "ref": "C",
+    "alt": "A",
+    "phenotype": [
+      "E11.9"
+    ],
+    "sex": "both",
+    "AC": 2,
+    "AN": 3,
+    "AF": 0.6666666666666666,
+    "n_eligible": 3
+  }
+]

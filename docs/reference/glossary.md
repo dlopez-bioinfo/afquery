@@ -1,0 +1,65 @@
+# Glossary
+
+## AC (Allele Count)
+
+Number of copies of the alternate allele observed across eligible samples. A heterozygous carrier contributes 1; a homozygous alt carrier contributes 2. See [Key Concepts](../getting-started/concepts.md#allele-frequency-ac-an-af).
+
+## AF (Allele Frequency)
+
+Ratio of AC to AN (`AC / AN`). Represents the proportion of alleles that are the alternate allele among eligible samples. Returns `None` when AN=0. See [Key Concepts](../getting-started/concepts.md#allele-frequency-ac-an-af).
+
+## AN (Allele Number)
+
+Total number of alleles examined across eligible samples. For autosomes, AN = 2 × number of eligible diploid samples. For sex chromosomes, AN depends on ploidy. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
+
+## Bitmap
+
+See [Roaring Bitmap](#roaring-bitmap).
+
+## Bucket
+
+A 1 Mbp (1,000,000 base pair) genomic interval used to partition variant data within each chromosome. Bucket 0 covers positions 0–999,999; bucket 1 covers 1,000,000–1,999,999; and so on. See [Data Model](data-model.md).
+
+## Capture Index
+
+An interval tree (stored as a `.pkl` file) built from a BED file that defines the genomic regions covered by a whole-exome sequencing (WES) technology. Used to determine which WES samples are eligible at a given position. WGS samples do not require a capture index. See [Key Concepts](../getting-started/concepts.md#capture-index-wes).
+
+## Eligible Sample
+
+A sample that passes all query filters (sex, phenotype, technology) and has coverage at the queried position. Only eligible samples contribute to AC and AN. See [Sample Filtering](../guides/sample-filtering.md).
+
+## FAIL_SAMPLES
+
+The count of eligible samples at a position where the genotype call had FILTER≠PASS in the source VCF. Available only in schema v2 databases. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
+
+## Manifest
+
+A TSV file that maps each sample to its VCF path, sex, sequencing technology, and phenotype codes. The manifest drives database creation and is parsed into `metadata.sqlite`. See [Manifest Format](../guides/manifest-format.md).
+
+## Metadata Code
+
+See [Phenotype Code](#phenotype-code).
+
+## Parquet
+
+A columnar storage format used by AFQuery to store variant bitmaps on disk. Each Parquet file covers one bucket within one chromosome and contains rows sorted by `(pos, alt)`. See [Data Model](data-model.md).
+
+## Phenotype Code
+
+An arbitrary string label assigned to a sample in the manifest (e.g., ICD-10 codes, HPO terms, project tags). Multiple codes per sample are supported. Phenotype codes enable cohort stratification at query time. See [Key Concepts](../getting-started/concepts.md#the-metadata-model).
+
+## Ploidy
+
+The number of allele copies at a given locus, which depends on chromosome type and sex. Autosomes are diploid (ploidy=2) for all samples. chrX non-PAR is haploid for males, diploid for females. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
+
+## Roaring Bitmap
+
+A compressed bitset data structure that efficiently stores sets of integers. AFQuery uses Roaring Bitmaps (via the `pyroaring` library) to represent which samples carry a given genotype. Typical compression: ~2 bytes per sample per variant. See [roaringbitmap.org](https://roaringbitmap.org/).
+
+## Schema Version
+
+The version of the AFQuery database format. Version 1 stores `het_bitmap` and `hom_bitmap` per variant. Version 2 adds `fail_bitmap` for FILTER=PASS tracking. See [Key Concepts](../getting-started/concepts.md#schema-versions).
+
+## Technology
+
+The sequencing platform or assay type assigned to a sample (e.g., `wgs`, `wes_v1`, `panel_cardiac`). Determines capture index eligibility and enables technology-stratified queries. See [Technology Integration](../use-cases/technology-integration.md).

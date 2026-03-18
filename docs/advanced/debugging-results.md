@@ -1,0 +1,134 @@
+# Debugging Results
+
+When AFQuery returns unexpected results — AN=0, surprising AF values, or missing variants — use this diagnostic checklist to identify the root cause.
+
+---
+
+## Diagnostic Checklist
+
+### 1. Unexpected AN=0
+
+AN=0 means no eligible samples at the queried position. Work through these checks in order:
+
+| Check | Command | What to look for |
+|-------|---------|-----------------|
+| Chromosome normalization | `afquery query --db ./db/ --chrom 1 ...` vs `--chrom chr1` | Database may use `chr1` while you're querying `1` (or vice versa). Check `manifest.json` for `genome_build`. |
+| Position exists in database | `afquery query --db ./db/ --chrom chr1 --pos 12345678` | If no result at all, the variant was not observed in any sample during ingestion. |
+| BED coverage (WES) | `afquery info --db ./db/` | If all eligible samples are WES and the position is outside capture regions, AN=0 is correct. |
+| Sample filter too restrictive | Remove `--phenotype` and `--sex` filters | Query with no filters first. If AN>0 without filters, the filter is excluding all samples. |
+| Technology filter | Remove `--tech` filter | Check if any samples match the requested technology. |
+
+### 2. Unexpected AF Value
+
+| Symptom | Likely Cause | Resolution |
+|---------|-------------|------------|
+| AF higher than expected | Cohort enriched for disease with this variant | Compare with `--phenotype ^disease_code` to get control AF |
+| AF lower than expected | Many WES samples without coverage at this position → diluted AN | Filter by `--tech wgs` to check WGS-only AF |
+| AF=1.0 | All eligible samples carry the variant | Check if AN is very small (e.g., AN=2 means just 1 sample) |
+| AF differs from gnomAD | Expected — local cohort AF ≠ global population AF | This is by design; see [Why Cohort-Specific AF Matters](../getting-started/concepts.md#why-cohort-specific-af-matters) |
+
+### 3. Missing Variants
+
+A variant you expect to find is not in the database:
+
+| Check | Details |
+|-------|---------|
+| Was it in the source VCFs? | AFQuery only stores variants present in ingested VCFs |
+| Was it FILTER=PASS? | Default ingestion skips non-PASS variants (schema v2). Check with `afquery info` for `pass_only_filter` |
+| Multiallelic sites | AFQuery stores each ALT separately. Query the specific ALT allele, not just position |
+| Chromosome naming | Ensure consistent `chr` prefix usage |
+
+---
+
+## Diagnostic Commands
+
+### Database Info
+
+```bash
+afquery info --db ./db/
+```
+
+Shows: sample count, technology list, schema version, genome build, PASS-only status.
+
+### Check Database Integrity
+
+```bash
+afquery check --db ./db/
+```
+
+Validates: manifest consistency, Parquet file integrity, capture index presence.
+
+### Query with Full Output
+
+```bash
+# Point query with all fields visible
+afquery query --db ./db/ --chrom chr1 --pos 12345678 --format json
+```
+
+JSON format shows all fields including N_HET, N_HOM_ALT, N_HOM_REF, and FAIL_SAMPLES — useful for understanding the composition of the result.
+
+### Inspect Sample Eligibility
+
+```python
+from afquery import Database
+
+db = Database("./db/")
+
+# Check how many samples match a filter
+results = db.query("chr1", pos=12345678, alt="T", phenotype=["EUR"])
+if results:
+    r = results[0]
+    print(f"AN={r.AN} → {r.AN // 2} diploid samples eligible")
+```
+
+### Direct Metadata Inspection
+
+```python
+import sqlite3
+
+conn = sqlite3.connect("./db/metadata.sqlite")
+
+# List all phenotype codes and sample counts
+cursor = conn.execute("""
+    SELECT code, COUNT(*) as n_samples
+    FROM sample_phenotypes
+    GROUP BY code
+    ORDER BY n_samples DESC
+""")
+for row in cursor:
+    print(f"{row[0]:30s}  {row[1]} samples")
+
+# List technologies
+cursor = conn.execute("""
+    SELECT technology, COUNT(*) as n_samples
+    FROM samples
+    GROUP BY technology
+""")
+for row in cursor:
+    print(f"{row[0]:20s}  {row[1]} samples")
+
+conn.close()
+```
+
+---
+
+## Common Root Causes
+
+| Symptom | Root Cause | Fix |
+|---------|-----------|-----|
+| AN=0 for all queries | Wrong `--db` path or empty database | Verify path; run `afquery info` |
+| AN=0 for specific region | WES-only cohort, position outside capture | Check BED file coverage |
+| AN much lower than sample count | Mixed WGS/WES, position outside WES capture | Filter by `--tech wgs` to isolate |
+| Variant absent but expected | Non-PASS filter in source VCF | Rebuild with `--include-all-filters` if needed |
+| AF=None in output | AN=0 (division by zero) | See AN=0 diagnosis above |
+| Different AF between `query` and `annotate` | Different default filters or phenotype context | Ensure same `--phenotype`, `--sex`, `--tech` flags |
+| FAIL_SAMPLES=None | Database is schema v1 (no fail tracking) | Rebuild with current AFQuery version for v2 schema |
+
+---
+
+## Related Pages
+
+- [Understanding Output](../getting-started/understanding-output.md) — what each field means
+- [FAQ](../faq.md) — common questions and answers
+- [Troubleshooting](../troubleshooting.md) — error messages and solutions
+- [FILTER=PASS Tracking](filter-pass-tracking.md) — how PASS filtering works
