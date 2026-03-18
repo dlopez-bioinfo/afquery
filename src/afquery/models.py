@@ -1,6 +1,10 @@
 from dataclasses import dataclass, field
 
 
+class AfqueryWarning(UserWarning):
+    """Warning emitted when a query may silently return fewer or no results."""
+
+
 @dataclass
 class SampleFilter:
     """Filtro unificado de muestras. Todos los campos vacíos = sin restricción."""

@@ -1,10 +1,11 @@
 import logging
 import os
+import warnings
 import duckdb
 
 from .bitmaps import deserialize
 from .constants import normalize_chrom
-from .models import SampleFilter
+from .models import AfqueryWarning, SampleFilter
 from .ploidy import split_ploidy
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,11 @@ def _compute_chunk_annotations(
     from .query import QueryEngine
 
     engine = QueryEngine(db_path)
+    if chrom not in engine._all_known_chroms:
+        warnings.warn(
+            f"Chromosome {chrom!r} has no data — variants on this chromosome will get AN=0.",
+            AfqueryWarning, stacklevel=2,
+        )
     sample_bm = engine._build_sample_bitmap(sf)
     male_bm = engine._male_bm
     female_bm = engine._female_bm

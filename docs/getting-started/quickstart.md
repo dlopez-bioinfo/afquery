@@ -9,7 +9,7 @@ This tutorial walks through building a small AFQuery database and running your f
 
 ## 1. Create a Manifest
 
-The manifest is a TSV file describing your samples. Create `manifest.tsv`:
+The manifest is a TSV file describing your initial cohort. Create `manifest.tsv`:
 
 ```tsv
 sample_name	vcf_path	sex	tech_name	phenotype_codes
@@ -19,11 +19,13 @@ SAMPLE_003	/data/vcfs/sample003.vcf.gz	female	wes_v1	I10
 ```
 
 Fields:
-- `sample_name` — unique identifier
-- `vcf_path` — path to single-sample VCF (plain or `.gz`)
-- `sex` — `male` or `female`
-- `tech_name` — sequencing technology name (any string; WES techs need a BED file)
-- `phenotype_codes` — comma-separated metadata codes (arbitrary strings, optional)
+- `sample_name`: unique identifier
+- `vcf_path`: path to single-sample VCF (plain or `.gz`)
+- `sex`: `male` or `female`
+- `tech_name`: sequencing technology name. Use `WGS` for whole genome sequencing 
+- `phenotype_codes`: comma-separated metadata codes (arbitrary strings)
+
+NOTA_PARA_LLM: La lista de campos se muestra en una sola línea en lugar de una lista con bullets. Se debe corregir el formato.
 
 See [Manifest Format](../guides/manifest-format.md) for full details.
 
@@ -35,46 +37,25 @@ See [Manifest Format](../guides/manifest-format.md) for full details.
 afquery create-db \
   --manifest manifest.tsv \
   --output-dir ./my_db/ \
-  --genome-build GRCh38
-```
-
-For WES technologies, provide the directory containing BED files named `<tech>.bed`:
-
-```bash
-afquery create-db \
-  --manifest manifest.tsv \
-  --output-dir ./my_db/ \
   --genome-build GRCh38 \
-  --bed-dir ./beds/
+  --bed-dir ./beds/ \
+  --threads 12
 ```
+
+Bed files should be placed at bed-dir and named `<tech_name>.bed`
+
 
 The command will:
-1. Ingest all VCFs into SQLite
+1. Ingest all VCFs
 2. Build Roaring Bitmap Parquet files per chromosome/bucket
 3. Write `manifest.json` and `metadata.sqlite`
 
 ---
 
-## 3. Inspect the Database
+## 3. Inspect the Database (optional)
 
 ```bash
 afquery info --db ./my_db/
-```
-
-Example output:
-```
-Database: ./my_db/
-Schema version: 2.0
-Genome build:   GRCh38
-Samples:        3
-Technologies:   wgs, wes_v1
-Chromosomes:    chr1, chr2, ..., chrX, chrY, chrMT
-```
-
-Run a validation check:
-
-```bash
-afquery check --db ./my_db/
 ```
 
 ---
@@ -102,6 +83,9 @@ afquery query \
   --phenotype E11.9
 ```
 
+!!! note "Warnings for missing data"
+    If a phenotype code, technology name, or chromosome is not found in the database, afquery prints a warning to stderr and returns empty results. Use `--no-warn` to suppress these warnings.
+
 ---
 
 ## 5. Query a Region
@@ -124,6 +108,7 @@ afquery annotate \
   --db ./my_db/ \
   --input variants.vcf \
   --output annotated.vcf
+  --threads 12
 ```
 
 The output VCF gains INFO fields:
@@ -136,13 +121,6 @@ The output VCF gains INFO fields:
 | `AFQUERY_N_HET` | Heterozygous sample count |
 | `AFQUERY_N_HOM_ALT` | Homozygous alt sample count |
 | `AFQUERY_N_HOM_REF` | Homozygous ref sample count |
-| `AFQUERY_N_FAIL` | Samples with FILTER≠PASS (schema v2 only) |
+| `AFQUERY_N_FAIL` | Samples with FILTER≠PASS |
 
----
 
-## Next Steps
-
-- [Manifest Format](../guides/manifest-format.md) — full column specification
-- [Query Guide](../guides/query.md) — batch queries, output formats, filter syntax
-- [Sample Filtering](../guides/sample-filtering.md) — phenotype, sex, technology filters
-- [CLI Reference](../reference/cli.md) — all options for every command

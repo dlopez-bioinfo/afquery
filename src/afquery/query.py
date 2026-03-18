@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import warnings
 from pathlib import Path
 
 import duckdb
@@ -8,7 +9,7 @@ from pyroaring import BitMap
 from .bitmaps import deserialize
 from .capture import CaptureIndex, load_capture_indices
 from .constants import normalize_chrom
-from .models import QueryParams, QueryResult, VariantKey, Sample, Technology, SampleFilter
+from .models import AfqueryWarning, QueryParams, QueryResult, VariantKey, Sample, Technology, SampleFilter
 from .ploidy import compute_AN, split_ploidy
 
 BATCH_IN_THRESHOLD = 10_000
@@ -64,6 +65,13 @@ class QueryEngine:
                 if p.is_dir():
                     self._partitioned_chroms.add(p.name)
 
+        self._flat_chroms: set[str] = set()
+        if variants_dir.exists():
+            for p in variants_dir.iterdir():
+                if p.is_file() and p.suffix == ".parquet":
+                    self._flat_chroms.add(p.stem)
+        self._all_known_chroms: set[str] = self._partitioned_chroms | self._flat_chroms
+
         # Precompute covered bitmap for positions where ALL technologies cover (common case)
         # For each tech, store its bitmap; also precompute the union of all WGS tech bitmaps
         self._covered_all_bm: BitMap = BitMap()
@@ -79,8 +87,38 @@ class QueryEngine:
     # Private helpers
     # ------------------------------------------------------------------
 
+    def _validate_sample_filter(self, sf: SampleFilter) -> None:
+        ph_bms = self._bitmaps.get("phenotype", {})
+        for code in sf.phenotype_include:
+            if code not in ph_bms:
+                warnings.warn(
+                    f"Phenotype {code!r} not in database — include will match 0 samples.",
+                    AfqueryWarning, stacklevel=4,
+                )
+        for code in sf.phenotype_exclude:
+            if code not in ph_bms:
+                warnings.warn(
+                    f"Phenotype {code!r} not in database — exclude has no effect.",
+                    AfqueryWarning, stacklevel=4,
+                )
+        for name in sf.tech_include:
+            if name not in self._tech_name_to_id:
+                warnings.warn(
+                    f"Technology {name!r} not in database — include will match 0 samples.",
+                    AfqueryWarning, stacklevel=4,
+                )
+        for name in sf.tech_exclude:
+            if name not in self._tech_name_to_id:
+                warnings.warn(
+                    f"Technology {name!r} not in database — exclude has no effect.",
+                    AfqueryWarning, stacklevel=4,
+                )
+        if sf.sex not in ("male", "female", "both"):
+            raise ValueError(f"Invalid sex {sf.sex!r}. Must be 'male', 'female', or 'both'.")
+
     def _build_sample_bitmap(self, sf: SampleFilter) -> BitMap:
         """Construye bitmap de samples elegibles según filtros de fenotipo, sexo y tecnología."""
+        self._validate_sample_filter(sf)
         # --- Fenotipo ---
         ph_bms = self._bitmaps.get("phenotype", {})
         if sf.phenotype_include:
@@ -119,7 +157,14 @@ class QueryEngine:
         else:
             tech_bm = self._all_samples_bm  # sin copia — solo lectura en la intersección
 
-        return ph_bm & sex_bm & tech_bm
+        result_bm = ph_bm & sex_bm & tech_bm
+        if len(result_bm) == 0:
+            warnings.warn(
+                "Sample filter produces an empty eligible set — all queries will return AN=0. "
+                "Check that include/exclude filters are not contradictory.",
+                AfqueryWarning, stacklevel=3,
+            )
+        return result_bm
 
     def _compute_eligible(
         self,
@@ -172,6 +217,14 @@ class QueryEngine:
     def query(self, params: QueryParams) -> list[QueryResult]:
         chrom = normalize_chrom(params.chrom)
         pos = params.pos
+
+        if chrom not in self._all_known_chroms:
+            warnings.warn(
+                f"Chromosome {chrom!r} has no data in this database. "
+                f"Available: {sorted(self._all_known_chroms)!r}",
+                AfqueryWarning, stacklevel=3,
+            )
+            return []
 
         sample_bm = self._build_sample_bitmap(params.filter)
         eligible, AN = self._compute_eligible(chrom, pos, sample_bm)
@@ -231,6 +284,15 @@ class QueryEngine:
     ) -> list[QueryResult]:
         """Query multiple variants (pos, ref, alt) in a single Parquet read."""
         chrom = normalize_chrom(chrom)
+
+        if chrom not in self._all_known_chroms:
+            warnings.warn(
+                f"Chromosome {chrom!r} has no data in this database. "
+                f"Available: {sorted(self._all_known_chroms)!r}",
+                AfqueryWarning, stacklevel=3,
+            )
+            return []
+
         # Deduplicate by full variant, preserve order
         unique_variants = list(dict.fromkeys(variants))
 
@@ -315,6 +377,14 @@ class QueryEngine:
     ) -> list[QueryResult]:
         """Query all variants in a 1-based inclusive range [start, end]."""
         chrom = normalize_chrom(chrom)
+
+        if chrom not in self._all_known_chroms:
+            warnings.warn(
+                f"Chromosome {chrom!r} has no data in this database. "
+                f"Available: {sorted(self._all_known_chroms)!r}",
+                AfqueryWarning, stacklevel=3,
+            )
+            return []
 
         parquet_glob = self._parquet_glob(chrom)
         if parquet_glob is None:

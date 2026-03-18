@@ -103,7 +103,8 @@ def cli():
 @click.option("--alt",   default=None, help="Filter to specific alternate allele (only for --pos).")
 @click.option("--tech",  multiple=True, help="Technology filter to include. Repeatable; comma-separated or multiple flags. Use ^ prefix to exclude. (default: include all samples)")
 @click.option("--format", "fmt", default="text", type=click.Choice(["text", "json", "tsv"]), help="Output format. Options: text, json, tsv. (default: text)")
-def query(db, chrom, pos, region, from_file, phenotype, sex, ref, alt, tech, fmt):
+@click.option("--no-warn", is_flag=True, default=False, help="Suppress AfqueryWarning messages.")
+def query(db, chrom, pos, region, from_file, phenotype, sex, ref, alt, tech, fmt, no_warn):
     """Query allele frequencies.
 
     Exactly one of --pos, --region, or --from-file must be provided:
@@ -113,6 +114,11 @@ def query(db, chrom, pos, region, from_file, phenotype, sex, ref, alt, tech, fmt
       --region 1000-2000             all variants in [start, end]
       --from-file variants.tsv       batch from TSV (pos ref alt, no header)
     """
+    if no_warn:
+        import warnings
+        from .models import AfqueryWarning
+        warnings.filterwarnings("ignore", category=AfqueryWarning)
+
     modes = sum(x is not None for x in [pos, region, from_file])
     if modes == 0:
         raise click.UsageError("One of --pos, --region, or --from-file is required.")
@@ -156,8 +162,13 @@ def query(db, chrom, pos, region, from_file, phenotype, sex, ref, alt, tech, fmt
 @click.option("--threads", default=None, type=int,
               help="Number of worker threads for parallel annotation. (default: all available CPU cores)")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output with per-item progress. (default: false)")
-def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose):
+@click.option("--no-warn", is_flag=True, default=False, help="Suppress AfqueryWarning messages.")
+def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose, no_warn):
     """Annotate a VCF with AFQUERY_AC / AFQUERY_AN / AFQUERY_AF INFO fields."""
+    if no_warn:
+        import warnings
+        from .models import AfqueryWarning
+        warnings.filterwarnings("ignore", category=AfqueryWarning)
     _configure_logging(verbose)
     database = Database(db)
     stats = database.annotate_vcf(
