@@ -32,6 +32,4 @@ Male samples should have haploid genotype calls at chrX non-PAR regions (GT=`1`,
 
 - **Non-PASS genotypes**: Masking them as missing ensures that low-quality calls do not inflate AC. AFQuery tracks these as FAIL_SAMPLES.
 - **Homozygous reference calls**: Removing ref/ref genotypes reduces file size and speeds ingestion; they contribute AC=0 and are not needed
-- **INFO fields**: Stripping INFO reduces file size; AFQuery uses only the GT field
-
-NOTA_PARA_LLM: La eliminación del campo INFO también evita que VCFs malformados puedan romper el pipeline
+- **INFO fields**: Stripping INFO reduces file size and speeds ingestion. Additionally, malformed or non-standard INFO fields produced by some variant callers can break downstream parsing; stripping them pre-emptively prevents these errors.

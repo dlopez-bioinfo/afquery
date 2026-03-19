@@ -46,7 +46,7 @@ Allele frequency is not a fixed property of a variant — it is a property of a 
 
 Population databases like gnomAD aggregate data from hundreds of thousands of individuals and are invaluable for identifying common variants. But they are not your cohort. Allele frequencies vary substantially across:
 
-- **Ancestry**: A variant at AF=0.001 in gnomAD Europeans may be at AF=0.01 in a specific Iberian registry — a 10× difference that changes pathogenicity interpretation under ACMG criteria.
+- **Ancestry**: A variant at AF=0.001 in gnomAD Europeans may be at AF=0.01 in a specific Iberian registry — a 10× difference that changes pathogenicity interpretation under ACMG BS1 and PM2 criteria. Turkish breast cancer variants showed up to 354-fold higher frequencies in local databases versus gnomAD, with 6.7% of VUS reclassified to likely benign when population-matched data were used (Agaoglu et al., 2024; PMID: 38308423).
 - **Sequencing technology**: Coverage differences between WES and WGS can create systematic differences in observed genotype rates.
 - **Clinical composition**: A cohort enriched for a specific disease may show elevated frequencies for variants associated with that phenotype.
 
@@ -76,7 +76,7 @@ AN depends on the chromosome and sex of eligible samples:
 | chrY | 0 | 1 |
 | chrMT | 1 | 1 |
 
-See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md) for PAR coordinates.
+See [Ploidy & Special Chromosomes](../advanced/ploidy-and-sex-chroms.md) for PAR coordinates.
 
 ### Worked Example
 
@@ -200,18 +200,12 @@ AN is computed only over eligible samples, so AF naturally reflects the chosen s
 
 **AFQuery treats phenotype codes as arbitrary string labels.** You can use:
 
-- ICD-10 disease codes (`E11.9`, `G40`)
-- HPO phenotype terms (`HP:0001250`)
-- GO terms
+- ICD-10 disease codes (International Classification of Diseases, 10th revision) — e.g., `E11.9`, `G40`
+- Human Phenotype Ontology (HPO) terms — e.g., `HP:0001250`
+- OMIM entries (Online Catalog of Human Genes and Genetic Disorders) — e.g., `OMIM:143100`
 - Custom project tags (`control`, `rare_disease`, `pilot_cohort`)
 - Technology subgroups (`panel_v1`, `panel_v2`)
 - Any combination of the above
-
-NOTA_PARA_LLM: Sustituir en todo el repositorio (documentación y código) ICD-10 por International Classification of Diseases (ICD) codes.
-
-NOTA_PARA_LLM: Sustituir en todo el repositorio (documentación y código) HPO por Human Phenotype Ontology (HPO) terms.
-
-NOTA_PARA_LLM: Sustituir en todo el repositorio (documentación y código) GO por Online Catalog of Human Genes and Genetic Disorders (OMIM) entries.
 
 Multiple labels per sample are supported. There is no validation or controlled vocabulary — you define the ontology for your cohort.
 

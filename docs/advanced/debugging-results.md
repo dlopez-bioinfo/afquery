@@ -106,11 +106,8 @@ conn.close()
 | AN=0 for all queries | Wrong `--db` path or empty database | Verify path; run `afquery info` |
 | AN=0 for specific region | WES-only cohort, position outside capture | Check BED file coverage |
 | AN much lower than sample count | Mixed WGS/WES, position outside WES capture | Filter by `--tech wgs` to isolate |
-| Variant absent but expected | Non-PASS filter in source VCF | Rebuild with `--include-all-filters` if needed |
 | AF=None in output | AN=0 (division by zero) | See AN=0 diagnosis above |
 | Different AF between `query` and `annotate` | Different default filters or phenotype context | Ensure same `--phenotype`, `--sex`, `--tech` flags |
-
-NOTA_PARA_LLM: En la tabla se muestra que para Variant absent but expected una posible solución es usar el modificador --include-all-filters. Sin embargo, no estoy seguro de que este modificar esté actualmente implementado. Se debe hacer una revisión exhaustiva del código para comprobar si existe tal modificador. Si existe, se debe revisar toda la documentación para actualizarla, ya que en otra parte de la documentación se mencionaba que era una futura funcionalidad que se iba a añadir a la aplicación. Si no existe el parámetro, se debe eliminar cualquier mención en la documentación para que la documentación se mantenga sincronizada con el código.
 
 ---
 

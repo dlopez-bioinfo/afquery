@@ -126,7 +126,7 @@ Technologies:   wgs, wes_v1, wes_v2
 Chromosomes:    chr1 ... chrX chrY chrMT
 ```
 
-NOTA_PARA_LLM: No es necesario hacer un check o info despues de la creación de la base de datos. Redacta este apartado para indicar que se pueden usar estos comandos para comprobar la integridad de la base de datos u obtener información relevante.
+These commands are available at any time after database creation — not only immediately after `create-db`. Use `afquery check` to verify database integrity (manifest consistency, Parquet file health, capture index presence) and `afquery info` to inspect sample counts, registered technologies, and phenotype codes.
 
 ---
 

@@ -23,9 +23,7 @@ AFQuery applies ploidy-aware AN computation automatically. For chrX non-PAR posi
 
 Using `--sex male` returns AF over a purely haploid denominator — the true hemizygous frequency. Using `--sex female` returns AF over the diploid denominator.
 
-## Step-by-Step Example
-
-NOTA_PARA_LLM: La sección Step-by-Step Example está repetida en múltiples sitios en la documentación, incluyendo todas las guías de clinical workflows. Piensa una manera de optimizar la documentación para que no sea tan redundante y facilite la lectura de toda la documentación.
+## Computing Sex-Specific AF at chrX
 
 ### 1. Query full cohort (combined)
 
@@ -107,10 +105,10 @@ For X-linked recessive disorders, always use `--sex male` when evaluating the he
 
 The Pseudoautosomal Regions (PAR1/PAR2) on chrX behave like autosomes. At PAR positions, males contribute AN=2 and sex-stratified queries are less meaningful. AFQuery applies the correct PAR/non-PAR boundary automatically.
 
-See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md) for PAR coordinates.
+See [Ploidy & Special Chromosomes](../advanced/ploidy-and-sex-chroms.md) for PAR coordinates.
 
 ## Related Features
 
-- [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md) — PAR regions, ploidy rules
+- [Ploidy & Special Chromosomes](../advanced/ploidy-and-sex-chroms.md) — PAR regions, ploidy rules
 - [Sample Filtering](../guides/sample-filtering.md) — sex filter syntax
 - [Clinical Prioritization](clinical-prioritization.md) — VCF annotation with sex filter

@@ -137,7 +137,6 @@ bcftools filter -i 'AFQUERY_AF < 0.001 && AFQUERY_AN >= 1000' annotated.vcf.gz
 ## Next steps
 
 - [Key Concepts](concepts.md) — how AC, AN, and AF are computed
-- [Bioinformatics user guide](../guides/create-database.md) — 
-- [Clinical user guide](../guides/create-database.md) — 
-
-NOTA_PARA_LLM: Añadir descripción a los enlaces next steps que no tienen descripción.
+- [Sample Filtering Guide](../guides/sample-filtering.md) — phenotype, sex, and technology filters
+- [Annotate a VCF](../guides/annotate-vcf.md) — add AFQUERY_AF/AC/AN fields to a patient VCF
+- [Clinical ACMG Use Cases](../clinical/acmg-use-cases.md) — applying local AF to ACMG BS1/PM2 criteria

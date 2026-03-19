@@ -1,8 +1,6 @@
-# Ploidy & Sex Chromosomes
+# Ploidy & Special Chromosomes
 
-AFQuery computes ploidy-aware AN for sex chromosomes. This ensures that allele frequencies are correct when querying chrX, chrY, and chrMT.
-
-NOTA_PARA_LLM: El chrMT no es un cromosoma sexual. Dado que la sección hace referencia a cromosomas sexuales, y la primera frase indica que es ploidy-away AN for sex chromosomes, puede dar lugar a confusión. Esto ya se ha detectado en otras partes de la documentación. Se debe hacer una revisión exhaustiva de toda la documentación para indicar que afquery es ploidy-aware tanto en cromosomas sexuales como el cromosoma mitocondrial.
+AFQuery computes ploidy-aware AN for sex chromosomes (chrX, chrY) and the mitochondrial chromosome (chrMT). This ensures that allele frequencies are correct when querying these chromosomes, where the number of alleles per sample differs from the diploid autosomes.
 
 ---
 
@@ -36,7 +34,7 @@ The pseudoautosomal regions on chrX behave like autosomes — both males and fem
 | Region | Start | End |
 |--------|-------|-----|
 | PAR1 | 60,001 | 2,699,520 |
-| PAR2 | 154,931,044 | 155,270,560 |
+| PAR2 | 154,931,044 | 155,260,560 |
 
 Positions within PAR1 or PAR2 on chrX are treated as diploid for all samples.
 
@@ -84,10 +82,8 @@ At non-PAR chrX positions:
 - A female with GT=`1/1` contributes AC=2, AN=2
 
 N_HET and N_HOM_ALT are counted per sample (not per allele):
-- Males at chrX are counted in N_HET if GT=1 (single alt allele)
-- The distinction between het/hom is less meaningful for haploid calls
-
-NOTA_PARA_LLM: La documentación indica que Males at chrX are counted in N_HET if GT=1 (single alt allele), sin embargo este no es el comportamiento esperado de la aplicación. En el caso de males con GT=1 se deberían contar en N_HOM_ALT, ya que todos los alelos que hay en esa posición son alternativa. N_HET contabiliza los casos en los que la posición tiene ambos alelos, alternativa y referencia, por lo que solo aplica a regiones diploides. Se debe revisar exhaustivamente el código para verificar el funcionamiento correcto de la aplicación. Si se trata de un error en la documentación, se debe aclarar. Si se trata de un error en el cálculo, se debe elaborar un plan detallado paso a paso para hacer el cambio.
+- Males at chrX non-PAR (haploid positions) are counted in **N_HOM_ALT** when GT=1, because all alleles at that position are alternate. N_HET is reserved for diploid positions where both reference and alternate alleles are present.
+- Females at chrX with GT=`0/1` are counted in N_HET; with GT=`1/1` in N_HOM_ALT.
 
 ---
 

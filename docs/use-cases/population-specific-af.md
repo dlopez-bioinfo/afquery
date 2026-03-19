@@ -17,9 +17,7 @@ Without a locally calibrated database, these thresholds are applied to populatio
 
 Build your AFQuery database from samples representative of your population. Queries then reflect the actual frequency distribution in your cohort — the most relevant reference for your patients.
 
-## Step-by-Step Example
-
-NOTA_PARA_LLM: La sección Step-by-Step Example está repetida en múltiples sitios en la documentación, incluyendo todas las guías de clinical workflows. Piensa una manera de optimizar la documentación para que no sea tan redundante y facilite la lectura de toda la documentación.
+## Querying Population-Specific Subsets
 
 ### 1. Build a population-specific database
 

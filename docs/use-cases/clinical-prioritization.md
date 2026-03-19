@@ -8,17 +8,12 @@ A rare disease patient has undergone whole-exome sequencing. After standard filt
 
 gnomAD provides an excellent first filter, but:
 
-1. **Population mismatch**: A variant at AF=0.001 in gnomAD may be at AF=0.02 in your local cohort — common locally but appearing rare globally
-
-NOTA_PARA_LLM: explicar en population mismatch que esta variación se puede deber a la variación natural entre las distintas subpoblaciones debido a los mecanismos de deriva genética (comprueba esta afirmación buscando en la web).
+1. **Population mismatch**: A variant at AF=0.001 in gnomAD may be at AF=0.02 in your local cohort — common locally but appearing rare globally. This discrepancy often reflects natural allele frequency variation between subpopulations driven by genetic drift, founder effects, and historical bottlenecks: alleles that are rare on a global scale may have reached appreciable frequencies in geographically or ethnically isolated groups.
 
 2. **Fine-grained Control Cohort Selection**: Unlike resources such as gnomAD, where allele frequencies are derived from largely phenotype-agnostic populations, AFQuery allows the dynamic inclusion or exclusion of samples based on any annotated feature. This is particularly valuable in rare disease studies, where overlapping genetic architectures may confound analyses: for example, samples associated with a related condition can be selectively excluded to avoid bias. Because phenotypes are treated as flexible annotations, this control extends to any variable of interest, enabling more precise and context-aware frequency estimation.
 
 
-3. **Local artifacts**: Systematic sequencing artifacts in your pipeline appear as rare variants in gnomAD but are common in your cohort
-
-NOTA_PARA_LLM: Extender un poco más la explicación y hacerla más formal.
-
+3. **Local artifacts**: Systematic sequencing artifacts specific to your pipeline or capture kit manifest as recurrent variants that appear rare in gnomAD but accumulate high frequency in your cohort. These are best identified by elevated AF in your local database paired with low allele number (AN) or high FAIL_SAMPLES counts, indicating poor genotype quality at the site.
 
 AFQuery lets you apply cohort-specific AF as an additional filter layer on top of gnomAD, removing locally common variants that standard databases miss.
 

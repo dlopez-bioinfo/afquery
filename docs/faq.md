@@ -100,7 +100,7 @@ Yes. Both GRCh37 and GRCh38 are supported. Specify at database creation:
 afquery create-db --genome-build GRCh37 ...
 ```
 
-The genome build affects PAR1/PAR2 coordinates on chrX (see [Ploidy & Sex Chromosomes](advanced/ploidy-and-sex-chroms.md)). Chromosome names in your VCFs should match the chosen build (`chr1`/`1` both work — `normalize_chrom()` handles the `chr` prefix).
+The genome build affects PAR1/PAR2 coordinates on chrX (see [Ploidy & Special Chromosomes](advanced/ploidy-and-sex-chroms.md)). Chromosome names in your VCFs should match the chosen build (`chr1`/`1` both work — `normalize_chrom()` handles the `chr` prefix).
 
 ---
 
@@ -142,7 +142,7 @@ WGS samples are always covered at every position (no BED file). Technology filte
 
 ## Why does AF differ between sex-filtered and unfiltered queries on chrX?
 
-On chrX non-PAR positions, males contribute AN=1 and females contribute AN=2. When you filter by `--sex female`, AN increases (purely diploid denominator) and AF may change. This is correct ploidy-aware behavior. See [Ploidy & Sex Chromosomes](advanced/ploidy-and-sex-chroms.md).
+On chrX non-PAR positions, males contribute AN=1 and females contribute AN=2. When you filter by `--sex female`, AN increases (purely diploid denominator) and AF may change. This is correct ploidy-aware behavior. See [Ploidy & Special Chromosomes](advanced/ploidy-and-sex-chroms.md).
 
 ---
 
@@ -162,9 +162,14 @@ See [Manifest Format](guides/manifest-format.md#phenotype-codes) for details.
 
 ## What happens if I query a phenotype code that does not exist?
 
-NOTA_PARA_LLM: La herramienta incluye un sistema de warnings. Se debe revisar el código y actualizar la documentación para reflejar este comportamiento. 
+AFQuery emits an `AfqueryWarning` to stderr and returns `AC=0, AN=0, AF=None`. The warning message indicates whether the unknown code was used as an include filter (will match 0 samples) or an exclude filter (has no effect):
 
-AFQuery returns `AC=0, AN=0, AF=None` — the same result as zero eligible samples. There is no error or warning for unknown codes. Use `afquery info --db ./db/` to list all registered codes before running queries.
+```
+AfqueryWarning: Phenotype 'CODE' not in database — include will match 0 samples.
+AfqueryWarning: Phenotype 'CODE' not in database — exclude has no effect.
+```
+
+Use `afquery info --db ./db/` to list all registered codes before running queries. Use `--no-warn` to suppress warnings in batch pipelines.
 
 ---
 
