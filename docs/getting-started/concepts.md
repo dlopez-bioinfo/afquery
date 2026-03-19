@@ -89,7 +89,8 @@ Consider a cohort of 60 samples (50 diploid autosomes) with a variant at positio
 | Tagged `E11.9` (20) | 20 samples | 40 | 0 | 0.000 |
 | Not tagged `E11.9` (40) | 40 samples | 80 | 3 | 0.038 |
 
-**Key point**: AN is not always `2 × cohort_size`. Eligible samples change per query, so AN reflects your chosen subgroup exactly.
+!!! Tip AN calculation
+    AN is not always `2 × cohort_size`. Eligible samples change per query, so AN reflects your chosen subgroup exactly.
 
 ### Visualization
 
@@ -129,11 +130,11 @@ graph TB
 
 ### Per-Variant Bitmaps
 
-For each variant row, AFQuery stores two [Roaring Bitmaps](https://roaringbitmap.org/):
+For each variant row, AFQuery stores three [Roaring Bitmaps](https://roaringbitmap.org/):
 
 - **`het_bitmap`** — bit set for each sample that is heterozygous (GT=0/1 or 1/0)
-- **`hom_bitmap`** — bit set for each sample that is homozygous alt (GT=1/1)
-- **`fail_bitmap`** *(schema v2 only)* — bit set for each sample called with FILTER≠PASS
+- **`hom_bitmap`** — bit set for each sample that is homozygous alt (GT=1/1 or GT=1)
+- **`fail_bitmap`** bit set for each sample called with FILTER≠PASS
 
 Each sample has a stable integer ID (0-indexed). The bit position in the bitmap equals the sample ID.
 
@@ -155,7 +156,7 @@ Rows within each bucket are sorted by `(pos, alt)`.
 
 ### Capture Index (WES)
 
-For whole-exome sequencing (WES) technologies, a BED file defines covered regions. AFQuery builds an interval tree (pickle file) per technology so queries can determine which WES samples are eligible at any given position.
+For whole-exome sequencing (WES) and gene panels technologies, a BED file defines covered regions. AFQuery builds an interval tree (pickle file) per technology so queries can determine which WES samples are eligible at any given position.
 
 ```
 capture/
@@ -206,20 +207,19 @@ AN is computed only over eligible samples, so AF naturally reflects the chosen s
 - Technology subgroups (`panel_v1`, `panel_v2`)
 - Any combination of the above
 
+NOTA_PARA_LLM: Sustituir en todo el repositorio (documentación y código) ICD-10 por International Classification of Diseases (ICD) codes.
+
+NOTA_PARA_LLM: Sustituir en todo el repositorio (documentación y código) HPO por Human Phenotype Ontology (HPO) terms.
+
+NOTA_PARA_LLM: Sustituir en todo el repositorio (documentación y código) GO por Online Catalog of Human Genes and Genetic Disorders (OMIM) entries.
+
 Multiple labels per sample are supported. There is no validation or controlled vocabulary — you define the ontology for your cohort.
 
 When planning phenotype codes, consider:
-- Codes are immutable after ingestion (changing requires removing and re-adding samples)
+- Codes can be updated after ingestion using `afquery update-db --update-sample` (see [Updating sample metadata](../guides/update-database.md#update-sample-metadata))
 - Codes are case-sensitive: `E11.9` ≠ `e11.9`
 - Trailing or leading spaces cause silent mismatch (always use `E11.9,I10`, never `E11.9, I10`)
 
 ---
 
-## Schema Versions
-
-| Version | Feature |
-|---------|---------|
-| v1 | het_bitmap + hom_bitmap only |
-| v2 | Adds fail_bitmap; AFQUERY_FAIL INFO field in VCF annotation |
-
-PASS-only ingestion is always enforced by default. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) for details.
+PASS-only ingestion is always enforced. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) for details.

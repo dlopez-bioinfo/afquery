@@ -1,6 +1,6 @@
 # FILTER=PASS Tracking
 
-Schema version 2 introduces tracking of variants that are called but fail quality filters (`FILTER≠PASS`). This allows distinguishing between "variant not present" and "variant present but low quality" in your cohort.
+AFQuery tracks variants that are called but fail quality filters (`FILTER≠PASS`). This allows distinguishing between "variant not present" and "variant present but low quality" in your cohort.
 
 ---
 
@@ -15,9 +15,9 @@ AFQuery default behavior:
 
 ---
 
-## Schema v2: fail_bitmap
+## fail_bitmap
 
-In schema v2, AFQuery stores a third bitmap per variant alongside `het_bitmap` and `hom_bitmap`:
+AFQuery stores a third bitmap per variant alongside `het_bitmap` and `hom_bitmap`:
 
 - **`fail_bitmap`** — bit set for each sample that has a non-ref genotype (AC>0) AND `FILTER≠PASS`
 
@@ -28,9 +28,9 @@ This means:
 
 ---
 
-## Enabling Schema v2
+## Database Creation
 
-Schema v2 is the default for new databases. The `fail_bitmap` is always written and always tracks PASS-only ingestion:
+The `fail_bitmap` is always written and always tracks PASS-only ingestion:
 
 ```bash
 # PASS-only ingestion (fail_bitmap tracks failed calls)
@@ -45,10 +45,10 @@ Support for ingesting all variants regardless of filter status is planned for a 
 
 ### CLI
 
-The `FAIL_SAMPLES` count is shown automatically in query output for v2 databases:
+The `FAIL_SAMPLES` count is shown automatically in query output:
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --pos 925952
+afquery query --db ./db/ --locus chr1:925952
 ```
 
 ```
@@ -68,13 +68,13 @@ for r in results:
         print(f"  Warning: {r.N_FAIL} samples have low-quality calls at this site")
 ```
 
-`N_FAIL` is always an `int` (default `0`). For v1 databases (no fail tracking), it is always `0`.
+`N_FAIL` is always an `int` (default `0`).
 
 ---
 
 ## VCF Annotation
 
-Schema v2 databases add an additional INFO field to annotated VCFs:
+AFQuery adds an additional INFO field to annotated VCFs:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -83,16 +83,6 @@ Schema v2 databases add an additional INFO field to annotated VCFs:
 ```bash
 afquery annotate --db ./db/ --input variants.vcf --output annotated.vcf
 ```
-
-v1 databases do not write `AFQUERY_N_FAIL`.
-
----
-
-## Migration from v1
-
-v1 databases (no `schema_version` in `manifest.json`, or `schema_version < 2.0`) are fully compatible with AFQuery v2 code. They return `N_FAIL=0` in query results and do not write `AFQUERY_N_FAIL` in annotation.
-
-There is no automatic migration from v1 to v2. To gain fail tracking, rebuild the database with `create-db`.
 
 ---
 
