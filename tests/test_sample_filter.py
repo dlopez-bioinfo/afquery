@@ -227,12 +227,12 @@ def test_cli_tech_filter(test_db, tmp_path):
     runner = CliRunner()
     result_wgs = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500",
+        "--locus", "chr1:1500",
         "--tech", "WGS", "--format", "json",
     ])
     result_all = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500",
+        "--locus", "chr1:1500",
         "--format", "json",
     ])
     assert result_wgs.exit_code == 0, result_wgs.output
@@ -252,12 +252,12 @@ def test_cli_phenotype_exclusion(test_db, tmp_path):
     runner = CliRunner()
     result_excl = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500",
+        "--locus", "chr1:1500",
         "--phenotype", "^E11.9", "--format", "json",
     ])
     result_all = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500",
+        "--locus", "chr1:1500",
         "--format", "json",
     ])
     assert result_excl.exit_code == 0, result_excl.output
@@ -278,12 +278,12 @@ def test_cli_comma_phenotype(test_db):
     runner = CliRunner()
     result_comma = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500",
+        "--locus", "chr1:1500",
         "--phenotype", "E11.9,I10", "--format", "json",
     ])
     result_repeat = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500",
+        "--locus", "chr1:1500",
         "--phenotype", "E11.9", "--phenotype", "I10", "--format", "json",
     ])
     assert result_comma.exit_code == 0

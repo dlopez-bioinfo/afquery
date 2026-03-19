@@ -9,8 +9,16 @@ A rare disease patient has undergone whole-exome sequencing. After standard filt
 gnomAD provides an excellent first filter, but:
 
 1. **Population mismatch**: A variant at AF=0.001 in gnomAD may be at AF=0.02 in your local cohort — common locally but appearing rare globally
-2. **Coverage gaps**: gnomAD WES has incomplete coverage of some gene panels; your WGS database has full coverage
+
+NOTA_PARA_LLM: explicar en population mismatch que esta variación se puede deber a la variación natural entre las distintas subpoblaciones debido a los mecanismos de deriva genética (comprueba esta afirmación buscando en la web).
+
+2. **Fine-grained Control Cohort Selection**: Unlike resources such as gnomAD, where allele frequencies are derived from largely phenotype-agnostic populations, AFQuery allows the dynamic inclusion or exclusion of samples based on any annotated feature. This is particularly valuable in rare disease studies, where overlapping genetic architectures may confound analyses: for example, samples associated with a related condition can be selectively excluded to avoid bias. Because phenotypes are treated as flexible annotations, this control extends to any variable of interest, enabling more precise and context-aware frequency estimation.
+
+
 3. **Local artifacts**: Systematic sequencing artifacts in your pipeline appear as rare variants in gnomAD but are common in your cohort
+
+NOTA_PARA_LLM: Extender un poco más la explicación y hacerla más formal.
+
 
 AFQuery lets you apply cohort-specific AF as an additional filter layer on top of gnomAD, removing locally common variants that standard databases miss.
 
@@ -31,6 +39,8 @@ This adds to each variant:
 - `AFQUERY_AN`: allele number (eligible samples at this position)
 - `AFQUERY_AF`: allele frequency
 - `AFQUERY_N_HET`, `AFQUERY_N_HOM_ALT`: genotype counts
+
+NOTA_PARA_LLM: La lista de variables que se añaden al vcf aparece en una sola línea en lugar de una lista de bullets.
 
 ### 2. Filter for rare variants with reliable AN
 
@@ -67,22 +77,7 @@ afquery annotate \
   --phenotype ^rare_disease     # AF in non-rare-disease samples
 ```
 
-### 5. Full prioritization workflow
-
-```bash
-# Step 1: Annotate with cohort AF
-afquery annotate --db ./db/ --input patient.vcf.gz --output step1.vcf.gz --threads 16
-
-# Step 2: Keep variants that are rare OR have no cohort coverage
-bcftools filter -i '(AFQUERY_AN >= 1000 && AFQUERY_AF < 0.001) || AFQUERY_AN == 0' \
-  step1.vcf.gz -o step2.vcf.gz
-
-# Step 3: Flag locally common variants that gnomAD marks as rare
-bcftools filter -i 'AFQUERY_AN >= 1000 && AFQUERY_AF >= 0.01' \
-  step1.vcf.gz -o locally_common.vcf.gz
-```
-
-### 6. Python workflow
+### 5. Python workflow
 
 ```python
 import cyvcf2
@@ -114,22 +109,18 @@ print(f"Rare candidates: {len(rare_candidates)}")
 | AFQUERY_AF < 0.001 | 1,200 | 43,800 | Locally common variants |
 | Novel (AN=0) | 300 | — | Not observed in cohort |
 
-A typical clinical pipeline retains ~1,500 rare/novel candidates after cohort AF filtering, compared to 500,000 before — a 300× reduction.
+A typical clinical pipeline retains ~1,500 rare/novel candidates after cohort AF filtering, compared to 500,000 before.
 
 **AN threshold guidance:**
 - `AN >= 100`: minimum for any AF interpretation
 - `AN >= 500`: recommended for rare variant filtering
 - `AN >= 1000`: conservative threshold for robust AF estimates
 
-### Mapping to ACMG Criteria
 
-The prioritization workflow above directly supports ACMG/AMP variant classification:
-
-- **BA1 (Stand-alone benign)**: Variants with `AFQUERY_AF > 0.05` and `AFQUERY_AN >= 1000` meet the BA1 threshold for benign classification in your local cohort.
-- **PM2 (Supporting pathogenic)**: Variants with `AFQUERY_AC == 0` and `AFQUERY_AN >= 2000` are genuinely absent in your cohort, supporting PM2 application.
-- **PS4 (Strong pathogenic)**: Compare AF between affected and unaffected subgroups using `--phenotype` filters to identify enrichment in cases.
+NOTA_PARA_LLM: La lista de AN thresholds aparece en una sola línea en lugar de una lista de bullets.
 
 For detailed ACMG workflows with worked examples and AN threshold guidance, see [ACMG Criteria (BA1/PM2/PS4)](../clinical/acmg-use-cases.md).
+
 
 ## Related Features
 

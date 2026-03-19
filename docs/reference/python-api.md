@@ -312,7 +312,7 @@ class QueryResult:
     N_HET: int               # Heterozygous count
     N_HOM_ALT: int           # Homozygous alt count
     N_HOM_REF: int           # Homozygous ref count
-    N_FAIL: int              # Samples with alt allele called but FILTER≠PASS (schema v2 only; 0 for v1 databases — not None)
+    N_FAIL: int              # Samples with alt allele called but FILTER≠PASS
 ```
 
 ### VariantKey

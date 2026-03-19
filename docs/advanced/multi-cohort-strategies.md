@@ -74,15 +74,15 @@ Key: use cohort names (`cardiology`, `neurology`, `rare_disease`) as phenotype c
 
 ```bash
 # AF in cardiology cohort only
-afquery query --db ./merged/ --chrom chr1 --pos 12345678 --ref C --alt T \
+afquery query --db ./merged/ --locus chr1:12345678 --ref C --alt T \
   --phenotype cardiology
 
 # AF in everyone except rare disease
-afquery query --db ./merged/ --chrom chr1 --pos 12345678 --ref C --alt T \
+afquery query --db ./merged/ --locus chr1:12345678 --ref C --alt T \
   --phenotype ^rare_disease
 
 # AF in European subset across all cohorts
-afquery query --db ./merged/ --chrom chr1 --pos 12345678 --ref C --alt T \
+afquery query --db ./merged/ --locus chr1:12345678 --ref C --alt T \
   --phenotype EUR
 ```
 

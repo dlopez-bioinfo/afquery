@@ -58,7 +58,7 @@ A compressed bitset data structure that efficiently stores sets of integers. AFQ
 
 ## Schema Version
 
-The version of the AFQuery database format. Version 1 stores `het_bitmap` and `hom_bitmap` per variant. Version 2 adds `fail_bitmap` for FILTER=PASS tracking. See [Key Concepts](../getting-started/concepts.md#schema-versions).
+The AFQuery database format. Each variant stores `het_bitmap`, `hom_bitmap`, and `fail_bitmap`. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
 
 ## Technology
 

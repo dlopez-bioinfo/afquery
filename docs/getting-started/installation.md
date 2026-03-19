@@ -7,7 +7,7 @@
 
 ---
 
-## pip (recommended)
+## pip
 
 ```bash
 pip install afquery
@@ -24,17 +24,15 @@ pip install git+https://github.com/dlopez-bioinfo/afquery.git
 ## conda / mamba (bioconda)
 
 ```bash
-conda install -c bioconda -c conda-forge afquery
+conda install bioconda::afquery
 ```
 
 Or with mamba (faster):
 
 ```bash
-mamba install -c bioconda -c conda-forge afquery
+mamba install bioconda::afquery
 ```
 
-!!! note
-    The bioconda package includes all compiled dependencies (cyvcf2, pyarrow, duckdb, pyroaring).
 
 ---
 
@@ -50,20 +48,6 @@ To also install documentation dependencies:
 
 ```bash
 pip install -e ".[docs]"
-```
-
----
-
-## Verify Installation
-
-```bash
-afquery --version
-```
-
-You should see output like:
-
-```
-afquery, version 1.2.0
 ```
 
 ---

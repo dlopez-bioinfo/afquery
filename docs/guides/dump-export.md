@@ -92,6 +92,8 @@ afquery dump --db ./db/ \
 
 Output includes `AC_E11.9`, `AN_E11.9`, `AF_E11.9`, `AC_I10`, etc.
 
+NOTA_PARA_LLM: Disaggregate by Sex, Disaggregate by Technology y Disaggregate by Phenotype pueden ser encapsulados dentro de una misma sección, ya que el concepto es el mismo. De esa manera es más clara la ayuda.
+
 ---
 
 ## All Groups (Cartesian Product)
@@ -103,7 +105,7 @@ afquery dump --db ./db/ --all-groups --output all_groups.csv
 ```
 
 !!! warning
-    With many sexes, technologies, and phenotypes, the number of columns grows as a Cartesian product. This can produce very wide CSV files.
+    The number of columns grows as a Cartesian product. Disaggregating by all combinations may produce very wide CSV file.
 
 ---
 
@@ -117,35 +119,6 @@ afquery dump --db ./db/ --threads 16 --output all_variants.csv
 
 ---
 
-## Import into R for Analysis
-
-```r
-library(data.table)
-dt <- fread("by_sex.csv")
-
-# Compare AF between sexes
-dt[, .(mean_AF_male = mean(AF_male, na.rm=TRUE),
-       mean_AF_female = mean(AF_female, na.rm=TRUE))]
-
-# Filter to common variants
-common <- dt[AF > 0.01]
-```
-
----
-
-## Import into Python for Analysis
-
-```python
-import pandas as pd
-
-df = pd.read_csv("by_phenotype.csv")
-
-# Variants enriched in diabetic patients
-enriched = df[df["AF_E11.9"] > 2 * df["AF"]]
-print(enriched[["chrom", "pos", "ref", "alt", "AF", "AF_E11.9"]])
-```
-
----
 
 ## Full Option Reference
 

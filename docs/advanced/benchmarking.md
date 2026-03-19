@@ -111,7 +111,25 @@ for k in before:
 
 ## Comparison with Alternative Approaches
 
-For context on AFQuery's design trade-offs, see [Comparison Table](../publication/comparison-table.md).
+### Feature Comparison
+
+| Feature | AFQuery | bcftools stats | VCFtools --freq | GATK GenomicsDB | Hail |
+|---------|---------|---------------|----------------|----------------|------|
+| **Query latency** | <100 ms | Minutes (VCF scan) | Minutes (VCF scan) | Seconds | Seconds–minutes |
+| **Dynamic subcohort queries** | Yes | No | No | Partial | Yes (programmatic) |
+| **Metadata filtering** | Arbitrary labels | No | No | No | User-defined |
+| **Sex-stratified AF** | Yes (auto ploidy) | Manual | Manual | No | Manual |
+| **Technology-aware AN** | Yes (BED capture) | No | No | No | No |
+| **Incremental updates** | Yes (no rebuild) | N/A | N/A | Yes (import) | Rebuild |
+| **Infrastructure required** | None (file-based) | None | None | Java/server | Spark cluster |
+| **Input format** | Single-sample VCFs | Any VCF | VCF | gVCF | VCF/BGEN |
+| **Output format** | JSON/TSV/VCF annotation | Stats text | Freq file | Merged gVCF | Table/VCF |
+| **Max cohort size (tested)** | 50,000 | 100,000+ | 100,000+ | 100,000+ | 1,000,000+ |
+| **Bitmap compression** | Yes (Roaring) | No | No | Yes (GenomicsDB) | No |
+| **VCF annotation** | Yes | No | No | No | Yes |
+| **Python API** | Yes | No | No | No | Yes |
+
+### Query Latency Summary
 
 Brief summary of query latency comparison:
 

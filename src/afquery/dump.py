@@ -116,7 +116,7 @@ def _discover_flat_buckets(flat_path, pos_start, pos_end):
 
 
 def _dump_bucket_worker(
-    db_path, chrom, bucket_id, base_sf, groups, has_fail_bitmap, pos_start, pos_end
+    db_path, chrom, bucket_id, base_sf, groups, pos_start, pos_end
 ):
     """Compute dump rows for a single bucket.
 
@@ -153,7 +153,7 @@ def _dump_bucket_worker(
         where_clause = "WHERE pos BETWEEN ? AND ?"
         params = [str(parquet_file), range_start, range_end]
 
-    fail_col = ", fail_bitmap" if has_fail_bitmap else ""
+    fail_col = ", fail_bitmap"
     sql = (
         f"SELECT pos, ref, alt, het_bitmap, hom_bitmap{fail_col}"
         f" FROM read_parquet(?)"
@@ -176,11 +176,7 @@ def _dump_bucket_worker(
 
     result_rows = []
     for row in rows:
-        if has_fail_bitmap:
-            pos, ref, alt, het_bytes, hom_bytes, fail_bytes = row
-        else:
-            pos, ref, alt, het_bytes, hom_bytes = row
-            fail_bytes = None
+        pos, ref, alt, het_bytes, hom_bytes, fail_bytes = row
 
         # Base eligible / AN
         if pos not in pos_cache:
@@ -264,8 +260,7 @@ def _dump_bucket_worker(
             out_row[f"N_HET_{label}"] = g_N_HET
             out_row[f"N_HOM_ALT_{label}"] = g_N_HOM_ALT
             out_row[f"N_HOM_REF_{label}"] = g_N_HOM_REF
-            if has_fail_bitmap:
-                out_row[f"N_FAIL_{label}"] = g_N_FAIL
+            out_row[f"N_FAIL_{label}"] = g_N_FAIL
 
         result_rows.append(out_row)
 
@@ -298,9 +293,6 @@ def dump_database(
         {"n_rows": int, "n_buckets": int, "n_chroms": int}
     """
     from concurrent.futures import ProcessPoolExecutor, as_completed
-
-    schema_version = engine._manifest.get("schema_version", "1.0")
-    has_fail_bitmap = float(schema_version) >= 2.0
 
     db_path = str(engine._db)
     variants_dir = engine._db / "variants"
@@ -362,18 +354,15 @@ def dump_database(
 
     # Build CSV header
     base_cols = ["chrom", "pos", "ref", "alt", "AC", "AN", "AF",
-                 "N_HET", "N_HOM_ALT", "N_HOM_REF"]
-    if has_fail_bitmap:
-        base_cols.append("N_FAIL")
+                 "N_HET", "N_HOM_ALT", "N_HOM_REF", "N_FAIL"]
 
     group_cols = []
     for label, _ in groups:
         group_cols += [
             f"AC_{label}", f"AN_{label}", f"AF_{label}",
             f"N_HET_{label}", f"N_HOM_ALT_{label}", f"N_HOM_REF_{label}",
+            f"N_FAIL_{label}",
         ]
-        if has_fail_bitmap:
-            group_cols.append(f"N_FAIL_{label}")
 
     fieldnames = base_cols + group_cols
 
@@ -383,7 +372,7 @@ def dump_database(
     if effective == 1:
         for idx, (chrom, bid) in enumerate(work_units):
             unit_results[idx] = _dump_bucket_worker(
-                db_path, chrom, bid, base_sf, groups, has_fail_bitmap, pos_start, pos_end
+                db_path, chrom, bid, base_sf, groups, pos_start, pos_end
             )
             logger.debug("  [dump] %s/bucket_%d: done", chrom, bid)
     else:
@@ -392,7 +381,7 @@ def dump_database(
                 executor.submit(
                     _dump_bucket_worker,
                     db_path, chrom, bid, base_sf, groups,
-                    has_fail_bitmap, pos_start, pos_end,
+                    pos_start, pos_end,
                 ): idx
                 for idx, (chrom, bid) in enumerate(work_units)
             }

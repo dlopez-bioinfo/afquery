@@ -6,7 +6,7 @@ You manage a rare disease registry for a specific regional population. A variant
 
 ## Why Standard Databases Fall Short
 
-gnomAD aggregates data from multiple ancestry groups worldwide. A variant at AF=0.001 globally may be at AF=0.01 in a specific Iberian, Finnish, or Middle Eastern population — a 10× difference that directly impacts ACMG criteria:
+gnomAD aggregates data from wide ancestry groups worldwide. A variant at AF=0.001 at European (non finish) group may be at AF=0.01 in a specific Iberian, French, or German population — a 10× difference that directly impacts ACMG criteria:
 - BA1 (benign standalone): AF > 0.05 in any population
 - BS1 (benign strong): AF > 0.01 in a matched population
 - PM2 (pathogenic moderate): AF < 0.001
@@ -18,6 +18,8 @@ Without a locally calibrated database, these thresholds are applied to populatio
 Build your AFQuery database from samples representative of your population. Queries then reflect the actual frequency distribution in your cohort — the most relevant reference for your patients.
 
 ## Step-by-Step Example
+
+NOTA_PARA_LLM: La sección Step-by-Step Example está repetida en múltiples sitios en la documentación, incluyendo todas las guías de clinical workflows. Piensa una manera de optimizar la documentación para que no sea tan redundante y facilite la lectura de toda la documentación.
 
 ### 1. Build a population-specific database
 
@@ -31,7 +33,7 @@ afquery create-db \
 ### 2. Query a candidate variant
 
 ```bash
-afquery query --db ./local_db/ --chrom chr1 --pos 925952
+afquery query --db ./local_db/ --locus chr1:925952
 ```
 
 ```
@@ -47,7 +49,7 @@ If your cohort includes samples from multiple ancestry groups tagged in the mani
 
 ```bash
 # Samples tagged with population label
-afquery query --db ./local_db/ --chrom chr1 --pos 925952 --phenotype iberian_population
+afquery query --db ./local_db/ --locus chr1:925952 --phenotype iberian_population
 ```
 
 ### 4. Python: systematic comparison across many variants

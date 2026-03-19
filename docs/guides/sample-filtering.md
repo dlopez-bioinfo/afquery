@@ -27,21 +27,20 @@ graph LR
     C["Phenotype Filter<br/>E11.9 OR I10"]
     D["Tech Filter<br/>wgs"]
     E["Eligible Set<br/>42 samples"]
-    F["AN Computed<br/>84 alleles"]
 
     A -->|--sex female| B
     B -->|200 samples| C
     C -->|--phenotype E11.9,I10| D
     D -->|--tech wgs| E
-    E -->|diploid| F
 
     style A fill:#e3f2fd
     style B fill:#f3e5f5
     style C fill:#fff3e0
     style D fill:#e8f5e9
     style E fill:#fce4ec
-    style F fill:#c8e6c9
 ```
+
+NOTA_PARA_LLM: El gráfico de flujo de filtrado no se lee apropiadamente, ya que el tamaño de fuente es muy pequeño. Es necesario modificar el gráfico para hacerlo más legible.
 
 ---
 
@@ -76,7 +75,7 @@ Repeat the flag or use comma-separated values:
 
 ### Exclude Codes
 
-Prefix with `^` (bcftools-style):
+Prefix with `^`:
 
 ```bash
 --phenotype ^E11.9    # all samples EXCEPT those with E11.9
@@ -98,13 +97,13 @@ A common pattern is computing AF over all samples *except* a specific group, eff
 
 ```bash
 # All samples except those tagged with cardiomyopathy ICD code
-afquery query --db ./db/ --chrom chr1 --pos 925952 --phenotype ^I42
+afquery query --db ./db/ --locus chr1:925952 --phenotype ^I42
 
 # All samples except those with a specific project tag
-afquery query --db ./db/ --chrom chr1 --pos 925952 --phenotype ^pilot_cohort
+afquery query --db ./db/ --locus chr1:925952 --phenotype ^pilot_cohort
 ```
 
-This does not require rebuilding the database. The exclusion is applied at query time. See [Use Cases: Pseudo-controls](../use-cases/pseudo-controls.md) for a full worked example.
+See [Use Cases: Pseudo-controls](../use-cases/pseudo-controls.md) for a full worked example.
 
 ---
 
@@ -139,7 +138,7 @@ Filters across dimensions require a sample to satisfy **all** conditions:
 ```bash
 afquery query \
   --db ./db/ \
-  --chrom chr1 --pos 925952 \
+  --locus chr1:925952 \
   --phenotype E11.9 \
   --sex female \
   --tech wgs

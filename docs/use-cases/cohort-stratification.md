@@ -15,9 +15,11 @@ AFQuery allows computing AF over any combination of metadata filters on the same
 - Disease group A vs. disease group B (disease enrichment)
 - Within-technology disease comparisons (controlling for technology)
 
-All comparisons happen on the same database in under 100 ms per query.
+All comparisons happen on the same database.
 
 ## Step-by-Step Example
+
+NOTA_PARA_LLM: La sección Step-by-Step Example está repetida en múltiples sitios en la documentación, incluyendo todas las guías de clinical workflows. Piensa una manera de optimizar la documentación para que no sea tan redundante y facilite la lectura de toda la documentación.
 
 ### Setup: Multi-technology, multi-disease cohort
 
@@ -34,10 +36,10 @@ SAMP_004	vcfs/SAMP_004.vcf.gz	male	wes_v1	control
 
 ```bash
 # WGS samples
-afquery query --db ./db/ --chrom chr1 --pos 925952 --tech wgs --format tsv
+afquery query --db ./db/ --locus chr1:925952 --tech wgs --format tsv
 
 # WES samples
-afquery query --db ./db/ --chrom chr1 --pos 925952 --tech wes_v1 --format tsv
+afquery query --db ./db/ --locus chr1:925952 --tech wes_v1 --format tsv
 ```
 
 If AF differs substantially between technologies (>2×), this may indicate a capture artifact or systematic genotyping difference. Use `afquery check` to verify BED file coverage.
@@ -46,24 +48,24 @@ If AF differs substantially between technologies (>2×), this may indicate a cap
 
 ```bash
 # Epilepsy group
-afquery query --db ./db/ --chrom chr1 --pos 925952 --phenotype epilepsy --format json
+afquery query --db ./db/ --locus chr1:925952 --phenotype epilepsy --format json
 
 # Control group (explicitly tagged)
-afquery query --db ./db/ --chrom chr1 --pos 925952 --phenotype control --format json
+afquery query --db ./db/ --locus chr1:925952 --phenotype control --format json
 
 # Or use exclusion-based pseudo-controls
-afquery query --db ./db/ --chrom chr1 --pos 925952 --phenotype ^epilepsy --format json
+afquery query --db ./db/ --locus chr1:925952 --phenotype ^epilepsy --format json
 ```
 
 ### 3. Within-technology disease comparison
 
 ```bash
 # Epilepsy WGS only (controls for technology)
-afquery query --db ./db/ --chrom chr1 --pos 925952 \
+afquery query --db ./db/ --locus chr1:925952 \
   --phenotype epilepsy --tech wgs --format tsv
 
 # Control WGS only
-afquery query --db ./db/ --chrom chr1 --pos 925952 \
+afquery query --db ./db/ --locus chr1:925952 \
   --phenotype control --tech wgs --format tsv
 ```
 

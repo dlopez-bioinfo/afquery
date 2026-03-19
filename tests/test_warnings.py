@@ -75,8 +75,7 @@ def test_no_warn_suppresses(test_db):
     runner = CliRunner()
     result = runner.invoke(query_cmd, [
         "--db", test_db,
-        "--chrom", "chr22",
-        "--pos", "1000",
+        "--locus", "chr22:1000",
         "--no-warn",
     ])
     assert result.exit_code == 0

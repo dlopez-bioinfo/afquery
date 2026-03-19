@@ -67,7 +67,7 @@ Example workflow from raw VCFs to query and annotation:
 ```bash
 pip install afquery
 afquery create-db --manifest samples.tsv --output-dir ./db/ --genome-build GRCh38
-afquery query --db ./db/ --chrom chr1 --pos 925952 --phenotype E11.9 --sex female
+afquery query --db ./db/ --locus chr1:925952 --phenotype E11.9 --sex female
 afquery annotate --db ./db/ --input patient.vcf --output annotated.vcf --threads 12
 ```
 

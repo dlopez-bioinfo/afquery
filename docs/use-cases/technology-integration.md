@@ -1,3 +1,5 @@
+NOTA_PARA_LLM: Reescribir completamente esta sección para destacar que AFQuery permite crear bases de datos locales a partir de muestras secuenciaciadas con diferentes tecnologías, calculando correctamente la AN según la zona secuenciada y cubierta por el bed de captura de cada muestra. Esto, hacerlo a manualmente es muy complicado, especialmente si hay un gran número de paneles. De hecho, es muy común aún que los hospitales hagan paneles de genes para los distintos grupos de enfermedad en lugar de hacer WES o WGS. Este problema también se tiene cuando se usan distintas versiones de un mismo kit de captura, que tienen pequeñas diferencias. Si no se tiene en cuenta la versión del kit de captura para el cálculo de AN, estos valores estarán sesgados. Calcular las AF teniendo en cuenta las regiones secuenciadas de cada kit de captura es un proceso muy laborioso, y no existen herramientas bioinformáticas que lo hagan de forma automática. Esta es una de las features más importantes de esta herramienta. Reescribe completamente esta sección para plasmar esta idea como una guía más.
+
 # Technology Integration (WES + WGS)
 
 ## Scenario
@@ -28,6 +30,8 @@ For each non-WGS technology, AFQuery builds an interval tree from the BED file. 
 
 ## Step-by-Step Example
 
+NOTA_PARA_LLM: La sección Step-by-Step Example está repetida en múltiples sitios en la documentación, incluyendo todas las guías de clinical workflows. Piensa una manera de optimizar la documentación para que no sea tan redundante y facilite la lectura de toda la documentación.
+
 ### 1. Manifest with mixed technologies
 
 ```tsv
@@ -54,7 +58,7 @@ No BED file is needed for `wgs` — WGS samples are always eligible.
 ### 3. Query at a position covered by WES_v1 but not by panel
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --pos 925952
+afquery query --db ./db/ --locus chr1:925952
 ```
 
 ```
@@ -68,10 +72,10 @@ AN=200 reflects only samples whose technology covers this position (WGS + WES_v1
 
 ```bash
 # Only WES_v1 samples
-afquery query --db ./db/ --chrom chr1 --pos 925952 --tech wes_v1
+afquery query --db ./db/ --locus chr1:925952 --tech wes_v1
 
 # Only WGS samples
-afquery query --db ./db/ --chrom chr1 --pos 925952 --tech wgs
+afquery query --db ./db/ --locus chr1:925952 --tech wgs
 ```
 
 ### 5. Detect technology artifacts
@@ -81,7 +85,7 @@ Compare AF across technologies for the same variant:
 ```bash
 for tech in wgs wes_v1 wes_v2; do
   echo -n "$tech: "
-  afquery query --db ./db/ --chrom chr1 --pos 925952 --tech $tech --format tsv | \
+  afquery query --db ./db/ --locus chr1:925952 --tech $tech --format tsv | \
     awk 'NR>1 {print "AF=" $6 " AN=" $5}'
 done
 ```
@@ -94,7 +98,7 @@ If AF differs substantially between WGS and WES, this may indicate:
 ### 6. Position not covered by any technology
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --pos 999999999
+afquery query --db ./db/ --locus chr1:999999999
 ```
 
 ```
