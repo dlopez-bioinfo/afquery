@@ -77,7 +77,7 @@ afquery create-db ... --threads 32 --build-threads 16 --build-memory 4GB
 ### Query Execution Path
 
 ```mermaid
-graph LR
+graph TD
     A["Query Request<br/>chr1:925952"]
     B["Open DuckDB<br/>connection"]
     C["Locate Parquet<br/>bucket_0/data.parquet"]
@@ -103,9 +103,7 @@ graph LR
     style F fill:#f3e5f5
     style G fill:#fff3e0
     style H fill:#c8e6c9
-```
-
-NOTA_PARA_LLM: El texto de los gráficos mermaid es difícil de leer cuando se visualiza la documentación en el ordenador. En el caso concreto de Query Execution Path, esto se debe a que todo el gráfico se renderiza en una sola línea. Este problema se ha detectado en otros gráficos, por lo que se deben revisar todos los gráficos mermaid para asegurarse de que el texto sea legible. 
+``` 
 
 ### Sub-100 ms Point Queries
 
@@ -185,10 +183,3 @@ Enable verbose output to see per-step timings (available on `annotate`, `dump`, 
 ```bash
 afquery annotate --db ./db/ --input variants.vcf --output annotated.vcf --verbose
 ```
-
-For annotation:
-```bash
-afquery annotate --db ./db/ --input variants.vcf --output annotated.vcf --verbose
-```
-
-NOTA_PARA_LLM: Los 2 ejemplos de profiling son exactamente iguales. Se debe prestar atención a que la documentación sea práctica y sencilla.

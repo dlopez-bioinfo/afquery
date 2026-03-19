@@ -49,7 +49,7 @@ def test_benchmark_with_synth_small(tmp_path):
 
 
 def test_benchmark_cli_runs(tmp_path, data_dir):
-    """benchmark CLI command with --db-dir runs without error."""
+    """benchmark CLI command with --db runs without error."""
     from click.testing import CliRunner
     from afquery.cli import cli
     from afquery.preprocess import run_preprocess
@@ -68,7 +68,7 @@ def test_benchmark_cli_runs(tmp_path, data_dir):
     runner = CliRunner()
     result = runner.invoke(cli, [
         "benchmark",
-        "--db-dir", db_path,
+        "--db", db_path,
         "--output", output,
     ])
 

@@ -21,7 +21,7 @@ Filters compose with **AND** across dimensions: a sample must satisfy all active
 ### Filtering Flow
 
 ```mermaid
-graph LR
+graph TD
     A["Sample Pool<br/>300 samples total"]
     B["Sex Filter<br/>female"]
     C["Phenotype Filter<br/>E11.9 OR I10"]
@@ -39,8 +39,6 @@ graph LR
     style D fill:#e8f5e9
     style E fill:#fce4ec
 ```
-
-NOTA_PARA_LLM: El gráfico de flujo de filtrado no se lee apropiadamente, ya que el tamaño de fuente es muy pequeño. Es necesario modificar el gráfico para hacerlo más legible.
 
 ---
 

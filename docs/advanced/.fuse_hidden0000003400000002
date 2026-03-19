@@ -83,6 +83,8 @@ At non-PAR chrX positions:
 - A female with GT=`0/1` contributes AC=1, AN=2
 - A female with GT=`1/1` contributes AC=2, AN=2
 
+NOTA_PARA_LLM: Esta lista se muestra en la documentación en una única linea. Este problema se ha observado en múltiples sitios en la documentación. Se debe averiguar la causa y hacer una revisión de toda la documentación para arreglar todos los casos afectdos.
+
 N_HET and N_HOM_ALT are counted per sample (not per allele):
 - Males at chrX are counted in N_HET if GT=1 (single alt allele)
 - The distinction between het/hom is less meaningful for haploid calls
