@@ -40,8 +40,6 @@ This adds to each variant:
 - `AFQUERY_AF`: allele frequency
 - `AFQUERY_N_HET`, `AFQUERY_N_HOM_ALT`: genotype counts
 
-NOTA_PARA_LLM: La lista de variables que se añaden al vcf aparece en una sola línea en lugar de una lista de bullets.
-
 ### 2. Filter for rare variants with reliable AN
 
 ```bash
@@ -115,9 +113,6 @@ A typical clinical pipeline retains ~1,500 rare/novel candidates after cohort AF
 - `AN >= 100`: minimum for any AF interpretation
 - `AN >= 500`: recommended for rare variant filtering
 - `AN >= 1000`: conservative threshold for robust AF estimates
-
-
-NOTA_PARA_LLM: La lista de AN thresholds aparece en una sola línea en lugar de una lista de bullets.
 
 For detailed ACMG workflows with worked examples and AN threshold guidance, see [ACMG Criteria (BA1/PM2/PS4)](../clinical/acmg-use-cases.md).
 

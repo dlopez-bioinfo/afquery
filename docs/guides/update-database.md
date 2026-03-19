@@ -5,7 +5,7 @@
 ### Update Timeline
 
 ```mermaid
-graph LR
+graph TD
     A["Initial Build<br/>1000 samples<br/>DB v1.0"]
     B["Add Batch 2<br/>+500 samples<br/>DB v1.1"]
     C["Add Batch 3<br/>+300 samples<br/>DB v1.2"]
@@ -23,7 +23,6 @@ graph LR
     style D fill:#ffebee
     style E fill:#e8f5e9
 ```
-NOTA_PARA_LLM: El gráfico del timeline muestra el texto muy pequeño de forma que es dificil de leer. Es necesario modificar el gráfico para que el texto sea legible.
 
 ---
 

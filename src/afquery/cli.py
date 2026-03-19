@@ -524,15 +524,15 @@ def check_cmd(db):
 @click.option("--n-samples",  default=1000, type=int, help="Number of synthetic samples to generate. (default: 1000)")
 @click.option("--n-variants", default=10_000, type=int, help="Number of variants per chromosome. (default: 10000)")
 @click.option("--output",     default="benchmark_report.json", help="Output path for JSON benchmark report. (default: benchmark_report.json)")
-@click.option("--db-dir",     default=None, help="Use existing database instead of generating synthetic data.")
-def benchmark(n_samples, n_variants, output, db_dir):
+@click.option("--db",         default=None, help="Use existing database instead of generating synthetic data.")
+def benchmark(n_samples, n_variants, output, db):
     """Run performance benchmark suite and output a timing report."""
     from .benchmark import run_benchmark, run_benchmark_with_synth
     from pathlib import Path
 
-    if db_dir is not None:
-        click.echo(f"Benchmarking existing DB at {db_dir} ...")
-        results = run_benchmark(Path(db_dir))
+    if db is not None:
+        click.echo(f"Benchmarking existing DB at {db} ...")
+        results = run_benchmark(Path(db))
         import json as _json
         with open(output, "w") as f:
             _json.dump(results, f, indent=2)

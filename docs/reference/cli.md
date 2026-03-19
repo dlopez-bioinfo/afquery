@@ -205,9 +205,7 @@ afquery benchmark [OPTIONS]
 | `--n-samples` | INTEGER | `1000` | Number of synthetic samples to generate |
 | `--n-variants` | INTEGER | `10000` | Number of variants per chromosome |
 | `--output` | TEXT | `benchmark_report.json` | Output path for JSON benchmark report |
-| `--db-dir` | TEXT | None | Use an existing database instead of generating synthetic data |
-
-NOTA_PARA_LLM: todos los módulos usan --db para proporcionar la ruta de la base de datos excepto el módulo benchmark. Se debe cambiar por --db para mantener la coherencia con el resto de la herramienta.
+| `--db` | TEXT | None | Use an existing database instead of generating synthetic data |
 
 ---
 

@@ -22,10 +22,8 @@ Fields:
 - `sample_name`: unique identifier
 - `vcf_path`: path to single-sample VCF (plain or `.gz`)
 - `sex`: `male` or `female`
-- `tech_name`: sequencing technology name. Use `WGS` for whole genome sequencing 
+- `tech_name`: sequencing technology name. Use `WGS` for whole genome sequencing
 - `phenotype_codes`: comma-separated metadata codes (arbitrary strings)
-
-NOTA_PARA_LLM: La lista de campos se muestra en una sola línea en lugar de una lista con bullets. Se debe corregir el formato.
 
 See [Manifest Format](../guides/manifest-format.md) for full details.
 
