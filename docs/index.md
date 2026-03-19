@@ -39,32 +39,33 @@ AFQuery addresses the following methodological gaps not covered by existing tool
 
 Existing bioinformatics tools (i.e. bcftools) scan VCF files linearly, scaling with file size. AFQuery queries execute in under 100 ms regardless of cohort size, because queries access only the bitmaps for the relevant position rather than scanning the full dataset.
 
-### 2. Incremental database updates without reprocessing
-
-When new samples are added to the cohort, AFQuery merges new genotype data into the existing bitmap index without rebuilding from scratch. This enables real-time cohort growth in clinical settings where samples are added continuously.
-
 ### 3. Multi-dimensional metadata filtering
 
 AFQuery supports simultaneous filtering by sex, arbitrary metadata codes, and sequencing technology, with both inclusion and exclusion semantics. Metadata codes are arbitrary strings defined by the userr — ICD-10 codes, HPO terms, project tags, or any user-defined labels. No controlled vocabulary is required.
 
-### 4. Server-less, portable database format
+### 6. Sequencing technology aware
 
-The AFQuery database is a directory of standard Parquet files with a SQLite metadata database. It requires no server process, can be shared by copying, and can be queried from any machine with AFQuery installed. This is particularly valuable for clinical and research settings where infrastructure deployment is constrained.
+AFQuery correctly computes AN by intersecting each sample's capture BED with the queried position, even when the cohort mixes WGS, WES kits, and gene panels (including different versions of the same kit). This ensures accurate frequency estimates without artificial bias from technology-dependent coverage differences.
 
 ### 5. Ploidy-aware AF
 
 AFQuery correctly handles PAR and non-PAR regions on chrX and chrY and chrMT ploidy rules per sample (i.e. Males at chrX non-PAR contribute AN=1; females contribute AN=2). This ensures accurate hemizygous frequency computation for X-linked variant analysis without manual adjustment.
 
+### 7. VCF annotation with custom sample subsets
 
-### 6. Sequencing technology aware
+Annotate a patient VCF with `AFQUERY_AC`, `AFQUERY_AN`, and `AFQUERY_AF` INFO fields computed from any combination of phenotype, sex, and technology filters.
 
-NOTA_PARA_LLM: Añadir descripción sobre cómo maneja AFQuery las cohortes con distintas tecnologías para el cálculo apropiado de AN según la región secuenciada.
+### 8. Audit changelog
 
-NOTA_PARA_LLM: Añadir feature 7. **VCF annotation** with custom sample subsets
+Every database operation (sample add, remove, or metadata update) is recorded in a tamper-evident changelog, ensuring result reproducibility and auditability.
 
-NOTA_PARA_LLM: Añadir feature 8. La base de datos incluye changelog para asegurar la reproducibilidad de los resultados.
+### 2. Incremental database updates without reprocessing
 
-NOTA_PARA_LLM: reordenar las novedades de la herramienta así: 1,3,6,5,7,8,2,4
+When new samples are added to the cohort, AFQuery merges new genotype data into the existing bitmap index without rebuilding from scratch. This enables real-time cohort growth in clinical settings where samples are added continuously.
+
+### 4. Server-less, portable database format
+
+The AFQuery database is a directory of standard Parquet files with a SQLite metadata database. It requires no server process, can be shared by copying, and can be queried from any machine with AFQuery installed. This is particularly valuable for clinical and research settings where infrastructure deployment is constrained.
 
 
 
