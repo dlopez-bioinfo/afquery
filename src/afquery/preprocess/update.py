@@ -270,6 +270,216 @@ def _clear_bits_from_parquet(parquet_file: str, removal_ids: BitMap) -> None:
 
 # ---- Public functions ----
 
+def parse_updates_tsv(path: str) -> list[dict]:
+    """Parse a metadata-update TSV file into a list of update dicts.
+
+    The file must have a header row with columns ``sample_name``, ``field``,
+    and ``new_value`` (tab-separated).  Each subsequent row describes one
+    field change for one sample.
+
+    Args:
+        path: Path to the TSV file.
+
+    Returns:
+        List of dicts with keys ``sample_name``, ``field``, and
+        ``new_value``.
+
+    Raises:
+        UpdateError: If required columns are missing.
+    """
+    updates: list[dict] = []
+    with open(path) as fh:
+        header: list[str] | None = None
+        for raw_line in fh:
+            line = raw_line.rstrip("\n")
+            if not line:
+                continue
+            parts = line.split("\t")
+            if header is None:
+                header = [p.strip() for p in parts]
+                required = {"sample_name", "field", "new_value"}
+                missing = required - set(header)
+                if missing:
+                    raise UpdateError(
+                        f"TSV file {path!r} missing required columns: "
+                        f"{', '.join(sorted(missing))}. "
+                        f"Expected header: sample_name<TAB>field<TAB>new_value"
+                    )
+                continue
+            row = dict(zip(header, parts))
+            updates.append(
+                {
+                    "sample_name": row.get("sample_name", "").strip(),
+                    "field": row.get("field", "").strip(),
+                    "new_value": row.get("new_value", "").strip(),
+                }
+            )
+    return updates
+
+
+def update_sample_metadata(
+    db_dir: str,
+    updates: list[dict],
+    operator_note: str | None = None,
+) -> list[dict]:
+    """Update ``sex`` and/or ``phenotype_codes`` for one or more samples.
+
+    This is a non-destructive metadata correction that does **not** require
+    re-ingesting VCF files.  All changes are recorded in the ``changelog``
+    table and precomputed bitmaps are regenerated atomically.
+
+    Args:
+        db_dir: Path to the database directory.
+        updates: List of dicts, each with keys:
+
+            - ``sample_name`` (str): Name of the sample to update.
+            - ``field`` (str): Field to change — ``"sex"`` or
+              ``"phenotype_codes"``.
+            - ``new_value`` (str): New value.  For ``"sex"``, must be
+              ``"male"`` or ``"female"``.  For ``"phenotype_codes"``, a
+              comma-separated string of codes that *replaces* all current
+              codes for the sample.
+
+        operator_note: Optional free-text note appended to every changelog
+            entry created by this call.
+
+    Returns:
+        List of changelog entry dicts (one per field change), each containing
+        ``sample``, ``field``, ``old``, and ``new`` keys.
+
+    Raises:
+        UpdateError: If a sample name is not found, a field name is invalid,
+            a sex value is not ``"male"`` or ``"female"``, or
+            ``phenotype_codes`` resolves to an empty list.
+    """
+    _VALID_FIELDS = {"sex", "phenotype_codes"}
+    _VALID_SEX = {"male", "female"}
+
+    if not updates:
+        return []
+
+    db_path = os.path.join(db_dir, "metadata.sqlite")
+    manifest = _read_manifest(db_dir)
+
+    con = sqlite3.connect(db_path)
+    try:
+        existing_samples: dict[str, int] = {
+            r[0]: r[1]
+            for r in con.execute(
+                "SELECT sample_name, sample_id FROM samples"
+            ).fetchall()
+        }
+
+        # --- Validation pass (all-or-nothing before any writes) ---
+        for u in updates:
+            sname = u.get("sample_name", "").strip()
+            field = u.get("field", "").strip()
+            new_value = u.get("new_value", "").strip()
+
+            if not sname:
+                raise UpdateError("Update entry has an empty sample_name.")
+            if sname not in existing_samples:
+                raise UpdateError(f"Sample '{sname}' not found in database.")
+            if field not in _VALID_FIELDS:
+                raise UpdateError(
+                    f"Invalid field '{field}' for sample '{sname}'. "
+                    f"Allowed fields: {', '.join(sorted(_VALID_FIELDS))}."
+                )
+            if field == "sex" and new_value not in _VALID_SEX:
+                raise UpdateError(
+                    f"Invalid sex value '{new_value}' for sample '{sname}'. "
+                    f"Must be 'male' or 'female'."
+                )
+            if field == "phenotype_codes":
+                codes = [c.strip() for c in new_value.split(",") if c.strip()]
+                if not codes:
+                    raise UpdateError(
+                        f"phenotype_codes for sample '{sname}' is empty after "
+                        f"parsing '{new_value}'. Provide at least one non-empty code."
+                    )
+
+        # --- Apply changes ---
+        event_time = datetime.now(timezone.utc).isoformat()
+        changelog_entries: list[dict] = []
+
+        for u in updates:
+            sname = u["sample_name"].strip()
+            field = u["field"].strip()
+            new_value = u["new_value"].strip()
+            sample_id = existing_samples[sname]
+
+            if field == "sex":
+                old_value: str = con.execute(
+                    "SELECT sex FROM samples WHERE sample_id = ?", (sample_id,)
+                ).fetchone()[0]
+                con.execute(
+                    "UPDATE samples SET sex = ? WHERE sample_id = ?",
+                    (new_value, sample_id),
+                )
+                entry: dict = {
+                    "sample": sname,
+                    "field": "sex",
+                    "old": old_value,
+                    "new": new_value,
+                }
+
+            else:  # phenotype_codes
+                codes = [c.strip() for c in new_value.split(",") if c.strip()]
+                old_codes = sorted(
+                    r[0]
+                    for r in con.execute(
+                        "SELECT phenotype_code FROM sample_phenotype WHERE sample_id = ?",
+                        (sample_id,),
+                    ).fetchall()
+                )
+                con.execute(
+                    "DELETE FROM sample_phenotype WHERE sample_id = ?", (sample_id,)
+                )
+                con.executemany(
+                    "INSERT INTO sample_phenotype (sample_id, phenotype_code) VALUES (?, ?)",
+                    [(sample_id, code) for code in codes],
+                )
+                entry = {
+                    "sample": sname,
+                    "field": "phenotype_codes",
+                    "old": ",".join(old_codes),
+                    "new": ",".join(sorted(codes)),
+                }
+
+            if operator_note:
+                entry["operator_note"] = operator_note
+
+            con.execute(
+                "INSERT INTO changelog (event_type, event_time, sample_names, notes)"
+                " VALUES (?, ?, ?, ?)",
+                (
+                    "UPDATE_SAMPLE",
+                    event_time,
+                    json.dumps([sname]),
+                    json.dumps(entry),
+                ),
+            )
+            changelog_entries.append(entry)
+
+        _regenerate_precomputed_bitmaps(con)
+        con.commit()
+
+    finally:
+        con.close()
+
+    current_version = manifest.get("db_version", "1.0")
+    _update_manifest(
+        db_dir,
+        manifest["sample_count"],
+        db_version=_bump_version(current_version),
+    )
+
+    logger.info(
+        "[update-metadata] Done. %d field change(s) applied.", len(changelog_entries)
+    )
+    return changelog_entries
+
+
 def add_samples(
     db_dir: str,
     manifest_path: str,

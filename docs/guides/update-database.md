@@ -23,6 +23,7 @@ graph LR
     style D fill:#ffebee
     style E fill:#e8f5e9
 ```
+NOTA_PARA_LLM: El gráfico del timeline muestra el texto muy pequeño de forma que es dificil de leer. Es necesario modificar el gráfico para que el texto sea legible.
 
 ---
 
@@ -157,24 +158,65 @@ v3.0  2026-03-01  compact   compacted after removal
 
 ---
 
-## Incremental Growth Workflow
 
-For a production database that grows over time:
+## Update Sample Metadata
+
+Correct a sample's `sex` or `phenotype_codes` without re-ingesting its VCF. Precomputed bitmaps are regenerated and the change is logged in the changelog.
+
+### Single sample
 
 ```bash
-# Month 1: initial build
-afquery create-db --manifest month1.tsv --output-dir ./db/ --genome-build GRCh38
+# Change sex
+afquery update-db --db ./db/ --update-sample SAMP_001 --set-sex female
 
-# Month 2: add new samples
-afquery update-db --db ./db/ --add-samples month2.tsv
+# Replace phenotype codes (replaces ALL current codes)
+afquery update-db --db ./db/ --update-sample SAMP_001 --set-phenotype "E11.9,I10"
 
-# Month 3: add more; remove withdrawn consent
+# Change both fields in one command
 afquery update-db --db ./db/ \
-  --add-samples month3.tsv \
-  --remove-samples WITHDRAWN_001,WITHDRAWN_002
+  --update-sample SAMP_001 \
+  --set-sex female \
+  --set-phenotype "E11.9,I10"
+```
 
-# Compact when many samples removed
-afquery update-db --db ./db/ --compact
+### Batch update from TSV
+
+Create a TSV file with a `sample_name`, `field`, `new_value` header. One change per row; the same sample can appear on multiple rows:
+
+```
+sample_name	field	new_value
+SAMP_001	sex	female
+SAMP_002	phenotype_codes	E11.9,I10
+SAMP_003	sex	male
+SAMP_003	phenotype_codes	C50
+```
+
+```bash
+afquery update-db --db ./db/ --update-samples-file corrections.tsv
+```
+
+### Operator note
+
+Attach a free-text note to every changelog entry created by the update:
+
+```bash
+afquery update-db --db ./db/ \
+  --update-sample SAMP_001 \
+  --set-phenotype "E11.9" \
+  --operator-note "Corrected after clinical review 2026-03-19"
+```
+
+### Verify the change
+
+```bash
+# Inspect the changelog
+afquery info --db ./db/ --changelog
+
+# List samples to confirm new values
+afquery info --db ./db/ --samples
+
+# Query with the updated phenotype
+afquery query --db ./db/ --locus chr1:925952 --phenotype E11.9
 ```
 
 ---
