@@ -59,7 +59,7 @@ nav:
     - 5-Min Quick Start: getting-started/quickstart.md
     - Understanding Output: getting-started/understanding-output.md
   - User Guides:
-    - Bioinformatics Workflows:
+    - 🧬 Bioinformatics Workflows:
       - Create a Database: guides/create-database.md
       - Manifest Format: guides/manifest-format.md
       - Update a Database: guides/update-database.md
@@ -67,7 +67,7 @@ nav:
       - Annotate a VCF: guides/annotate-vcf.md
       - Bulk Export: guides/dump-export.md
       - Sample Filtering: guides/sample-filtering.md
-    - Clinical Workflows:
+    - 🏥 Clinical Workflows:
       - ACMG Criteria (BA1/PM2/PS4): clinical/acmg-use-cases.md
       - Clinical Prioritization: use-cases/clinical-prioritization.md
       - Pseudo-controls: use-cases/pseudo-controls.md
@@ -89,10 +89,6 @@ nav:
     - Pipeline Integration: advanced/pipeline-integration.md
     - Multi-cohort Strategies: advanced/multi-cohort-strategies.md
     - Debugging Results: advanced/debugging-results.md
-  - Publication:
-    - Scientific Overview: publication/scientific-overview.md
-    - Benchmarks Methodology: publication/benchmarks-methodology.md
-    - Comparison Table: publication/comparison-table.md
   - FAQ & Troubleshooting:
     - FAQ: faq.md
     - Troubleshooting: troubleshooting.md
