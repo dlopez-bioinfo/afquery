@@ -13,6 +13,8 @@ AFQuery enables fast allele frequency queries on user-defined subsets of local g
 
 AFQuery is a bitmap-indexed engine that efficiently recomputes AC/AN/AF for dynamically defined subcohorts (e.g., by phenotype, sex, or sequencing technology), a common requirement in ACMG/AMP variant classification. It stores per-variant genotype data as Roaring Bitmaps in Parquet files and resolves sample filters into bitmaps that can be intersected in microseconds, enabling sub-100 ms queries on large cohorts. The system accounts for ploidy in sex chromosomes, adjusts AN based on sequencing technology, supports incremental updates, and runs locally using a file-based setup (Parquet + SQLite) without requiring server or cloud infrastructure.
 
+[Full Documentation→](https://dlopez-bioinfo.github.io/afquery/)
+
 ## When to use AFQuery
 
 - You need allele frequencies for phenotype or user-defined subcohorts  
@@ -73,8 +75,8 @@ afquery annotate --db ./db/ --input patient.vcf --output annotated.vcf --threads
 
 ## Documentation
 
-- Full Documentation: https://dlopez-bioinfo.github.io/afquery/
-- Getting Started: https://dlopez-bioinfo.github.io/afquery/getting-started/
+- [Full Documentation→](https://dlopez-bioinfo.github.io/afquery/)
+- [Getting Started](https://dlopez-bioinfo.github.io/afquery/getting-started/)
 
 ## Citation
 
