@@ -12,7 +12,7 @@ The manifest is a tab-separated (TSV) file that describes your sample cohort. It
 | `vcf_path` | Yes | string | Absolute or relative path to the single-sample VCF file (plain or `.gz`). |
 | `sex` | Yes | `male` \| `female` | Biological sex. Used for ploidy-aware AN computation on sex chromosomes. |
 | `tech_name` | Yes | string | Sequencing technology name (e.g., `wgs`, `wes_v1`, `capture_kit_A`). Case-sensitive. |
-| `phenotype_codes` | No | string | Comma-separated metadata codes for this sample (arbitrary strings, e.g., `E11.9,control`). Empty = no codes. |
+| `phenotype_codes` | No | string | Comma-separated metadata codes for this sample (arbitrary strings, e.g., `E11.9,control`). |
 
 ---
 
@@ -42,12 +42,12 @@ The `phenotype_codes` column accepts **any arbitrary strings** — there is no r
 - Population or batch labels (e.g., `EUR`, `batch_2023`)
 - Technology subgroups (e.g., `panel_v1`, `panel_v2`)
 
-Multiple codes per sample: comma-separated, no spaces (`E11.9,I10`)
-Samples with no phenotype: leave the `phenotype_codes` column empty
-Codes are stored as-is and matched exactly in queries (case-sensitive)
+Multiple codes per sample can be provided (comma-separated, no spaces)
+Samples with no phenotype can leave the `phenotype_codes` column empty
 
-!!! important "Phenotype codes cannot be changed after ingestion"
-    Phenotype codes are stored at ingest time. To update a sample's codes, you must remove the sample and re-add it with the new manifest. Plan your code assignments carefully before building the database.
+
+!!! important phenotype filtering
+    `phenotype_codes` are stored as-is and matched exactly in queries (case-sensitive)
 
 ---
 
@@ -59,7 +59,16 @@ Codes are stored as-is and matched exactly in queries (case-sensitive)
 - **WES technologies** (with BED file): coverage is determined by `<tech>.bed` in `--bed-dir`
 
 !!! important "WES BED files"
-    For any technology that is not WGS, you must provide a BED file named `<tech>.bed` in the `--bed-dir` directory. If no BED file is found, AFQuery treats the technology as WGS (all positions covered).
+    For any technology that is not WGS, you must provide a BED file named `<tech>.bed` in
+    the `--bed-dir` directory. If the file is not found, AFQuery aborts with an error before
+    any ingestion begins:
+
+    ```
+    ManifestError: BED file not found for technology 'WES_kit_A': '/path/to/WES_kit_A.bed'
+    ```
+
+    To resolve this, either supply the correct BED file or rename the technology to `WGS`
+    in the manifest (no BED file required for WGS).
 
 ---
 
@@ -72,13 +81,6 @@ BED files for WES capture regions must be:
 - Chromosome names matching your VCF style (`chr1` or `1`)
 - Named `<tech_name>.bed` (exact match to the `tech_name` column in the manifest)
 
-Example `wes_v1.bed`:
-```
-chr1	65419	65433
-chr1	925952	926117
-chr1	1014541	1015072
-```
-
 ---
 
 ## Common Mistakes
@@ -90,20 +92,5 @@ chr1	1014541	1015072
 | Wrong sex value | Silent error (no ploidy adjustment) | Use exactly `male` or `female` |
 | Spaces in phenotype (`E11.9, I10`) | Code `" I10"` stored with leading space | Use `E11.9,I10` (no spaces) |
 | Relative VCF path from wrong CWD | File not found error | Use absolute paths or run from the correct directory |
-| Missing BED for WES tech | Treated as WGS (all positions covered) | Place `<tech>.bed` in `--bed-dir` |
 
 ---
-
-## Template
-
-Download a blank manifest template:
-
-```tsv
-sample_name	vcf_path	sex	tech_name	phenotype_codes
-```
-
-Or generate one with headers only:
-
-```bash
-echo -e "sample_name\tvcf_path\tsex\ttech_name\tphenotype_codes" > manifest.tsv
-```

@@ -8,24 +8,30 @@ No. AFQuery is entirely file-based. The database is a directory of Parquet files
 
 ## Can I query multiple chromosomes at once?
 
-Not with a single `afquery query` call — each call is restricted to one chromosome. For multi-chromosome queries, use a shell loop:
+Yes. The `--from-file` batch mode supports variants across multiple chromosomes in a single call. Place variants from any chromosome in the same TSV file:
 
-```bash
-for chrom in chr1 chr2 chr3; do
-  afquery query --db ./db/ --chrom $chrom --pos 925952 --format tsv
-done
+```tsv
+chr1	925952	G	A
+chrX	5000000	A	G
+chr2	166845670	C	T
 ```
 
-Or use the Python API:
+```bash
+afquery query --db ./db/ --from-file variants.tsv --format tsv
+```
+
+Results are returned in the same order as the input file. You can also use the Python API directly:
 
 ```python
 from afquery import Database
 
 db = Database("./db/")
-for chrom in ["chr1", "chr2", "chr3"]:
-    results = db.query(chrom, pos=925952)
-    for r in results:
-        print(chrom, r.AC, r.AN, r.AF)
+results = db.query_batch_multi([
+    ("chr1", 925952, "G", "A"),
+    ("chrX", 5000000, "A", "G"),
+])
+for r in results:
+    print(r.variant.chrom, r.variant.pos, r.AC, r.AN, r.AF)
 ```
 
 ---
@@ -56,16 +62,24 @@ Then create a manifest pointing to the split files.
 
 ## How do I update phenotype metadata without re-ingesting?
 
-**This is not supported.** Phenotype codes are assigned at ingest time and stored in `metadata.sqlite`. They cannot be changed without removing and re-adding the sample.
+Use `afquery update-db --update-sample` to correct a sample's `sex` or `phenotype_codes` without touching the VCF or the Parquet files. The change is recorded in the changelog and precomputed bitmaps are regenerated automatically.
 
-To update a sample's phenotype codes:
-1. Remove the sample: `afquery update-db --db ./db/ --remove-samples SAMP_001`
-2. Update your manifest with the new codes
-3. Re-add the sample: `afquery update-db --db ./db/ --add-samples updated_manifest.tsv`
+Update a single sample:
 
-**Plan your phenotype code assignments carefully before building the database.**
+```bash
+afquery update-db --db ./db/ --update-sample SAMP_001 --set-phenotype "E11.9,I10"
+afquery update-db --db ./db/ --update-sample SAMP_001 --set-sex female
+```
 
-!!! warning "Phenotype codes are permanent"
+Update many samples at once using a TSV file (header: `sample_name`, `field`, `new_value`):
+
+```bash
+afquery update-db --db ./db/ --update-samples-file corrections.tsv
+```
+
+See [Updating sample metadata](guides/update-database.md#update-sample-metadata) for a full walkthrough.
+
+!!! note "Code format"
     Codes are case-sensitive and matched exactly. `E11.9` ≠ `e11.9`. Typos are silently stored and will produce empty results when queried. Run `afquery info --db ./db/` to see all registered codes and verify they match your expectations.
 
 ---
@@ -134,7 +148,7 @@ On chrX non-PAR positions, males contribute AN=1 and females contribute AN=2. Wh
 
 ## What does FAIL_SAMPLES mean in query output?
 
-`FAIL_SAMPLES` (shown as `FAIL=N` in text output) is the count of eligible samples that had the alt allele called but with `FILTER≠PASS`. These samples are not counted in AC/AN. Available only in schema v2 databases. See [FILTER=PASS Tracking](advanced/filter-pass-tracking.md).
+`FAIL_SAMPLES` (shown as `FAIL=N` in text output) is the count of eligible samples that had the alt allele called but with `FILTER≠PASS`. These samples are not counted in AC/AN. See [FILTER=PASS Tracking](advanced/filter-pass-tracking.md).
 
 ---
 
@@ -147,6 +161,8 @@ See [Manifest Format](guides/manifest-format.md#phenotype-codes) for details.
 ---
 
 ## What happens if I query a phenotype code that does not exist?
+
+NOTA_PARA_LLM: La herramienta incluye un sistema de warnings. Se debe revisar el código y actualizar la documentación para reflejar este comportamiento. 
 
 AFQuery returns `AC=0, AN=0, AF=None` — the same result as zero eligible samples. There is no error or warning for unknown codes. Use `afquery info --db ./db/` to list all registered codes before running queries.
 
@@ -180,21 +196,31 @@ Without stratification, rare variant interpretation in mixed cohorts can be misl
 
 ---
 
-### Why does my WES database have inflated AN at off-target positions?
+## What are AFQuery's limitations?
 
-AFQuery silently treats WES as WGS if the BED file is absent during `create-db`. The database will issue a warning but does not error. Result: off-target positions count towards AN as if they were sequenced.
+AFQuery is purpose-built for fast subcohort AF computation and is not a general-purpose genomic database:
 
-**Always verify after build:**
-```bash
-afquery check --db ./db/
-```
-
-The check command validates that all WES samples have proper BED file coverage and reports any missing BED assignments.
+- **Not a joint genotyper**: AFQuery does not perform joint genotyping. Input VCFs should be individually called before ingestion.
+- **Not a variant database**: AFQuery stores only genotype-level summaries (bitmaps). Individual sample genotypes cannot be retrieved from the database.
+- **No statistical genetics**: AFQuery does not compute Hardy-Weinberg equilibrium, population stratification, or other statistical genetics metrics.
+- **Batch queries**: The `--from-file` batch mode supports variants across multiple chromosomes in a single call. Point queries (`--locus`) and region queries (`--region`) target a single position or range; for multi-position multi-chromosome lookups, use `--from-file`.
+- **Cohort size limit**: Performance at >100K samples has not been validated. Memory requirements for the build phase scale with cohort size.
 
 ---
 
-### Can I compare AF across schema versions?
+### Why does `create-db` abort with "BED file not found"?
 
-No, not directly. v1 databases do not track `FILTER≠PASS` failures; `AFQUERY_N_FAIL` is always `0` on v1. If your source VCFs had common non-PASS genotypes (e.g., high sequencing error rate or low-confidence calls), AC computed from v1 databases may differ from v2.
+AFQuery requires a BED capture file for every non-WGS technology. If the file is missing,
+the run aborts immediately — before any VCF ingestion begins — with:
 
-**Solution:** Rebuild v1 databases with the current version of AFQuery for consistent FAIL tracking across your cohort.
+```
+ManifestError: BED file not found for technology '<tech>': '<path>'
+```
+
+**How to fix:**
+
+- Verify the BED file path exists and is readable.
+- Ensure the file is named exactly `<tech_name>.bed` and is located in the directory
+  passed to `--bed-dir`.
+- If the samples are genuinely whole-genome (no capture), change `tech_name` to `WGS`
+  in the manifest (no BED file required for WGS).
