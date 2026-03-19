@@ -17,9 +17,7 @@ AFQuery allows computing AF over any combination of metadata filters on the same
 
 All comparisons happen on the same database.
 
-## Step-by-Step Example
-
-NOTA_PARA_LLM: La sección Step-by-Step Example está repetida en múltiples sitios en la documentación, incluyendo todas las guías de clinical workflows. Piensa una manera de optimizar la documentación para que no sea tan redundante y facilite la lectura de toda la documentación.
+## Comparing WGS vs. WES and Disease Groups
 
 ### Setup: Multi-technology, multi-disease cohort
 

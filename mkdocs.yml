@@ -23,9 +23,13 @@ theme:
     - navigation.tabs
     - navigation.sections
     - navigation.top
+    - navigation.instant
+    - navigation.indexes
     - search.suggest
+    - search.highlight
     - content.code.copy
     - content.code.annotate
+    - toc.integrate
 
 markdown_extensions:
   - admonition
@@ -57,6 +61,7 @@ nav:
     - Installation: getting-started/installation.md
     - Preprocessing: getting-started/preprocessing.md
     - 5-Min Quick Start: getting-started/quickstart.md
+    - Key Concepts: getting-started/concepts.md
     - Understanding Output: getting-started/understanding-output.md
   - User Guides:
     - 🧬 Bioinformatics Workflows:
@@ -75,7 +80,6 @@ nav:
       - Sex-Specific AF: use-cases/sex-specific-af.md
       - Cohort Stratification: use-cases/cohort-stratification.md
       - Technology Integration: use-cases/technology-integration.md
-  - Core Concepts: getting-started/concepts.md
   - Reference:
     - CLI Reference: reference/cli.md
     - Python API: reference/python-api.md
@@ -84,7 +88,7 @@ nav:
   - Advanced:
     - Performance Tuning: advanced/performance.md
     - Benchmarking: advanced/benchmarking.md
-    - Ploidy & Sex Chromosomes: advanced/ploidy-and-sex-chroms.md
+    - Ploidy & Special Chromosomes: advanced/ploidy-and-sex-chroms.md
     - FILTER=PASS Tracking: advanced/filter-pass-tracking.md
     - Pipeline Integration: advanced/pipeline-integration.md
     - Multi-cohort Strategies: advanced/multi-cohort-strategies.md

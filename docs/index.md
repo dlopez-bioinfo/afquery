@@ -12,11 +12,33 @@ Large-scale genomic cohort studies require fast, flexible computation of allele 
 
 A second limitation of general-purpose VCF tools is their lack of metadata-aware filtering. Computing AF over a subgroup — for example, male samples without a specific phenotype — requires pre-selecting samples by external metadata, subsetting the VCF, and then running AF computation. This multi-step process precludes real-time exploratory analysis.
 
-NOTA_PARA_LLM: Añadir la limitación de usar cohortes con tecnologías mixtas. El cálculo de AF a partir de VCFs en cohortes donde se mezclan distintas tecnologías (WGS, WES, panel de genes) implica un tratamiento adecuado de la zona secuenciada en cada muestra para el cálculo del AN. Incluso en cohortes donde se usan distintas versiones de un mismo kit de captura (i.e. AgilentSureSelectV5 y AgilentSureSelectV6) existen diferencias en las zonas capturadas que deben tratarse adecuadamente para el cálculo de AN.
+A third limitation concerns cohorts with mixed sequencing technologies. Computing allele frequency from a cohort that includes WGS, multiple WES kits, and targeted gene panels requires accounting for the genomic regions actually sequenced by each technology. A position covered by WGS and WES_KIT_1 but not by WES_KIT_2 or a cardiac gene panel must exclude the uncovered samples from AN — otherwise the denominator is inflated and AF is underestimated. This problem is compounded when multiple versions of the same capture kit are used, since kit versions may differ by only a few hundred base pairs at capture boundaries. Computing per-position AN correctly across dozens of BED files manually is prohibitively complex; no general-purpose VCF tool automates this.
 
-NOTA_PARA_LLM: El uso de grandes bases de datos poblacionales como gnomAD es adecuado para un primer filtrado de variantes. Sin embargo existen evidencias en la literatura de que el uso de cohortes locales para el filtrado mejora los resultados, ya que permite hacer una estimación más aproximada de las AF debido a las variaciones naturales en la ancestralidad de las subpoblaciones (por ejemplo una variante AF=0.001 en gnomad europea puede ser AF=0.01 en la población Ibérica, cambiando la patogenicidad de la variable en base a los criterios ACMG), permite reducir errores debidos a artefatos de secuenciación, 
+```mermaid
+gantt
+    title Sequencing Coverage by Technology (illustrative)
+    dateFormat X
+    axisFormat %s
 
-NOTA_PARA_LLM: Considerar la posibilidad de añadir un nuevo gráfico mermaid que represente de forma visual la problemática del uso de distintas tecnologías de secuenciación en una misma cohorte. El gráfico debe mostrar en un estilo parecido a IGV arriba el genoma de referencia y debajo distintos beds de captura: uno será WGS, que cubra todo el genoma de referencia. Otro será WES_KIT1, que cubran 4 regiones simulando un bed de captura. Otro será WES_KIT2_V1, que cubra las primeras 2 regiones de WES_KIT1 con un solapamiento parcial y las otras 2 regiones distintas que no tengan ningún solapamiento con WES_KIT1. Y finalmente habrá otro track que será WES_KIT2_V2, que sea muy parecido a WES_KIT2_V1 pero con ligeras deferencias.
+    section WGS
+    Full coverage :done, wgs, 0, 100
+
+    section WES_KIT_1
+    Region A :done, k1a, 10, 25
+    Region B :done, k1b, 40, 55
+    Region C :done, k1c, 65, 80
+    Region D :done, k1d, 85, 95
+
+    section WES_KIT_2_v1
+    Region A' :done, k2v1a, 10, 25
+    Region E  :done, k2v1e, 70, 82
+
+    section WES_KIT_2_v2
+    Region A'' :done, k2v2a, 13, 25
+    Region E'  :done, k2v2e, 70, 84
+```
+
+A fourth limitation is the reliance on public population databases for frequency-based variant filtering. Databases such as gnomAD are invaluable for identifying common variants, but growing evidence shows that local cohort frequencies outperform global databases for clinical variant classification — particularly for underrepresented ancestries. A variant classified as rare in gnomAD Europeans (AF=0.001) may be 10-fold more common in an Iberian registry (AF=0.01), directly affecting ACMG BS1 and PM2 criteria [1,2]. Population-specific sequencing artifacts and disease-enrichment patterns in the cohort further reinforce the need for local frequency computation [3,4].
 
 ## Approach
 
@@ -39,17 +61,25 @@ AFQuery addresses the following methodological gaps not covered by existing tool
 
 Existing bioinformatics tools (i.e. bcftools) scan VCF files linearly, scaling with file size. AFQuery queries execute in under 100 ms regardless of cohort size, because queries access only the bitmaps for the relevant position rather than scanning the full dataset.
 
+### 2. Incremental database updates without reprocessing
+
+When new samples are added to the cohort, AFQuery merges new genotype data into the existing bitmap index without rebuilding from scratch. This enables real-time cohort growth in clinical settings where samples are added continuously.
+
 ### 3. Multi-dimensional metadata filtering
 
-AFQuery supports simultaneous filtering by sex, arbitrary metadata codes, and sequencing technology, with both inclusion and exclusion semantics. Metadata codes are arbitrary strings defined by the userr — ICD-10 codes, HPO terms, project tags, or any user-defined labels. No controlled vocabulary is required.
+AFQuery supports simultaneous filtering by sex, arbitrary metadata codes, and sequencing technology, with both inclusion and exclusion semantics. Metadata codes are arbitrary strings defined by the user — ICD-10 codes, HPO terms, project tags, or any user-defined labels. No controlled vocabulary is required.
 
-### 6. Sequencing technology aware
+### 4. Server-less, portable database format
 
-AFQuery correctly computes AN by intersecting each sample's capture BED with the queried position, even when the cohort mixes WGS, WES kits, and gene panels (including different versions of the same kit). This ensures accurate frequency estimates without artificial bias from technology-dependent coverage differences.
+The AFQuery database is a directory of standard Parquet files with a SQLite metadata database. It requires no server process, can be shared by copying, and can be queried from any machine with AFQuery installed. This is particularly valuable for clinical and research settings where infrastructure deployment is constrained.
 
 ### 5. Ploidy-aware AF
 
 AFQuery correctly handles PAR and non-PAR regions on chrX and chrY and chrMT ploidy rules per sample (i.e. Males at chrX non-PAR contribute AN=1; females contribute AN=2). This ensures accurate hemizygous frequency computation for X-linked variant analysis without manual adjustment.
+
+### 6. Sequencing technology aware
+
+AFQuery correctly computes AN by intersecting each sample's capture BED with the queried position, even when the cohort mixes WGS, WES kits, and gene panels (including different versions of the same kit). This ensures accurate frequency estimates without artificial bias from technology-dependent coverage differences.
 
 ### 7. VCF annotation with custom sample subsets
 
@@ -58,14 +88,6 @@ Annotate a patient VCF with `AFQUERY_AC`, `AFQUERY_AN`, and `AFQUERY_AF` INFO fi
 ### 8. Audit changelog
 
 Every database operation (sample add, remove, or metadata update) is recorded in a tamper-evident changelog, ensuring result reproducibility and auditability.
-
-### 2. Incremental database updates without reprocessing
-
-When new samples are added to the cohort, AFQuery merges new genotype data into the existing bitmap index without rebuilding from scratch. This enables real-time cohort growth in clinical settings where samples are added continuously.
-
-### 4. Server-less, portable database format
-
-The AFQuery database is a directory of standard Parquet files with a SQLite metadata database. It requires no server process, can be shared by copying, and can be queried from any machine with AFQuery installed. This is particularly valuable for clinical and research settings where infrastructure deployment is constrained.
 
 
 
@@ -118,3 +140,12 @@ graph TD
 - [Installation](getting-started/installation.md) — pip, conda, from source
 - [Quickstart](getting-started/quickstart.md) — 5-minute end-to-end tutorial
 - [Key Concepts](getting-started/concepts.md) — bitmaps, Parquet, manifest, metadata model
+
+---
+
+## References
+
+1. Agaoglu NB et al. (2024). Genomic disparity impacts variant classification of cancer susceptibility genes in Turkish breast cancer patients. *Cancer Medicine*. PMID: 38308423
+2. Dawood M et al. (2024). Using multiplexed functional data to reduce variant classification inequities in underrepresented populations. *Genome Medicine*. PMID: 39627863
+3. Han S et al. (2023). Integrative analysis of germline rare variants in clear and non-clear cell renal cell carcinoma. PMID: 36712083
+4. Huang Y-S et al. (2026). From enrichment to interpretation: PS4-driven reclassification in Taiwanese inherited retinal degeneration. *Human Genomics*. PMID: 41692763
