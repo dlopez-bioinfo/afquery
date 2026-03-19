@@ -33,7 +33,7 @@ Stores the build configuration used during `create-db`.
 | Field | Type | Description |
 |-------|------|-------------|
 | `genome_build` | string | `"GRCh37"` or `"GRCh38"` |
-| `schema_version` | string | `"1.0"` or `"2.0"` |
+| `schema_version` | string | `"2.0"` |
 | `pass_only_filter` | bool | Whether FILTER=PASS was enforced during ingest |
 | `db_version` | string | User-specified version label |
 | `created_at` | string | ISO 8601 timestamp |
@@ -104,7 +104,7 @@ Each bucket Parquet file has this schema:
 | `alt` | `large_utf8` | Alternate allele |
 | `het_bitmap` | `large_binary` | Serialized Roaring Bitmap of heterozygous sample IDs |
 | `hom_bitmap` | `large_binary` | Serialized Roaring Bitmap of homozygous alt sample IDs |
-| `fail_bitmap` | `large_binary` | Serialized Roaring Bitmap of FILTER≠PASS sample IDs *(schema v2 only)* |
+| `fail_bitmap` | `large_binary` | Serialized Roaring Bitmap of FILTER≠PASS sample IDs |
 
 Rows are sorted by `(pos, alt)` within each bucket.
 
@@ -159,16 +159,5 @@ bucket_id = pos // 1_000_000
     Not `CAST(pos / 1000000 AS BIGINT)` — DuckDB performs float division first and rounds, producing wrong bucket IDs.
 
 ---
-
-## Schema Versions
-
-| Version | Field | Notes |
-|---------|-------|-------|
-| v1 | `het_bitmap`, `hom_bitmap` | Original schema |
-| v2 | + `fail_bitmap` | Tracks samples with FILTER≠PASS; PASS-only ingestion is always enforced |
-
-Version is stored in `manifest.json` as `schema_version`. Query code detects the version and reads `fail_bitmap` conditionally.
-
-v1 databases return `QueryResult.N_FAIL = 0` and `AFQUERY_N_FAIL` is not written to annotated VCFs.
 
 See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).

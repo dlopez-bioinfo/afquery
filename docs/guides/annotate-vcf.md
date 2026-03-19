@@ -6,14 +6,6 @@
 
 ## Basic Usage
 
-```bash
-afquery annotate \
-  --db ./db/ \
-  --input variants.vcf \
-  --output annotated.vcf
-```
-
-Compressed input is supported:
 
 ```bash
 afquery annotate \
@@ -34,9 +26,8 @@ afquery annotate \
 | `AFQUERY_N_HET` | Integer | A | Heterozygous sample count |
 | `AFQUERY_N_HOM_ALT` | Integer | A | Homozygous alt sample count |
 | `AFQUERY_N_HOM_REF` | Integer | A | Homozygous ref sample count |
-| `AFQUERY_N_FAIL` | Integer | 1 | Samples with FILTER≠PASS and alt allele called. Always `0` for schema v1 databases (not absent — field is still written). |
+| `AFQUERY_N_FAIL` | Integer | 1 | Samples with FILTER≠PASS and alt allele called. |
 
-`Number=A` fields contain one value per alternate allele (comma-separated when multiple ALTs are present).
 
 ---
 
@@ -74,19 +65,6 @@ For large VCFs (100K+ variants), set `--threads` to the number of available core
 
 ---
 
-## Verbose Progress
-
-```bash
-afquery annotate \
-  --db ./db/ \
-  --input variants.vcf \
-  --output annotated.vcf \
-  --verbose
-```
-
-Shows a progress bar with per-variant throughput.
-
----
 
 ## Using Annotated Output
 

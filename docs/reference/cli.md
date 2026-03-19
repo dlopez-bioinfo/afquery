@@ -36,20 +36,19 @@ Query allele frequencies at one or more positions.
 afquery query [OPTIONS]
 ```
 
-Exactly one of `--pos`, `--region`, or `--from-file` must be provided.
+Exactly one of `--locus`, `--region`, or `--from-file` must be provided.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `--db` | TEXT | **required** | Path to database directory |
-| `--chrom` | TEXT | **required** | Chromosome (e.g., `chr1`, `chrX`) |
-| `--pos` | INTEGER | None | 1-based genomic position (single position query) |
-| `--region` | TEXT | None | Genomic range as `START-END` (e.g., `900000-1000000`) |
-| `--from-file` | PATH | None | Headerless TSV with columns `pos ref alt` (batch query) |
+| `--locus` | TEXT | None | Single position as `CHROM:POS` (e.g., `chr1:925952`) |
+| `--region` | TEXT | None | Genomic range as `CHROM:START-END` (e.g., `chr1:900000-1000000`) |
+| `--from-file` | PATH | None | Headerless TSV with columns `chrom pos [ref [alt]]` (batch query; multi-chromosome supported) |
 | `--phenotype` | TEXT | None | Phenotype filter. Repeatable; comma-separated or multiple flags. Use `^` prefix to exclude. |
 | `--sex` | `male`\|`female`\|`both` | `both` | Restrict to specified sex |
 | `--tech` | TEXT | None | Technology filter. Repeatable; comma-separated or multiple flags. Use `^` prefix to exclude. |
-| `--ref` | TEXT | None | Filter to specific reference allele (only for `--pos`) |
-| `--alt` | TEXT | None | Filter to specific alternate allele (only for `--pos`) |
+| `--ref` | TEXT | None | Filter to specific reference allele (only for `--locus`) |
+| `--alt` | TEXT | None | Filter to specific alternate allele (only for `--locus`) |
 | `--format` | `text`\|`json`\|`tsv` | `text` | Output format |
 
 ---
@@ -104,13 +103,13 @@ afquery dump [OPTIONS]
 
 ## update-db
 
-Add samples, remove samples, or compact the database.
+Add samples, remove samples, update sample metadata, or compact the database.
 
 ```
 afquery update-db [OPTIONS]
 ```
 
-At least one of `--remove-samples`, `--add-samples`, or `--compact` must be provided.
+At least one of `--remove-samples`, `--add-samples`, `--compact`, `--update-sample`, or `--update-samples-file` must be provided. Operations execute in order: remove → update-metadata → add → compact.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -118,6 +117,11 @@ At least one of `--remove-samples`, `--add-samples`, or `--compact` must be prov
 | `--remove-samples` | TEXT | None | Sample name(s) to remove. Repeatable; comma-separated or multiple flags. |
 | `--add-samples` | PATH | None | Manifest TSV of new samples to add. Repeatable for multiple manifests. |
 | `--compact` | flag | False | Remove dead bits from removed samples to reclaim disk space |
+| `--update-sample` | TEXT | None | Sample name to update (single-sample metadata mode). Requires `--set-sex` and/or `--set-phenotype`. |
+| `--set-sex` | TEXT | None | New sex for `--update-sample`. Options: `male`, `female`. |
+| `--set-phenotype` | TEXT | None | New phenotype codes (comma-separated) for `--update-sample`. Replaces all current codes. |
+| `--update-samples-file` | PATH | None | TSV file for batch metadata update. Header: `sample_name`, `field`, `new_value`. Mutually exclusive with `--update-sample`. |
+| `--operator-note` | TEXT | None | Free-text note appended to each changelog entry for this metadata update. |
 | `--threads` | INTEGER | all CPUs | Number of worker threads for parallel processing |
 | `--tmp-dir` | TEXT | system temp | Temporary directory for intermediate files |
 | `--bed-dir` | TEXT | None | Directory containing BED files for WES technologies |
@@ -202,6 +206,8 @@ afquery benchmark [OPTIONS]
 | `--n-variants` | INTEGER | `10000` | Number of variants per chromosome |
 | `--output` | TEXT | `benchmark_report.json` | Output path for JSON benchmark report |
 | `--db-dir` | TEXT | None | Use an existing database instead of generating synthetic data |
+
+NOTA_PARA_LLM: todos los módulos usan --db para proporcionar la ruta de la base de datos excepto el módulo benchmark. Se debe cambiar por --db para mantener la coherencia con el resto de la herramienta.
 
 ---
 

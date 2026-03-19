@@ -2,8 +2,8 @@
 
 AFQuery enables evidence-based ACMG/AMP variant classification using allele frequencies computed on your own cohort. This page shows how to apply the three AF-dependent ACMG criteria — BA1, PM2, and PS4 — with AFQuery commands and Python examples.
 
-!!! note "AFQuery supplements, not replaces, population databases"
-    Local cohort AF provides complementary evidence to gnomAD. Use both: gnomAD for global population context, AFQuery for local cohort context.
+!!! note "AFQuery supplements population databases"
+    Local cohort AF provides complementary evidence to reference population databases like gnomAD. Use both: gnomAD for global population context, AFQuery for local cohort context.
 
 ---
 
@@ -17,15 +17,14 @@ AFQuery enables evidence-based ACMG/AMP variant classification using allele freq
 - You need to confirm gnomAD AF in your local sequencing pipeline
 - A variant shows discrepant AF between gnomAD and your cohort
 
-### AFQuery Command
+AFQuery Command:
 
 ```bash
 afquery query \
   --db ./db/ \
-  --chrom chr7 \
-  --pos 117559590 \
+  --locus chr7:117559590 \
   --ref C --alt T \
-  --phenotype EUR
+  --phenotype controls
 ```
 
 Example output:
@@ -34,17 +33,10 @@ Example output:
 chr7:117559590 C>T  AC=160  AN=2000  AF=0.0800  N_HET=140  N_HOM_ALT=10
 ```
 
-**Interpretation**: AF=0.08 (8%) with AN=2000 → BA1 criterion met. This variant is benign in the EUR subgroup of your cohort.
+**Interpretation**: AF=0.08 (8%) with AN=2000 → BA1 criterion met. This variant is benign in the controls subgroup of your cohort.
 
-### Minimum AN for BA1
+**Minimum AN for BA1**: An AF estimate is only reliable with sufficient AN. With AN=20, two carriers would give AF=0.10 — this is noise, not evidence.
 
-An AF estimate is only reliable with sufficient AN. With AN=20, two carriers give AF=0.10 — this is noise, not evidence.
-
-```bash
-# Verify AN is sufficient before applying BA1
-afquery query --db ./db/ --chrom chr7 --pos 117559590 --ref C --alt T
-# Check: AN >= 500 (minimum), ideally AN >= 1000
-```
 
 ---
 
@@ -61,25 +53,6 @@ This is the most critical distinction when applying PM2:
 | AC=0, AN=2000 | Variant absent in well-covered cohort | Yes |
 | AC=0, AN=50 | Low coverage — absence is not meaningful | No |
 | AC=0, AN=0 | Position not covered by any eligible sample | No |
-| AC=1, AN=4000 | Extremely rare (AF=0.00025) | Possibly (AF < threshold) |
-
-### AFQuery Command
-
-```bash
-afquery query \
-  --db ./db/ \
-  --chrom chr12 \
-  --pos 49416565 \
-  --ref G --alt A
-```
-
-Example output:
-
-```
-chr12:49416565 G>A  AC=0  AN=3200  AF=0.0000  N_HET=0  N_HOM_ALT=0
-```
-
-**Interpretation**: AC=0 with AN=3200 → the variant is genuinely absent in 1600 diploid samples. PM2 supporting evidence is applicable.
 
 ### Python Example: PM2 with AN Validation
 
@@ -115,16 +88,14 @@ AFQuery's phenotype filtering enables direct comparison between cases and contro
 # AF in affected samples (tagged with the disease phenotype)
 afquery query \
   --db ./db/ \
-  --chrom chr2 \
-  --pos 166845670 \
+  --locus chr2:166845670 \
   --ref G --alt A \
   --phenotype rare_disease
 
 # AF in unaffected samples (everything except rare_disease)
 afquery query \
   --db ./db/ \
-  --chrom chr2 \
-  --pos 166845670 \
+  --locus chr2:166845670 \
   --ref G --alt A \
   --phenotype ^rare_disease
 ```
@@ -183,7 +154,7 @@ Consider variant **chr15:48762884 C>T** in a cohort of 2500 samples:
 ### Step 1: Check BA1
 
 ```bash
-afquery query --db ./db/ --chrom chr15 --pos 48762884 --ref C --alt T
+afquery query --db ./db/ --locus chr15:48762884 --ref C --alt T
 # Result: AC=3, AN=4800, AF=0.000625
 ```
 
@@ -197,11 +168,11 @@ AC=3, AF=0.000625 → the variant is present, so strict PM2 (absent) does not ap
 
 ```bash
 # Cases: 300 samples tagged with the disease
-afquery query --db ./db/ --chrom chr15 --pos 48762884 --ref C --alt T --phenotype DISEASE_X
+afquery query --db ./db/ --locus chr15:48762884 --ref C --alt T --phenotype DISEASE_X
 # Result: AC=3, AN=580, AF=0.00517
 
 # Controls: remaining 2200 samples
-afquery query --db ./db/ --chrom chr15 --pos 48762884 --ref C --alt T --phenotype ^DISEASE_X
+afquery query --db ./db/ --locus chr15:48762884 --ref C --alt T --phenotype ^DISEASE_X
 # Result: AC=0, AN=4220, AF=0.0000
 ```
 
@@ -219,15 +190,6 @@ All 3 carriers are in the disease group. Enrichment is significant (AF=0.005 vs 
 
 ## Common Pitfalls
 
-### Mixing Technologies Inflates or Deflates AN
-
-If your cohort contains both WGS and WES samples, AN at a position outside WES capture regions only reflects WGS samples. A low AN might not mean the variant is rare — it might mean most of your cohort has no coverage there.
-
-```bash
-# Check AN with technology filter to understand coverage
-afquery query --db ./db/ --chrom chr15 --pos 48762884 --ref C --alt T --tech wgs
-afquery query --db ./db/ --chrom chr15 --pos 48762884 --ref C --alt T --tech wes
-```
 
 ### Low AN Masking as Absence
 

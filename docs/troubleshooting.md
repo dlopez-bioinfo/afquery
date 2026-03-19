@@ -122,29 +122,11 @@ afquery info --db ./db/ --samples | grep SAMP
 
 ## Version Compatibility
 
-AFQuery databases are forward-compatible but not backward-compatible. A database built with AFQuery 1.x can be read by AFQuery 2.x, but not vice versa.
-
 If you get `"Unsupported schema_version"` errors, upgrade AFQuery:
 
 ```bash
 pip install --upgrade afquery
 ```
-
----
-
-## Schema Version Mismatch
-
-**Symptom:** Query results show `FAIL_SAMPLES=None` or AFQUERY_N_FAIL is absent from annotated VCFs.
-
-**Cause:** The database was built with AFQuery < 2.0 (schema v1). Schema v1 databases do not store the `fail_bitmap` column and cannot report `FAIL_SAMPLES`.
-
-**Fix:** If FILTER=PASS tracking is important for your analysis, rebuild the database with current AFQuery:
-
-```bash
-afquery create-db --manifest manifest.tsv --output-dir ./new_db/ --genome-build GRCh38
-```
-
-Schema v1 databases remain fully functional for AC/AN/AF queries — only `N_FAIL` is unavailable.
 
 ---
 

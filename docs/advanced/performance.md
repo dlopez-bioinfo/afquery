@@ -39,6 +39,19 @@ afquery create-db \
 !!! note "Worker capping"
     Workers are capped to `min(--build-threads, n_buckets)` — if you have more threads than buckets, the excess workers are simply idle. Use `afquery info --db ./db/` to check the number of buckets after build.
 
+Expected scaling (50K samples, 2,500 buckets, GRCh38):
+
+| Cores | Build time | Speedup vs. 1 core |
+|-------|-----------|-------------------|
+| 1 | ~8 hours | 1× |
+| 4 | ~2 hours | ~4× |
+| 8 | ~1 hour | ~7× |
+| 16 | ~30 min | ~14× |
+| 32 | ~18 min | ~24× |
+| 52 | ~13 min | ~38× |
+
+Scaling is near-linear up to ~32 cores; beyond that, I/O and SQLite contention limit further gains.
+
 Total RAM required: `build_threads × build_memory`
 
 ```bash
@@ -91,6 +104,8 @@ graph LR
     style G fill:#fff3e0
     style H fill:#c8e6c9
 ```
+
+NOTA_PARA_LLM: El texto de los gráficos mermaid es difícil de leer cuando se visualiza la documentación en el ordenador. En el caso concreto de Query Execution Path, esto se debe a que todo el gráfico se renderiza en una sola línea. Este problema se ha detectado en otros gráficos, por lo que se deben revisar todos los gráficos mermaid para asegurarse de que el texto sea legible. 
 
 ### Sub-100 ms Point Queries
 
@@ -175,3 +190,5 @@ For annotation:
 ```bash
 afquery annotate --db ./db/ --input variants.vcf --output annotated.vcf --verbose
 ```
+
+NOTA_PARA_LLM: Los 2 ejemplos de profiling son exactamente iguales. Se debe prestar atención a que la documentación sea práctica y sencilla.

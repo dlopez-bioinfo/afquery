@@ -13,7 +13,7 @@ afquery create-db \
   --genome-build GRCh38
 ```
 
-For cohorts with WES samples, provide the BED file directory:
+For cohorts with WES/panel samples, provide the BED file directory:
 
 ```bash
 afquery create-db \
@@ -64,7 +64,7 @@ afquery create-db \
   --manifest manifest.tsv \
   --output-dir ./db/ \
   --genome-build GRCh38 \
-  --build-threads 16 \
+  --build-threads 32 \
   --build-memory 4GB
 ```
 
@@ -74,7 +74,7 @@ afquery create-db \
 | `--build-memory` | `2GB` | Increase for dense WGS regions or large cohorts |
 | `--threads` | all CPUs | Controls ingest parallelism (VCF parsing) |
 
-The build phase uses one DuckDB process per 1-Mbp bucket. With `--build-threads 16` and `--build-memory 4GB`, peak RAM usage is approximately `16 × 4 = 64 GB`.
+The build phase uses one DuckDB process per 1-Mbp bucket. With `--build-threads 32` and `--build-memory 4GB`, peak RAM usage is approximately `32 × 4 = 128 GB`.
 
 ---
 
@@ -95,7 +95,7 @@ afquery create-db --manifest manifest.tsv --output-dir ./db/ --genome-build GRCh
 
 ## FILTER=PASS Behavior
 
-By default, only variants with `FILTER=PASS` (or no FILTER field) are counted in AC/AN. Variants that fail filters are tracked in `fail_bitmap` (schema v2 databases). PASS-only ingestion is always enforced — there is currently no CLI option to change this behaviour.
+By default, only variants with `FILTER=PASS` (or no FILTER field) are counted in AC/AN. Variants that fail filters are tracked in `fail_bitmap`. PASS-only ingestion is always enforced — there is currently no CLI option to change this behaviour.
 
 See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) for details.
 
@@ -125,6 +125,8 @@ Samples:        1371
 Technologies:   wgs, wes_v1, wes_v2
 Chromosomes:    chr1 ... chrX chrY chrMT
 ```
+
+NOTA_PARA_LLM: No es necesario hacer un check o info despues de la creación de la base de datos. Redacta este apartado para indicar que se pueden usar estos comandos para comprobar la integridad de la base de datos u obtener información relevante.
 
 ---
 

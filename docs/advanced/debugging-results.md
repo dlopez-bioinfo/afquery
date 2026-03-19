@@ -13,7 +13,7 @@ AN=0 means no eligible samples at the queried position. Work through these check
 | Check | Command | What to look for |
 |-------|---------|-----------------|
 | Chromosome normalization | `afquery query --db ./db/ --chrom 1 ...` vs `--chrom chr1` | Database may use `chr1` while you're querying `1` (or vice versa). Check `manifest.json` for `genome_build`. |
-| Position exists in database | `afquery query --db ./db/ --chrom chr1 --pos 12345678` | If no result at all, the variant was not observed in any sample during ingestion. |
+| Position exists in database | `afquery query --db ./db/ --locus chr1:12345678` | If no result at all, the variant was not observed in any sample during ingestion. |
 | BED coverage (WES) | `afquery info --db ./db/` | If all eligible samples are WES and the position is outside capture regions, AN=0 is correct. |
 | Sample filter too restrictive | Remove `--phenotype` and `--sex` filters | Query with no filters first. If AN>0 without filters, the filter is excluding all samples. |
 | Technology filter | Remove `--tech` filter | Check if any samples match the requested technology. |
@@ -34,7 +34,7 @@ A variant you expect to find is not in the database:
 | Check | Details |
 |-------|---------|
 | Was it in the source VCFs? | AFQuery only stores variants present in ingested VCFs |
-| Was it FILTER=PASS? | Default ingestion skips non-PASS variants (schema v2). Check with `afquery info` for `pass_only_filter` |
+| Was it FILTER=PASS? | Default ingestion skips non-PASS variants. Check with `afquery info` for `pass_only_filter` |
 | Multiallelic sites | AFQuery stores each ALT separately. Query the specific ALT allele, not just position |
 | Chromosome naming | Ensure consistent `chr` prefix usage |
 
@@ -62,24 +62,11 @@ Validates: manifest consistency, Parquet file integrity, capture index presence.
 
 ```bash
 # Point query with all fields visible
-afquery query --db ./db/ --chrom chr1 --pos 12345678 --format json
+afquery query --db ./db/ --locus chr1:12345678 --format json
 ```
 
 JSON format shows all fields including N_HET, N_HOM_ALT, N_HOM_REF, and FAIL_SAMPLES — useful for understanding the composition of the result.
 
-### Inspect Sample Eligibility
-
-```python
-from afquery import Database
-
-db = Database("./db/")
-
-# Check how many samples match a filter
-results = db.query("chr1", pos=12345678, alt="T", phenotype=["EUR"])
-if results:
-    r = results[0]
-    print(f"AN={r.AN} → {r.AN // 2} diploid samples eligible")
-```
 
 ### Direct Metadata Inspection
 
@@ -122,7 +109,8 @@ conn.close()
 | Variant absent but expected | Non-PASS filter in source VCF | Rebuild with `--include-all-filters` if needed |
 | AF=None in output | AN=0 (division by zero) | See AN=0 diagnosis above |
 | Different AF between `query` and `annotate` | Different default filters or phenotype context | Ensure same `--phenotype`, `--sex`, `--tech` flags |
-| FAIL_SAMPLES=None | Database is schema v1 (no fail tracking) | Rebuild with current AFQuery version for v2 schema |
+
+NOTA_PARA_LLM: En la tabla se muestra que para Variant absent but expected una posible solución es usar el modificador --include-all-filters. Sin embargo, no estoy seguro de que este modificar esté actualmente implementado. Se debe hacer una revisión exhaustiva del código para comprobar si existe tal modificador. Si existe, se debe revisar toda la documentación para actualizarla, ya que en otra parte de la documentación se mencionaba que era una futura funcionalidad que se iba a añadir a la aplicación. Si no existe el parámetro, se debe eliminar cualquier mención en la documentación para que la documentación se mantenga sincronizada con el código.
 
 ---
 

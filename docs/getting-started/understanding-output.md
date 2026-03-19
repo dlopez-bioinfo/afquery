@@ -24,7 +24,7 @@ This page explains what each field in AFQuery output means and how to interpret 
 ### Text (default)
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --pos 925952 --ref G --alt A
+afquery query --db ./db/ --locus chr1:925952 --ref G --alt A
 ```
 
 ```
@@ -34,7 +34,7 @@ chr1:925952 G>A  AC=3  AN=120  AF=0.0250  N_HET=1  N_HOM_ALT=1  N_HOM_REF=57
 ### TSV
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --pos 925952 --ref G --alt A --format tsv
+afquery query --db ./db/ --locus chr1:925952 --ref G --alt A --format tsv
 ```
 
 ```
@@ -45,7 +45,7 @@ chr1	925952	G	A	3	120	0.0250	1	1	57	0
 ### JSON
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --pos 925952 --ref G --alt A --format json
+afquery query --db ./db/ --locus chr1:925952 --ref G --alt A --format json
 ```
 
 ```json
@@ -96,7 +96,7 @@ afquery emits a `AfqueryWarning` to stderr when a query may silently return fewe
 Use `--no-warn` to suppress these warnings:
 
 ```bash
-afquery query --db ./my_db/ --chrom chr22 --pos 1000 --no-warn
+afquery query --db ./my_db/ --locus chr22:1000 --no-warn
 afquery annotate --db ./my_db/ --input in.vcf --output out.vcf --no-warn
 ```
 
@@ -123,7 +123,7 @@ When using `afquery annotate`, the following INFO fields are added to each varia
 | `AFQUERY_N_HET` | Heterozygous sample count |
 | `AFQUERY_N_HOM_ALT` | Homozygous alt sample count |
 | `AFQUERY_N_HOM_REF` | Homozygous ref sample count |
-| `AFQUERY_FAIL` | Fail sample count (schema v2 only) |
+| `AFQUERY_FAIL` | Fail sample count |
 
 These fields can be used directly in downstream filtering with `bcftools filter`:
 

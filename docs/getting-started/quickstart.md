@@ -63,7 +63,7 @@ afquery info --db ./my_db/
 ## 4. Query a Single Position
 
 ```bash
-afquery query --db ./my_db/ --chrom chr1 --pos 925952
+afquery query --db ./my_db/ --locus chr1:925952
 ```
 
 Example output:
@@ -77,8 +77,7 @@ Filter to female samples with a specific phenotype:
 ```bash
 afquery query \
   --db ./my_db/ \
-  --chrom chr1 \
-  --pos 925952 \
+  --locus chr1:925952 \
   --sex female \
   --phenotype E11.9
 ```
@@ -93,8 +92,7 @@ afquery query \
 ```bash
 afquery query \
   --db ./my_db/ \
-  --chrom chr1 \
-  --region 900000-1000000
+  --region chr1:900000-1000000
 ```
 
 ---

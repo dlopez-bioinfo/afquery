@@ -25,10 +25,12 @@ Using `--sex male` returns AF over a purely haploid denominator — the true hem
 
 ## Step-by-Step Example
 
+NOTA_PARA_LLM: La sección Step-by-Step Example está repetida en múltiples sitios en la documentación, incluyendo todas las guías de clinical workflows. Piensa una manera de optimizar la documentación para que no sea tan redundante y facilite la lectura de toda la documentación.
+
 ### 1. Query full cohort (combined)
 
 ```bash
-afquery query --db ./db/ --chrom chrX --pos 153296777
+afquery query --db ./db/ --locus chrX:153296777
 ```
 
 ```
@@ -41,7 +43,7 @@ AN=2500: 500 males × 1 + 1000 females × 2 = 2500 (mixed ploidy)
 ### 2. Query males only (hemizygous frequency)
 
 ```bash
-afquery query --db ./db/ --chrom chrX --pos 153296777 --sex male
+afquery query --db ./db/ --locus chrX:153296777 --sex male
 ```
 
 ```
@@ -54,7 +56,7 @@ Hemizygous rate: 2% (N_HET here represents hemizygous males, GT=1)
 ### 3. Query females only (carrier frequency)
 
 ```bash
-afquery query --db ./db/ --chrom chrX --pos 153296777 --sex female
+afquery query --db ./db/ --locus chrX:153296777 --sex female
 ```
 
 ```

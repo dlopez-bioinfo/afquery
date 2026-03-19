@@ -1,16 +1,15 @@
+NOTA_PARA_LLM: Reescribir completamente la guía de pseudocontroles. La idea clave de usar pseudocontroles es usar pacientes no sanos como controles cuando la enfermedad de estudio no comparte una arquitectura genética común con los controles. Por ejemplo, se puede usar una cohorte de individuos diagnosticados con una cardiopatía para detectar retinopatías, ya que ambas enfermedades no están relacionadas genéticamente (las frecuencias de las variantes en genes relacionados con retinopatías son, a efectos prácticos, similares a las de un paciente sano). Esto es una gran ventaja para, por ejemplo, hospitales, ya que normalmente las cohortes locales se crean a partir de individuos con sospecha de alguna enfermedad genética (no se manda a secuenciar individuos sin sospecha de enfermedad genética). Esto hace que, a efectos práticos, sea muy complicado poder usar una cohorte local de individuos sanos para el filtrado. Aquí es donde entra en juego AFQuery, ya que permite selecionar dinámicamente los controles, exluyendo todos los fenotipos que puedan estar relacionados con la enfermedad de estudio. Redacta de nuevo esta página para expresar esta idea. 
+
 # Pseudo-controls
 
 ## Scenario
 
 You have a cohort of 2,000 samples including patients with cardiomyopathy (ICD-10 code `I42`) and patients with other conditions. You want to compute allele frequency for a candidate pathogenic variant using only the non-cardiomyopathy samples as a "background" frequency.
 
-## Why Standard Databases Fall Short
-
-gnomAD and similar population databases contain individuals with all conditions, including cardiomyopathy. If your variant is enriched in cardiomyopathy, the population AF is pulled upward by disease carriers in gnomAD, making it appear more common than it is in a truly unaffected population.
 
 ### Query Stratification
 
-AFQuery lets you compute two AF estimates from the same database without rebuild:
+AFQuery's phenotype exclusion filter (`^CODE`) lets you exclude a specific group at query time — without modifying or rebuilding the database. Any sample not tagged `I42` becomes a pseudo-control for cardiomyopathy analysis:
 
 ```mermaid
 graph TB
@@ -20,7 +19,7 @@ graph TB
         FA["AF = 0.0045<br/>AC=18, AN=4000<br/>includes I42 patients"]
     end
 
-    subgraph Pseudo["Query 2: Pseudo-controls<br/>phenotype=^I42"]
+    subgraph Pseudo["Query 2: Pseudo-controls phenotype=^I42"]
         FB["AF = 0.0013<br/>AC=4, AN=3200<br/>excludes I42 patients"]
     end
 
@@ -28,18 +27,14 @@ graph TB
 
     DB -->|all samples| Full
     DB -->|exclude I42| Pseudo
-    Full -->|vs| Ratio
-    Pseudo -->|→| Ratio
+    Full --> Ratio
+    Pseudo --> Ratio
 
     style DB fill:#e3f2fd
     style FA fill:#fff3e0
     style FB fill:#e8f5e9
     style Ratio fill:#ffcccc
 ```
-
-## Solution with AFQuery
-
-AFQuery's phenotype exclusion filter (`^CODE`) lets you exclude a specific group at query time — without modifying or rebuilding the database. Any sample not tagged `I42` becomes a pseudo-control for cardiomyopathy analysis.
 
 ## Step-by-Step Example
 
@@ -59,7 +54,7 @@ SAMP_004	vcfs/SAMP_004.vcf.gz	male	wgs	control
 ### 2. Query all samples (includes disease group)
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --pos 925952 --format tsv
+afquery query --db ./db/ --locus chr1:925952 --format tsv
 ```
 
 ```
@@ -70,7 +65,7 @@ chr1	925952	G	A	18	4000	0.00450	16	1
 ### 3. Query pseudo-controls (exclude cardiomyopathy)
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --pos 925952 --phenotype ^I42 --format tsv
+afquery query --db ./db/ --locus chr1:925952 --phenotype ^I42 --format tsv
 ```
 
 ```
