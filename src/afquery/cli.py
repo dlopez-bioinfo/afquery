@@ -28,8 +28,27 @@ def _configure_logging(verbose: bool) -> None:
     root.propagate = False
 
 
-def _parse_variants_file(path: str) -> list[tuple[int, str, str]]:
-    """Parse a TSV file with columns: pos ref alt (no header, whitespace-separated)."""
+def _parse_locus(locus: str) -> tuple[str, int]:
+    """Parse 'chrom:pos' → (chrom, pos). Raises UsageError on malformed input."""
+    try:
+        chrom, pos_str = locus.rsplit(":", 1)
+        return chrom, int(pos_str)
+    except ValueError:
+        raise click.UsageError(f"--locus must be CHROM:POS (e.g., chr1:925952), got: {locus!r}")
+
+
+def _parse_region(region: str) -> tuple[str, int, int]:
+    """Parse 'chrom:start-end' → (chrom, start, end). Raises UsageError on malformed input."""
+    try:
+        chrom, span = region.rsplit(":", 1)
+        start, end = map(int, span.split("-", 1))
+        return chrom, start, end
+    except ValueError:
+        raise click.UsageError(f"--region must be CHROM:START-END (e.g., chr1:900000-1000000), got: {region!r}")
+
+
+def _parse_variants_file(path: str) -> list[tuple[str, int, str, str]]:
+    """Parse a TSV file with columns: chrom pos [ref [alt]] (no header, whitespace-separated)."""
     variants = []
     with open(path) as fh:
         for line in fh:
@@ -37,7 +56,11 @@ def _parse_variants_file(path: str) -> list[tuple[int, str, str]]:
             if not line:
                 continue
             parts = line.split()
-            variants.append((int(parts[0]), parts[1], parts[2]))
+            chrom = parts[0]
+            pos = int(parts[1])
+            ref = parts[2] if len(parts) > 2 else ""
+            alt = parts[3] if len(parts) > 3 else ""
+            variants.append((chrom, pos, ref, alt))
     return variants
 
 
@@ -93,59 +116,56 @@ def cli():
 
 @cli.command()
 @click.option("--db",       required=True, help="Path to database directory.")
-@click.option("--chrom",    required=True, help="Chromosome (e.g., chr1, chrX).")
-@click.option("--pos",       default=None, type=int, help="1-based genomic position (single position query).")
-@click.option("--region",    default=None, help="Genomic region as START-END (e.g., 1000-2000).")
-@click.option("--from-file", default=None, type=click.Path(exists=True), help="TSV file with columns: pos ref alt (batch query, no header).")
+@click.option("--locus",     default=None, help="Single position as CHROM:POS (e.g., chr1:925952).")
+@click.option("--region",    default=None, help="Genomic region as CHROM:START-END (e.g., chr1:900000-1000000).")
+@click.option("--from-file", default=None, type=click.Path(exists=True), help="TSV file with columns: chrom pos [ref [alt]] (batch query, no header).")
 @click.option("--phenotype", multiple=True, help="Phenotype to include. Repeatable; comma-separated or multiple flags. Use ^ prefix to exclude. (default: include all samples)")
 @click.option("--sex",   default="both", type=click.Choice(["male", "female", "both"]), help="Restrict to specified sex. Options: male, female, both. (default: both)")
-@click.option("--ref",   default=None, help="Filter to specific reference allele (only for --pos).")
-@click.option("--alt",   default=None, help="Filter to specific alternate allele (only for --pos).")
+@click.option("--ref",   default=None, help="Filter to specific reference allele (only for --locus).")
+@click.option("--alt",   default=None, help="Filter to specific alternate allele (only for --locus).")
 @click.option("--tech",  multiple=True, help="Technology filter to include. Repeatable; comma-separated or multiple flags. Use ^ prefix to exclude. (default: include all samples)")
 @click.option("--format", "fmt", default="text", type=click.Choice(["text", "json", "tsv"]), help="Output format. Options: text, json, tsv. (default: text)")
 @click.option("--no-warn", is_flag=True, default=False, help="Suppress AfqueryWarning messages.")
-def query(db, chrom, pos, region, from_file, phenotype, sex, ref, alt, tech, fmt, no_warn):
+def query(db, locus, region, from_file, phenotype, sex, ref, alt, tech, fmt, no_warn):
     """Query allele frequencies.
 
-    Exactly one of --pos, --region, or --from-file must be provided:
+    Exactly one of --locus, --region, or --from-file must be provided:
 
     \b
-      --pos 1500                     single position
-      --region 1000-2000             all variants in [start, end]
-      --from-file variants.tsv       batch from TSV (pos ref alt, no header)
+      --locus chr1:925952            single position
+      --region chr1:900000-1000000   all variants in [start, end]
+      --from-file variants.tsv       batch from TSV (chrom pos ref alt, no header)
     """
     if no_warn:
         import warnings
         from .models import AfqueryWarning
         warnings.filterwarnings("ignore", category=AfqueryWarning)
 
-    modes = sum(x is not None for x in [pos, region, from_file])
+    modes = sum(x is not None for x in [locus, region, from_file])
     if modes == 0:
-        raise click.UsageError("One of --pos, --region, or --from-file is required.")
+        raise click.UsageError("One of --locus, --region, or --from-file is required.")
     if modes > 1:
-        raise click.UsageError("--pos, --region, and --from-file are mutually exclusive.")
+        raise click.UsageError("--locus, --region, and --from-file are mutually exclusive.")
 
     database = Database(db)
 
-    if pos is not None:
+    if locus is not None:
+        chrom, pos = _parse_locus(locus)
         results = database.query(
             chrom=chrom, pos=pos,
             phenotype=_expand_tokens(phenotype), sex=sex,
             ref=ref, alt=alt, tech=_expand_tokens(tech),
         )
     elif region is not None:
-        try:
-            start, end = map(int, region.split("-", 1))
-        except ValueError:
-            raise click.UsageError("--region must be in START-END format (e.g., 1000-2000).")
+        chrom, start, end = _parse_region(region)
         results = database.query_region(
             chrom=chrom, start=start, end=end,
             phenotype=_expand_tokens(phenotype), sex=sex, tech=_expand_tokens(tech),
         )
     else:
         variants = _parse_variants_file(from_file)
-        results = database.query_batch(
-            chrom=chrom, variants=variants,
+        results = database.query_batch_multi(
+            variants=variants,
             phenotype=_expand_tokens(phenotype), sex=sex, tech=_expand_tokens(tech),
         )
 
@@ -375,21 +395,57 @@ def create_db_command(manifest, output_dir, genome_build, threads: int | None, b
 @click.option("--remove-samples", multiple=True, help="Sample name(s) to remove. Repeatable; comma-separated or multiple flags.")
 @click.option("--add-samples",    multiple=True, type=click.Path(exists=True), help="Manifest TSV of new samples to add. Repeatable for multiple manifests.")
 @click.option("--compact",        is_flag=True, help="Remove dead bits from removed samples to reclaim disk space.")
+@click.option("--update-sample",  default=None, help="Sample name to update (single-sample metadata mode).")
+@click.option("--set-sex",        default=None, type=click.Choice(["male", "female"]), help="New sex for --update-sample. Options: male, female.")
+@click.option("--set-phenotype",  default=None, help="New phenotype codes (comma-separated) for --update-sample. Replaces all current codes.")
+@click.option("--update-samples-file", default=None, type=click.Path(exists=True), help="TSV file for batch metadata update. Header: sample_name<TAB>field<TAB>new_value.")
+@click.option("--operator-note",  default=None, help="Free-text note appended to each changelog entry for this update.")
 @click.option("--threads",        default=None, type=int, help="Number of worker threads for parallel processing. (default: all available CPU cores)")
 @click.option("--tmp-dir",        default=None, help="Temporary directory for intermediate files. (default: system temp)")
 @click.option("--bed-dir",        default=None, help="Directory containing BED files for WES technologies.")
 @click.option("--db-version", "db_version", default=None, help="New version label after update. (default: auto-increment current version)")
 @click.option("--verbose", "-v",  is_flag=True, help="Verbose output with per-item progress. (default: false)")
-def update_db_command(db, remove_samples, add_samples, compact, threads, tmp_dir, bed_dir, db_version, verbose):
-    """Update an existing database: remove samples, add samples, and/or compact.
+def update_db_command(
+    db, remove_samples, add_samples, compact,
+    update_sample, set_sex, set_phenotype, update_samples_file, operator_note,
+    threads, tmp_dir, bed_dir, db_version, verbose,
+):
+    """Update an existing database: remove samples, add samples, update metadata, and/or compact.
 
-    Operations are applied in order: remove → add → compact.
+    Operations are applied in order: remove → update-metadata → add → compact.
+
+    \b
+    Update metadata for a single sample:
+      afquery update-db --db ./db/ --update-sample S1 --set-sex female
+      afquery update-db --db ./db/ --update-sample S1 --set-phenotype "E11.9,I10"
+
+    \b
+    Batch update from a TSV file (header: sample_name<TAB>field<TAB>new_value):
+      afquery update-db --db ./db/ --update-samples-file changes.tsv
     """
-    if not any([remove_samples, add_samples, compact]):
-        raise click.UsageError("At least one of --remove-samples, --add-samples, or --compact is required.")
+    has_metadata_update = bool(update_sample or update_samples_file)
+    if not any([remove_samples, add_samples, compact, has_metadata_update]):
+        raise click.UsageError(
+            "At least one of --remove-samples, --add-samples, --compact, "
+            "--update-sample, or --update-samples-file is required."
+        )
+
+    # Validate metadata-update option combinations
+    if (set_sex or set_phenotype) and not update_sample:
+        raise click.UsageError("--set-sex and --set-phenotype require --update-sample.")
+    if update_sample and not (set_sex or set_phenotype):
+        raise click.UsageError("--update-sample requires --set-sex and/or --set-phenotype.")
+    if update_samples_file and update_sample:
+        raise click.UsageError("--update-samples-file and --update-sample are mutually exclusive.")
 
     _configure_logging(verbose)
-    from .preprocess.update import add_samples as _add_samples, remove_samples as _remove_samples, UpdateError
+    from .preprocess.update import (
+        add_samples as _add_samples,
+        remove_samples as _remove_samples,
+        update_sample_metadata as _update_metadata,
+        parse_updates_tsv,
+        UpdateError,
+    )
     from .preprocess.manifest import ManifestError
     from .preprocess.ingest import IngestError
     from .preprocess.compact import compact_database
@@ -400,6 +456,25 @@ def update_db_command(db, remove_samples, add_samples, compact, threads, tmp_dir
             names = _expand_tokens(remove_samples)
             result = _remove_samples(db, names)
             click.echo(f"Removed {len(result['removed'])} sample(s): {', '.join(result['removed'])}")
+
+        if has_metadata_update:
+            if update_samples_file:
+                meta_updates = parse_updates_tsv(update_samples_file)
+            else:
+                meta_updates = []
+                if set_sex:
+                    meta_updates.append(
+                        {"sample_name": update_sample, "field": "sex", "new_value": set_sex}
+                    )
+                if set_phenotype:
+                    meta_updates.append(
+                        {"sample_name": update_sample, "field": "phenotype_codes", "new_value": set_phenotype}
+                    )
+            entries = _update_metadata(db, meta_updates, operator_note=operator_note)
+            n_samples = len({e["sample"] for e in entries})
+            click.echo(f"Updated {len(entries)} field(s) for {n_samples} sample(s).")
+            for e in entries:
+                click.echo(f"  {e['sample']}: {e['field']}  {e['old']!r} → {e['new']!r}")
 
         for manifest in add_samples:
             result = _add_samples(

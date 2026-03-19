@@ -368,6 +368,29 @@ class QueryEngine:
         results.sort(key=lambda r: (r.variant.pos, r.variant.alt))
         return results
 
+    def query_batch_multi(
+        self,
+        variants: list[tuple[str, int, str, str]],
+        sf: SampleFilter,
+    ) -> list[QueryResult]:
+        """Query variants across multiple chromosomes, preserving input order."""
+        from collections import defaultdict
+        indexed = list(enumerate(variants))
+        by_chrom: dict[str, list[tuple[int, tuple[int, str, str]]]] = defaultdict(list)
+        for idx, (chrom, pos, ref, alt) in indexed:
+            by_chrom[chrom].append((idx, (pos, ref, alt)))
+        tagged: list[tuple[int, QueryResult]] = []
+        for chrom, idx_variants in by_chrom.items():
+            idxs = [i for i, _ in idx_variants]
+            per_chrom = [v for _, v in idx_variants]
+            results = self.query_batch(chrom, per_chrom, sf)
+            result_map = {(r.variant.pos, r.variant.ref, r.variant.alt): r for r in results}
+            for i, (pos, ref, alt) in zip(idxs, per_chrom):
+                if (pos, ref, alt) in result_map:
+                    tagged.append((i, result_map[(pos, ref, alt)]))
+        tagged.sort(key=lambda x: x[0])
+        return [r for _, r in tagged]
+
     def query_region(
         self,
         chrom: str,

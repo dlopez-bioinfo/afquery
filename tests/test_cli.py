@@ -44,7 +44,7 @@ def test_info_missing_db(runner):
 def test_query_text_format(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "1", "--pos", "1500", "--phenotype", "E11.9",
+        "--locus", "1:1500", "--phenotype", "E11.9",
     ])
     assert result.exit_code == 0
     assert "AC=4" in result.output
@@ -55,7 +55,7 @@ def test_query_text_format(runner, test_db):
 def test_query_text_no_results(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "1", "--pos", "9999", "--phenotype", "UNKNOWN",
+        "--locus", "1:9999", "--phenotype", "UNKNOWN",
     ])
     assert result.exit_code == 0
     assert "No variants found" in result.output
@@ -66,7 +66,7 @@ def test_query_text_no_results(runner, test_db):
 def test_query_json_format(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500", "--phenotype", "E11.9",
+        "--locus", "chr1:1500", "--phenotype", "E11.9",
         "--format", "json",
     ])
     assert result.exit_code == 0
@@ -80,7 +80,7 @@ def test_query_json_format(runner, test_db):
 def test_query_json_empty(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "9999", "--phenotype", "UNKNOWN",
+        "--locus", "chr1:9999", "--phenotype", "UNKNOWN",
         "--format", "json",
     ])
     assert result.exit_code == 0
@@ -92,7 +92,7 @@ def test_query_json_empty(runner, test_db):
 def test_query_tsv_format(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "1", "--pos", "1500", "--phenotype", "E11.9",
+        "--locus", "1:1500", "--phenotype", "E11.9",
         "--format", "tsv",
     ])
     assert result.exit_code == 0
@@ -109,7 +109,7 @@ def test_query_tsv_format(runner, test_db):
 def test_query_sex_female(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500", "--phenotype", "E11.9",
+        "--locus", "chr1:1500", "--phenotype", "E11.9",
         "--sex", "female", "--format", "json",
     ])
     assert result.exit_code == 0
@@ -123,7 +123,7 @@ def test_query_sex_female(runner, test_db):
 def test_query_multiple_phenotype(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500",
+        "--locus", "chr1:1500",
         "--phenotype", "E11.9", "--phenotype", "I10",
         "--format", "json",
     ])
@@ -134,17 +134,17 @@ def test_query_multiple_phenotype(runner, test_db):
 
 # --- missing required option ---
 
-def test_query_missing_chrom(runner, test_db):
+def test_query_bad_locus_format(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--pos", "1500", "--phenotype", "E11.9",
+        "--locus", "bad_format",
     ])
     assert result.exit_code != 0
 
 
 def test_query_missing_db(runner):
     result = runner.invoke(cli, [
-        "query", "--chrom", "1", "--pos", "1500", "--phenotype", "E11.9",
+        "query", "--locus", "1:1500", "--phenotype", "E11.9",
     ])
     assert result.exit_code != 0
 
@@ -154,7 +154,7 @@ def test_query_missing_db(runner):
 def test_query_region_format(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "1", "--region", "1000-2000",
+        "--region", "1:1000-2000",
         "--format", "json",
     ])
     assert result.exit_code == 0
@@ -164,10 +164,10 @@ def test_query_region_format(runner, test_db):
 
 def test_query_batch_format(runner, test_db, tmp_path):
     variants_file = tmp_path / "variants.tsv"
-    variants_file.write_text("1500 C T\n")
+    variants_file.write_text("1 1500 C T\n")
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "1", "--from-file", str(variants_file),
+        "--from-file", str(variants_file),
         "--format", "json",
     ])
     assert result.exit_code == 0
@@ -177,17 +177,17 @@ def test_query_batch_format(runner, test_db, tmp_path):
 
 def test_query_requires_mode(runner, test_db):
     result = runner.invoke(cli, [
-        "query", "--db", test_db, "--chrom", "1",
+        "query", "--db", test_db,
     ])
     assert result.exit_code != 0
 
 
 def test_query_exclusive_modes(runner, test_db, tmp_path):
     variants_file = tmp_path / "variants.tsv"
-    variants_file.write_text("1500 C T\n")
+    variants_file.write_text("1 1500 C T\n")
     result = runner.invoke(cli, [
-        "query", "--db", test_db, "--chrom", "1",
-        "--pos", "1500", "--region", "1000-2000",
+        "query", "--db", test_db,
+        "--locus", "1:1500", "--region", "1:1000-2000",
     ])
     assert result.exit_code != 0
 
@@ -392,7 +392,7 @@ def test_check_missing_db(runner):
 def test_query_ref_alt_filter(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500",
+        "--locus", "chr1:1500",
         "--ref", "A", "--alt", "T",
         "--format", "json",
     ])
@@ -407,7 +407,7 @@ def test_query_ref_alt_filter(runner, test_db):
 def test_query_tech_filter(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500",
+        "--locus", "chr1:1500",
         "--tech", "WGS", "--format", "json",
     ])
     assert result.exit_code == 0
@@ -418,7 +418,7 @@ def test_query_tech_filter(runner, test_db):
 def test_query_region_invalid_fmt(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--region", "notaregion",
+        "--region", "notaregion",
     ])
     assert result.exit_code != 0
 
@@ -426,7 +426,7 @@ def test_query_region_invalid_fmt(runner, test_db):
 def test_query_tsv_with_fail_col(runner, test_db):
     result = runner.invoke(cli, [
         "query", "--db", test_db,
-        "--chrom", "chr1", "--pos", "1500",
+        "--locus", "chr1:1500",
         "--format", "tsv",
     ])
     assert result.exit_code == 0

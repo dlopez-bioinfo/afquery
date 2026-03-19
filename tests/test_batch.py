@@ -194,3 +194,114 @@ def test_query_region_nonexistent_chrom(test_db):
     db = _db(test_db)
     results = db.query_region("chr99", 1, 1_000_000, ["E11.9"])
     assert results == []
+
+
+# ---------------------------------------------------------------------------
+# query_batch_multi — multi-chromosome batch
+# ---------------------------------------------------------------------------
+
+def test_query_batch_multi_basic(test_db):
+    """Multi-chrom batch returns results from both chromosomes."""
+    db = _db(test_db)
+    variants = [
+        ("chr1", 1500, "A", "T"),
+        ("chrX", 5000000, "A", "G"),
+    ]
+    results = db.query_batch_multi(variants, ["E11.9"])
+    chroms = {r.variant.chrom for r in results}
+    assert "chr1" in chroms
+    assert "chrX" in chroms
+
+
+def test_query_batch_multi_preserves_order(test_db):
+    """Results are returned in input order."""
+    db = _db(test_db)
+    variants = [
+        ("chrX", 5000000, "A", "G"),
+        ("chr1", 1500, "A", "T"),
+        ("chr1", 3500, "G", "C"),
+    ]
+    results = db.query_batch_multi(variants)
+    assert results[0].variant.chrom == "chrX"
+    assert results[1].variant.pos == 1500
+    assert results[2].variant.pos == 3500
+
+
+def test_query_batch_multi_matches_single_queries(test_db):
+    """Multi-chrom batch gives same AC/AN as individual queries."""
+    db = _db(test_db)
+    variants = [
+        ("chr1", 1500, "A", "T"),
+        ("chrX", 5000000, "A", "G"),
+    ]
+    results = db.query_batch_multi(variants, ["E11.9"])
+    result_map = {(r.variant.chrom, r.variant.pos): r for r in results}
+
+    single_chr1 = db.query("chr1", 1500, ["E11.9"])
+    single_chrX = db.query("chrX", 5000000, ["E11.9"])
+
+    assert result_map[("chr1", 1500)].AC == single_chr1[0].AC
+    assert result_map[("chr1", 1500)].AN == single_chr1[0].AN
+    assert result_map[("chrX", 5000000)].AC == single_chrX[0].AC
+    assert result_map[("chrX", 5000000)].AN == single_chrX[0].AN
+
+
+def test_query_batch_multi_nonexistent_chrom(test_db):
+    """Variants on nonexistent chroms are silently skipped."""
+    db = _db(test_db)
+    variants = [
+        ("chr99", 1000, "A", "T"),
+        ("chr1", 1500, "A", "T"),
+    ]
+    results = db.query_batch_multi(variants, ["E11.9"])
+    assert all(r.variant.chrom == "chr1" for r in results)
+
+
+# ---------------------------------------------------------------------------
+# CLI parser helpers
+# ---------------------------------------------------------------------------
+
+def test_parse_locus_valid():
+    from afquery.cli import _parse_locus
+    assert _parse_locus("chr1:925952") == ("chr1", 925952)
+    assert _parse_locus("1:1500") == ("1", 1500)
+
+
+def test_parse_locus_invalid():
+    import click
+    from afquery.cli import _parse_locus
+    with pytest.raises(click.UsageError):
+        _parse_locus("bad_format")
+    with pytest.raises(click.UsageError):
+        _parse_locus("chr1:notanint")
+
+
+def test_parse_region_valid():
+    from afquery.cli import _parse_region
+    assert _parse_region("chr1:900000-1000000") == ("chr1", 900000, 1000000)
+    assert _parse_region("1:1000-2000") == ("1", 1000, 2000)
+
+
+def test_parse_region_invalid():
+    import click
+    from afquery.cli import _parse_region
+    with pytest.raises(click.UsageError):
+        _parse_region("bad_format")
+    with pytest.raises(click.UsageError):
+        _parse_region("chr1:notarange")
+
+
+def test_parse_variants_file_4col(tmp_path):
+    from afquery.cli import _parse_variants_file
+    f = tmp_path / "v.tsv"
+    f.write_text("chr1\t1500\tA\tT\nchrX\t5000000\tA\tG\n")
+    result = _parse_variants_file(str(f))
+    assert result == [("chr1", 1500, "A", "T"), ("chrX", 5000000, "A", "G")]
+
+
+def test_parse_variants_file_2col(tmp_path):
+    from afquery.cli import _parse_variants_file
+    f = tmp_path / "v.tsv"
+    f.write_text("chr1\t1500\n")
+    result = _parse_variants_file(str(f))
+    assert result == [("chr1", 1500, "", "")]

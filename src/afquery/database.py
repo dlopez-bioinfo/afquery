@@ -49,6 +49,16 @@ class Database:
         sf = self._make_filter(phenotype, sex, tech)
         return self._engine.query_batch(chrom, variants, sf)
 
+    def query_batch_multi(
+        self,
+        variants: list[tuple[str, int, str, str]],
+        phenotype: list[str] | None = None,
+        sex: str = "both",
+        tech: list[str] | None = None,
+    ) -> list[QueryResult]:
+        sf = self._make_filter(phenotype, sex, tech)
+        return self._engine.query_batch_multi(variants, sf)
+
     def query_region(
         self,
         chrom: str,
@@ -119,6 +129,29 @@ class Database:
     def remove_samples(self, sample_names: list[str]) -> dict:
         from .preprocess.update import remove_samples as _remove
         result = _remove(str(self._path), sample_names)
+        self._reload()
+        return result
+
+    def update_sample_metadata(
+        self,
+        updates: list[dict],
+        operator_note: str | None = None,
+    ) -> list[dict]:
+        """Update ``sex`` and/or ``phenotype_codes`` for one or more samples.
+
+        Args:
+            updates: List of dicts with keys ``sample_name``, ``field``, and
+                ``new_value``.  See
+                :func:`~afquery.preprocess.update.update_sample_metadata` for
+                full details.
+            operator_note: Optional free-text note appended to each changelog
+                entry.
+
+        Returns:
+            List of changelog entry dicts created (one per field change).
+        """
+        from .preprocess.update import update_sample_metadata as _update
+        result = _update(str(self._path), updates, operator_note=operator_note)
         self._reload()
         return result
 

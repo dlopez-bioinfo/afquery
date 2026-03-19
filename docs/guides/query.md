@@ -9,19 +9,13 @@
 Query a single genomic position:
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --pos 925952
+afquery query --db ./db/ --locus chr1:925952
 ```
 
-Output (default `text` format):
-```
-chr1:925952
-  REF=G  ALT=A  AC=142  AN=2742  AF=0.0518  N_HET=138  N_HOM_ALT=2
-```
-
-Filter to a specific ref/alt allele (useful at multi-allelic sites):
+Filter to a specific alt allele (useful at multi-allelic sites):
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --pos 925952 --ref G --alt A
+afquery query --db ./db/ --locus chr1:925952 --alt A
 ```
 
 ---
@@ -31,7 +25,7 @@ afquery query --db ./db/ --chrom chr1 --pos 925952 --ref G --alt A
 Query all variants in a genomic range:
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --region 900000-1000000
+afquery query --db ./db/ --region chr1:900000-1000000
 ```
 
 The range is 1-based, inclusive on both ends.
@@ -43,16 +37,18 @@ The range is 1-based, inclusive on both ends.
 Query multiple positions at once from a file:
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --from-file variants.tsv
+afquery query --db ./db/ --from-file variants.tsv
 ```
 
-The input file is a **headerless TSV** with columns `pos ref alt`:
+The input file is a **headerless TSV** with columns `chrom pos [ref [alt]]` (ref and alt are optional):
 
 ```tsv
-925952	G	A
-1014541	C	T
-1020172	A	G
+chr1	925952	G	A
+chr1	1014541	C	T
+chrX	5000000	A	G
 ```
+
+Batch queries support variants across multiple chromosomes in a single file.
 
 ---
 
@@ -63,8 +59,7 @@ The input file is a **headerless TSV** with columns `pos ref alt`:
 Human-readable, one block per variant:
 
 ```
-chr1:925952
-  REF=G  ALT=A  AC=142  AN=2742  AF=0.0518  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1231
+chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1231  N_FAIL=0
 ```
 
 ### tsv
@@ -72,20 +67,21 @@ chr1:925952
 Tab-separated, one row per variant, suitable for downstream processing:
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --region 900000-1000000 --format tsv
+afquery query --db ./db/ --region chr1:900000-1000000 --format tsv
 ```
 
 ```
-chrom	pos	ref	alt	AC	AN	AF	N_HET	N_HOM_ALT	N_HOM_REF
-chr1	925952	G	A	142	2742	0.0518	138	2	1231
+chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HOM_REF	N_FAIL
+chr1	925952	G	A	142	2742	0.051782	1371	138	2	1231	0
 ```
+
 
 ### json
 
 JSON array, one object per variant:
 
 ```bash
-afquery query --db ./db/ --chrom chr1 --pos 925952 --format json
+afquery query --db ./db/ --locus chr1:925952 --format json
 ```
 
 ```json
@@ -98,9 +94,11 @@ afquery query --db ./db/ --chrom chr1 --pos 925952 --format json
     "AC": 142,
     "AN": 2742,
     "AF": 0.05178,
+    "n_eligible": 1371,
     "N_HET": 138,
     "N_HOM_ALT": 2,
-    "N_HOM_REF": 1231
+    "N_HOM_REF": 1231,
+    "N_FAIL": 0
   }
 ]
 ```
@@ -114,8 +112,7 @@ All query modes support the same filter options:
 ```bash
 afquery query \
   --db ./db/ \
-  --chrom chr1 \
-  --pos 925952 \
+  --locus chr1:925952 \
   --phenotype E11.9 \
   --sex female \
   --tech wgs
@@ -146,10 +143,10 @@ Run two queries and compare:
 
 ```bash
 # Diabetic patients
-afquery query --db ./db/ --chrom chr1 --pos 925952 --phenotype E11.9 --format json
+afquery query --db ./db/ --locus chr1:925952 --phenotype E11.9 --format json
 
 # Healthy controls (exclude diabetic)
-afquery query --db ./db/ --chrom chr1 --pos 925952 --phenotype ^E11.9 --format json
+afquery query --db ./db/ --locus chr1:925952 --phenotype ^E11.9 --format json
 ```
 
 For systematic comparison across many variants, consider [Bulk Export](dump-export.md) with `--by-phenotype`.
