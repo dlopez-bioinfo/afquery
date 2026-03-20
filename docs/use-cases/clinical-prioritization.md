@@ -109,7 +109,7 @@ A typical clinical pipeline retains ~1,500 rare/novel candidates after cohort AF
 - `AN >= 500`: recommended for rare variant filtering
 - `AN >= 1000`: conservative threshold for robust AF estimates
 
-For detailed ACMG workflows with worked examples and AN threshold guidance, see [ACMG Criteria (BA1/PM2/PS4)](../clinical/acmg-use-cases.md).
+For detailed ACMG workflows with worked examples and AN threshold guidance, see [ACMG Criteria (BA1/PM2/PS4)](acmg-use-cases.md).
 
 
 ## Related Features

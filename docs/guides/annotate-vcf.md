@@ -20,14 +20,16 @@ afquery annotate \
 
 | Field | Type | Number | Description |
 |-------|------|--------|-------------|
-| `AFQUERY_AC` | Integer | A | Allele count in eligible samples |
-| `AFQUERY_AN` | Integer | 1 | Allele number (total alleles examined) |
-| `AFQUERY_AF` | Float | A | Allele frequency (`AC / AN`) |
-| `AFQUERY_N_HET` | Integer | A | Heterozygous sample count |
-| `AFQUERY_N_HOM_ALT` | Integer | A | Homozygous alt sample count |
-| `AFQUERY_N_HOM_REF` | Integer | A | Homozygous ref sample count |
-| `AFQUERY_N_FAIL` | Integer | 1 | Samples with FILTER≠PASS and alt allele called. |
+| `AFQUERY_AC` | Integer | A (per ALT) | Allele count in eligible samples |
+| `AFQUERY_AN` | Integer | 1 (per site) | Allele number (total alleles examined) |
+| `AFQUERY_AF` | Float | A (per ALT) | Allele frequency (`AC / AN`) |
+| `AFQUERY_N_HET` | Integer | A (per ALT) | Heterozygous sample count |
+| `AFQUERY_N_HOM_ALT` | Integer | A (per ALT) | Homozygous alt sample count |
+| `AFQUERY_N_HOM_REF` | Integer | A (per ALT) | Homozygous ref sample count |
+| `AFQUERY_N_FAIL` | Integer | 1 (per site) | Samples with FILTER≠PASS and alt allele called |
 
+!!! note "Multi-allelic sites"
+    Number=A fields have one value per ALT allele (comma-separated for multi-allelic sites). Number=1 fields are shared across all ALT alleles at the same position.
 
 ---
 
