@@ -199,6 +199,23 @@ AC=0 with AN=50 does **not** mean the variant is absent — it means you have no
 
 On chrX non-PAR regions, males contribute AN=1 and females AN=2. A cohort with 80% males has lower AN than expected from sample count alone, and hemizygous males who carry the variant contribute AC=1 as homozygotes. See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
 
+### High N_FAIL at the Variant Site
+
+`N_FAIL` counts eligible samples that were genotyped with the alt allele but failed quality filters (`FILTER≠PASS`). These samples are excluded from AC/AN, so AF is not directly inflated. However, a high N_FAIL indicates the site has systematic QC problems — and warrants caution before applying ACMG criteria.
+
+| N_FAIL / n_eligible | Interpretation |
+|---|---|
+| < 5% | Isolated low-quality calls — typically not concerning |
+| 5–15% | Elevated failure rate — review site-level QC metrics |
+| > 15% | Systematic artifact likely — treat AF with caution; do not apply BA1/PM2 without manual site inspection |
+
+Check `N_FAIL` in the query output or use `AFQUERY_N_FAIL` in annotated VCFs:
+
+```bash
+# Flag sites with high failure rate after annotation
+bcftools filter -i 'AFQUERY_N_FAIL > 0' annotated.vcf | head
+```
+
 ---
 
 ## Related Pages
