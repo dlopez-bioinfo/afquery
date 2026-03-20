@@ -14,6 +14,7 @@ AUTOSOMES = [f"chr{i}" for i in range(1, 23)]
 SEX_CHROMS = ["chrX", "chrY"]
 MITO_CHROM = "chrM"
 ALL_CHROMS = AUTOSOMES + SEX_CHROMS + [MITO_CHROM]
+CHROM_ORDER: dict[str, int] = {c: i for i, c in enumerate(ALL_CHROMS)}
 VALID_GENOME_BUILDS = frozenset(["GRCh37", "GRCh38"])
 VALID_SEX = frozenset(["male", "female"])
 
