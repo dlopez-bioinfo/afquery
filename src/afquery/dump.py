@@ -122,9 +122,7 @@ def _dump_bucket_worker(
     """Compute dump rows for a single bucket.
 
     Top-level picklable function — no closures. Safe for ProcessPoolExecutor.
-
-    Args:
-        include_ac_zero: If True, include variants with AC=0 (covered but not observed).
+    Pass include_ac_zero=True to retain positions with AC=0 (covered, no carriers).
     """
     from .query import QueryEngine
 
