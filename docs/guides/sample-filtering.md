@@ -2,7 +2,7 @@
 
 AFQuery supports flexible metadata-based selection of samples for AF computation. Filters are available on all query commands (`query`, `annotate`, `dump`).
 
-**Phenotype codes are arbitrary metadata labels** — you define them in your manifest. They can be ICD-10 codes, HPO terms, project tags (`control`, `pilot`), or any strings meaningful to your cohort. The filtering system does not interpret the codes — it matches them exactly as stored.
+**Phenotype codes are arbitrary string labels** — you define them in your manifest. They can be ICD-10 codes, HPO terms, project tags (`control`, `pilot`), or any strings meaningful to your cohort. The filtering system does not interpret the codes — it matches them exactly as stored.
 
 ---
 
@@ -50,7 +50,7 @@ graph TD
 --sex both       # all samples (default)
 ```
 
-The sex filter affects AN computation on sex chromosomes (chrX/chrY/chrMT). See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
+The sex filter affects AN computation on sex chromosomes (chrX/chrY/chrM). See [Ploidy & Sex Chromosomes](../advanced/ploidy-and-sex-chroms.md).
 
 ---
 
@@ -144,7 +144,7 @@ afquery query \
 
 This selects samples that are:
 - Female **AND**
-- Have metadata code E11.9 **AND**
+- Have phenotype code E11.9 **AND**
 - Use WGS technology
 
 ---
@@ -176,7 +176,7 @@ from afquery import Database
 
 db = Database("./db/")
 
-# Female WGS samples with the E11.9 metadata code
+# Female WGS samples with the E11.9 phenotype code
 results = db.query(
     chrom="chr1",
     pos=925952,

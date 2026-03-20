@@ -184,6 +184,8 @@ Low AN means the allele frequency estimate is unreliable. For example: AC=1, AN=
 - **AN ≥ 500**: necessary for rare variant filtering
 - **AN ≥ 1000**: required for clinical variant interpretation
 
+For detailed per-criterion AN thresholds, see [ACMG Criteria — AN Threshold Guidance](use-cases/acmg-use-cases.md#an-threshold-guidance).
+
 Always check `AFQUERY_AN` alongside `AFQUERY_AF` in downstream analyses. A variant with high AF but very low AN should be treated with skepticism.
 
 ---

@@ -12,7 +12,7 @@ This page explains what each field in AFQuery output means and how to interpret 
 | **AN** | int | Allele number — total alleles examined (adjusted for ploidy and eligible samples) |
 | **AF** | float | Allele frequency — `AC / AN`. `None` when AN=0 |
 | **N_HET** | int | Number of eligible samples heterozygous for the alt allele (GT=0/1) |
-| **N_HOM_ALT** | int | Number of eligible samples homozygous for the alt allele (GT=1/1 or GT=1) |
+| **N_HOM_ALT** | int | Number of eligible samples homozygous for the alt allele (GT=1/1 or GT=1). Includes haploid carriers on sex chromosomes and chrM. See [Ploidy](../advanced/ploidy-and-sex-chroms.md#genotype-counting). |
 | **N_HOM_REF** | int | Number of eligible samples homozygous reference (GT=0/0 or GT=0) |
 | **n_eligible** | int | Number of samples in the eligible set (after sex/phenotype/tech filters) |
 | **N_FAIL** | int | Number of eligible samples with FILTER≠PASS at this position |
@@ -117,15 +117,18 @@ When N_FAIL > 0, some eligible samples had a non-PASS filter at this position in
 
 When using `afquery annotate`, the following INFO fields are added to each variant:
 
-| INFO field | Description |
-|-----------|-------------|
-| `AFQUERY_AC` | Allele count |
-| `AFQUERY_AN` | Allele number |
-| `AFQUERY_AF` | Allele frequency |
-| `AFQUERY_N_HET` | Heterozygous sample count |
-| `AFQUERY_N_HOM_ALT` | Homozygous alt sample count |
-| `AFQUERY_N_HOM_REF` | Homozygous ref sample count |
-| `AFQUERY_N_FAIL` | Fail sample count |
+| INFO field | Number | Description |
+|-----------|--------|-------------|
+| `AFQUERY_AC` | A (per ALT) | Allele count — one value per ALT allele |
+| `AFQUERY_AN` | 1 (per site) | Allele number — shared across all ALT alleles |
+| `AFQUERY_AF` | A (per ALT) | Allele frequency — one value per ALT allele |
+| `AFQUERY_N_HET` | A (per ALT) | Heterozygous sample count per ALT allele |
+| `AFQUERY_N_HOM_ALT` | A (per ALT) | Homozygous alt sample count per ALT allele |
+| `AFQUERY_N_HOM_REF` | A (per ALT) | Homozygous ref sample count per ALT allele |
+| `AFQUERY_N_FAIL` | 1 (per site) | Fail sample count — shared across all ALT alleles |
+
+!!! note "Multi-allelic sites"
+    Number=A fields have one value per ALT allele (comma-separated for multi-allelic sites). Number=1 fields are shared across all ALT alleles at the same position.
 
 These fields can be used directly in downstream filtering with `bcftools filter`:
 
@@ -141,4 +144,4 @@ bcftools filter -i 'AFQUERY_AF < 0.001 && AFQUERY_AN >= 1000' annotated.vcf.gz
 - [Key Concepts](concepts.md) — how AC, AN, and AF are computed
 - [Sample Filtering Guide](../guides/sample-filtering.md) — phenotype, sex, and technology filters
 - [Annotate a VCF](../guides/annotate-vcf.md) — add AFQUERY_AF/AC/AN fields to a patient VCF
-- [Clinical ACMG Use Cases](../clinical/acmg-use-cases.md) — applying local AF to ACMG BS1/PM2 criteria
+- [Clinical ACMG Use Cases](../use-cases/acmg-use-cases.md) — applying local AF to ACMG BS1/PM2 criteria
