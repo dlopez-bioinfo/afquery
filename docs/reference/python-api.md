@@ -125,6 +125,7 @@ db.query_region_multi(
 
 Query allele frequencies across multiple genomic regions, which may span
 different chromosomes. Overlapping regions are deduplicated automatically.
+Chromosome names are normalized (`"1"` and `"chr1"` are equivalent).
 
 **Parameters:**
 
@@ -135,7 +136,8 @@ different chromosomes. Overlapping regions are deduplicated automatically.
 | `sex` | str | Sex filter |
 | `tech` | list[str] \| None | Technology filter |
 
-**Returns:** List of `QueryResult` objects sorted by `(chrom, pos, alt)`.
+**Returns:** List of `QueryResult` objects sorted in genomic order
+(chr1, chr2, …, chr22, chrX, chrY, chrM).
 
 **Example:**
 
@@ -198,7 +200,10 @@ db.query_batch_multi(
 ```
 
 Query allele frequencies for a list of specific variants across multiple
-chromosomes. Results are returned in the same order as the input list.
+chromosomes. Chromosome names are normalized (`"1"` and `"chr1"` are
+equivalent). Duplicate input entries are deduplicated per chromosome — if the
+same `(chrom, pos, ref, alt)` appears more than once, only the first
+occurrence is included.
 
 **Parameters:**
 
@@ -209,8 +214,8 @@ chromosomes. Results are returned in the same order as the input list.
 | `sex` | str | Sex filter |
 | `tech` | list[str] \| None | Technology filter |
 
-**Returns:** List of `QueryResult` objects in input order (variants not found
-in the database are omitted).
+**Returns:** List of `QueryResult` objects in input order (by original index).
+Variants not found in the database are omitted.
 
 **Example:**
 

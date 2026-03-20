@@ -48,6 +48,11 @@ regions = [
 results = db.query_region_multi(regions, phenotype=["E11.9"])
 ```
 
+Results are returned in **genomic order** (chr1, chr2, …, chr22, chrX, chrY,
+chrM). Overlapping regions are automatically deduplicated — each variant
+appears at most once. Chromosome names are normalized, so `"1"` and `"chr1"`
+are equivalent.
+
 For querying specific variants across chromosomes, use `query_batch_multi`:
 
 ```python
@@ -57,6 +62,11 @@ variants = [
 ]
 results = db.query_batch_multi(variants)
 ```
+
+Results are returned in **input order** (by original index). Duplicate entries
+are deduplicated per chromosome — if the same `(chrom, pos, ref, alt)` appears
+more than once, only the first occurrence is included. Chromosome names are
+normalized, so `"1"` and `"chr1"` are equivalent.
 
 ---
 
