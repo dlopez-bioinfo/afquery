@@ -234,13 +234,14 @@ def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose, 
 @click.option("--by-phenotype", multiple=True, help="Disaggregate by specific phenotype codes. Repeatable; comma-separated or multiple flags.")
 @click.option("--all-groups", is_flag=True, help="Disaggregate by ALL sexes x technologies x phenotypes (Cartesian product). WARNING: can generate a very large number of columns. (default: false)")
 @click.option("--threads", default=None, type=int, help="Number of worker threads for parallel export. (default: all available CPU cores)")
+@click.option("--all-variants", is_flag=True, help="Include variants with AC=0 (covered but not observed). WARNING: may produce very large output on whole-genome databases. (default: false)")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output with per-item progress. (default: false)")
 def dump(db, output, chrom, start, end, phenotype, sex, tech,
-         by_sex, by_tech, by_phenotype, all_groups, threads, verbose):
-    """Export allele frequencies to CSV (AC > 0 variants only).
+         by_sex, by_tech, by_phenotype, all_groups, threads, all_variants, verbose):
+    """Export allele frequencies to CSV.
 
-    Only variants with at least one carrier in the eligible sample set are
-    exported. Use 'afquery query --locus' to check a specific position.
+    By default only variants with AC > 0 are exported. Use --all-variants to
+    include positions that are covered but have no observed carriers (AC=0).
 
     Supports disaggregation by sex (--by-sex), technology (--by-tech),
     phenotype (--by-phenotype), or all combinations (--all-groups).
@@ -266,6 +267,7 @@ def dump(db, output, chrom, start, end, phenotype, sex, tech,
         start=start,
         end=end,
         n_workers=threads,
+        include_ac_zero=all_variants,
     )
     click.echo(
         f"{stats['n_rows']} row(s) exported from {stats['n_buckets']} bucket(s)"

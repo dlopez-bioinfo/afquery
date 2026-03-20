@@ -99,6 +99,7 @@ afquery dump [OPTIONS]
 | `--by-phenotype` | TEXT | None | Disaggregate by specific phenotype codes. Repeatable. |
 | `--all-groups` | flag | False | Disaggregate by all sexes × technologies × phenotypes (Cartesian product) |
 | `--threads` | INTEGER | all CPUs | Number of worker threads for parallel export |
+| `--all-variants` | flag | False | Include variants with AC=0 (covered but not observed). WARNING: may produce very large output. |
 | `-v, --verbose` | flag | False | Verbose output with per-item progress |
 
 ---

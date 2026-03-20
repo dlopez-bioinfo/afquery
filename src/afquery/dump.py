@@ -116,11 +116,13 @@ def _discover_flat_buckets(flat_path, pos_start, pos_end):
 
 
 def _dump_bucket_worker(
-    db_path, chrom, bucket_id, base_sf, groups, pos_start, pos_end
+    db_path, chrom, bucket_id, base_sf, groups, pos_start, pos_end,
+    include_ac_zero=False,
 ):
     """Compute dump rows for a single bucket.
 
     Top-level picklable function — no closures. Safe for ProcessPoolExecutor.
+    Pass include_ac_zero=True to retain positions with AC=0 (covered, no carriers).
     """
     from .query import QueryEngine
 
@@ -201,7 +203,7 @@ def _dump_bucket_worker(
             + 2 * len(hom_elig & diploid_elig)
         )
 
-        if AC == 0:
+        if AC == 0 and not include_ac_zero:
             continue  # main row filter
 
         N_HET = len(het_elig & diploid_elig)
@@ -276,8 +278,9 @@ def dump_database(
     pos_start: int | None,
     pos_end: int | None,
     n_workers: int | None,
+    include_ac_zero: bool = False,
 ) -> dict:
-    """Export all variants with AC>0 to CSV.
+    """Export variants to CSV.
 
     Args:
         engine: QueryEngine instance
@@ -288,6 +291,7 @@ def dump_database(
         pos_start: 1-based start (inclusive), requires chrom_filter
         pos_end: 1-based end (inclusive), requires chrom_filter
         n_workers: parallel workers (None = cpu_count)
+        include_ac_zero: if True, include variants with AC=0
 
     Returns:
         {"n_rows": int, "n_buckets": int, "n_chroms": int}
@@ -372,7 +376,8 @@ def dump_database(
     if effective == 1:
         for idx, (chrom, bid) in enumerate(work_units):
             unit_results[idx] = _dump_bucket_worker(
-                db_path, chrom, bid, base_sf, groups, pos_start, pos_end
+                db_path, chrom, bid, base_sf, groups, pos_start, pos_end,
+                include_ac_zero,
             )
             logger.debug("  [dump] %s/bucket_%d: done", chrom, bid)
     else:
@@ -381,7 +386,7 @@ def dump_database(
                 executor.submit(
                     _dump_bucket_worker,
                     db_path, chrom, bid, base_sf, groups,
-                    pos_start, pos_end,
+                    pos_start, pos_end, include_ac_zero,
                 ): idx
                 for idx, (chrom, bid) in enumerate(work_units)
             }
