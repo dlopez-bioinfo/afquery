@@ -19,7 +19,11 @@ afquery dump --db ./db/ --output all_variants.csv
 ```
 
 !!! note "AC > 0 filter"
-    `dump` exports only variants with AC > 0. Variants at covered positions with no carriers are omitted. Use `afquery query --locus` to verify coverage at specific positions.
+    By default `dump` exports only variants with AC > 0. Variants at covered positions with no carriers are omitted. Use `--all-variants` to include AC=0 rows, or `afquery query --locus` to verify coverage at a specific position.
+
+    ```bash
+    afquery dump --db ./db/ --all-variants --output all_covered.csv
+    ```
 
 ---
 
