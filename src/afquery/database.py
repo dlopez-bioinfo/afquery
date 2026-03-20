@@ -71,6 +71,28 @@ class Database:
         sf = self._make_filter(phenotype, sex, tech)
         return self._engine.query_region(chrom, start, end, sf)
 
+    def query_region_multi(
+        self,
+        regions: list[tuple[str, int, int]],
+        phenotype: list[str] | None = None,
+        sex: str = "both",
+        tech: list[str] | None = None,
+    ) -> list[QueryResult]:
+        """Query variants across multiple genomic regions (may span chromosomes).
+
+        Args:
+            regions: List of ``(chrom, start, end)`` tuples, 1-based inclusive.
+            phenotype: Phenotype filter tokens. Use ``"^CODE"`` prefix to exclude.
+            sex: ``"both"`` (default), ``"male"``, or ``"female"``.
+            tech: Technology filter tokens. Use ``"^TECH"`` prefix to exclude.
+
+        Returns:
+            List of :class:`~afquery.models.QueryResult` objects sorted by
+            ``(chrom, pos, alt)``. Overlapping regions are deduplicated.
+        """
+        sf = self._make_filter(phenotype, sex, tech)
+        return self._engine.query_region_multi(regions, sf)
+
     def dump(
         self,
         output=None,
