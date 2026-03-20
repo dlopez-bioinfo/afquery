@@ -32,6 +32,34 @@ The range is 1-based, inclusive on both ends.
 
 ---
 
+### Python API — multi-chromosome regions
+
+To query variants across multiple regions (including different chromosomes)
+in a single call, use `query_region_multi`:
+
+```python
+from afquery import Database
+
+db = Database("./db/")
+regions = [
+    ("chr1",  900000,   1000000),
+    ("chr17", 41196311, 41277500),
+]
+results = db.query_region_multi(regions, phenotype=["E11.9"])
+```
+
+For querying specific variants across chromosomes, use `query_batch_multi`:
+
+```python
+variants = [
+    ("chr1",  925952,  "G", "A"),
+    ("chrX",  5000000, "A", "G"),
+]
+results = db.query_batch_multi(variants)
+```
+
+---
+
 ## Batch Query
 
 Query multiple positions at once from a file:
