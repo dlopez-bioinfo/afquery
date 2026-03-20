@@ -111,7 +111,13 @@ def _print_results(results, fmt: str) -> None:
 
 @click.group()
 def cli():
-    """afquery: genomic allele frequency query engine."""
+    """AFQuery: bitmap-indexed allele frequency engine for local genomic cohorts.
+
+    Enables fast AC/AN/AF queries on user-defined subcohorts (phenotype, sex,
+    technology) without rescanning VCFs.
+
+    Commands: query, annotate, dump, info, version, create-db, update-db, check, benchmark
+    """
 
 
 @cli.command()
@@ -184,7 +190,19 @@ def query(db, locus, region, from_file, phenotype, sex, ref, alt, tech, fmt, no_
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output with per-item progress. (default: false)")
 @click.option("--no-warn", is_flag=True, default=False, help="Suppress AfqueryWarning messages.")
 def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose, no_warn):
-    """Annotate a VCF with AFQUERY_AC / AFQUERY_AN / AFQUERY_AF INFO fields."""
+    """Annotate a VCF with allele frequency INFO fields.
+
+    The following INFO fields are added to each variant:
+
+    \b
+      AFQUERY_AC          allele count (per ALT)
+      AFQUERY_AN          allele number (per site)
+      AFQUERY_AF          allele frequency (per ALT)
+      AFQUERY_N_HET       heterozygous carrier count (per ALT)
+      AFQUERY_N_HOM_ALT   homozygous alt count (per ALT)
+      AFQUERY_N_HOM_REF   homozygous ref count (per ALT)
+      AFQUERY_N_FAIL      samples with FILTER!=PASS (v2 databases only)
+    """
     if no_warn:
         import warnings
         from .models import AfqueryWarning
@@ -219,7 +237,14 @@ def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose, 
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output with per-item progress. (default: false)")
 def dump(db, output, chrom, start, end, phenotype, sex, tech,
          by_sex, by_tech, by_phenotype, all_groups, threads, verbose):
-    """Export allele frequencies for all variants to CSV."""
+    """Export allele frequencies to CSV (AC > 0 variants only).
+
+    Only variants with at least one carrier in the eligible sample set are
+    exported. Use 'afquery query --locus' to check a specific position.
+
+    Supports disaggregation by sex (--by-sex), technology (--by-tech),
+    phenotype (--by-phenotype), or all combinations (--all-groups).
+    """
     _configure_logging(verbose)
 
     if (start is not None or end is not None) and chrom is None:
@@ -503,7 +528,7 @@ def update_db_command(
 @cli.command("check")
 @click.option("--db", required=True, help="Path to database directory.")
 def check_cmd(db):
-    """Validate database integrity."""
+    """Validate database integrity. Exits with code 1 if any errors are found."""
     from .preprocess.update import check_database
     results = check_database(db)
     has_error = False
