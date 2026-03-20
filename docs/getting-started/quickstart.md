@@ -23,7 +23,7 @@ Fields:
 - `vcf_path`: path to single-sample VCF (plain or `.gz`)
 - `sex`: `male` or `female`
 - `tech_name`: sequencing technology name. Use `WGS` for whole genome sequencing
-- `phenotype_codes`: comma-separated metadata codes (arbitrary strings)
+- `phenotype_codes`: comma-separated phenotype codes (arbitrary strings)
 
 See [Manifest Format](../guides/manifest-format.md) for full details.
 
@@ -40,7 +40,7 @@ afquery create-db \
   --threads 12
 ```
 
-Bed files should be placed at bed-dir and named `<tech_name>.bed`
+BED files are required for WES and panel technologies. Place one file per technology in the `--bed-dir` directory, named `<tech_name>.bed` (e.g., `wes_v1.bed`). WGS technologies do not need a BED file.
 
 
 The command will:
@@ -108,14 +108,14 @@ afquery annotate \
 
 The output VCF gains INFO fields:
 
-| Field | Description |
-|-------|-------------|
-| `AFQUERY_AC` | Allele count |
-| `AFQUERY_AN` | Allele number |
-| `AFQUERY_AF` | Allele frequency |
-| `AFQUERY_N_HET` | Heterozygous sample count |
-| `AFQUERY_N_HOM_ALT` | Homozygous alt sample count |
-| `AFQUERY_N_HOM_REF` | Homozygous ref sample count |
-| `AFQUERY_N_FAIL` | Samples with FILTER≠PASS |
+| Field | Number | Description |
+|-------|--------|-------------|
+| `AFQUERY_AC` | A (per ALT) | Allele count |
+| `AFQUERY_AN` | 1 (per site) | Allele number |
+| `AFQUERY_AF` | A (per ALT) | Allele frequency |
+| `AFQUERY_N_HET` | A (per ALT) | Heterozygous sample count |
+| `AFQUERY_N_HOM_ALT` | A (per ALT) | Homozygous alt sample count |
+| `AFQUERY_N_HOM_REF` | A (per ALT) | Homozygous ref sample count |
+| `AFQUERY_N_FAIL` | 1 (per site) | Samples with FILTER≠PASS |
 
 

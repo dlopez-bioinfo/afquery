@@ -58,6 +58,7 @@ plugins:
 nav:
   - Home: index.md
   - Getting Started:
+    - Motivation: getting-started/motivation.md
     - Installation: getting-started/installation.md
     - Preprocessing: getting-started/preprocessing.md
     - 5-Min Quick Start: getting-started/quickstart.md
@@ -73,7 +74,7 @@ nav:
       - Bulk Export: guides/dump-export.md
       - Sample Filtering: guides/sample-filtering.md
     - 🏥 Clinical Workflows:
-      - ACMG Criteria (BA1/PM2/PS4): clinical/acmg-use-cases.md
+      - ACMG Criteria (BA1/PM2/PS4): use-cases/acmg-use-cases.md
       - Clinical Prioritization: use-cases/clinical-prioritization.md
       - Pseudo-controls: use-cases/pseudo-controls.md
       - Population-Specific AF: use-cases/population-specific-af.md

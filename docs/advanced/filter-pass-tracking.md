@@ -82,6 +82,19 @@ afquery annotate --db ./db/ --input variants.vcf --output annotated.vcf
 
 ---
 
+## Schema Version Compatibility
+
+The `fail_bitmap` and `N_FAIL` tracking requires schema version 2.0 or later. Databases created with older versions of AFQuery do not contain `fail_bitmap` data.
+
+| Database schema | N_FAIL behavior |
+|----------------|-----------------|
+| ≥ 2.0 | `N_FAIL` is always an integer (0 or more) |
+| < 2.0 (legacy) | `N_FAIL` is `None` in Python API results |
+
+To upgrade a legacy database, rebuild it with `afquery create-db`. There is no in-place migration.
+
+---
+
 ## PASS-Only Enforcement
 
 AF reflects the quality-filtered allele frequency — the frequency of the alt allele among high-quality calls. This is appropriate for most clinical and research use cases. PASS-only ingestion is always enforced.

@@ -42,15 +42,11 @@ flowchart LR
 
 ## Why Cohort-Specific AF Matters
 
-Allele frequency is not a fixed property of a variant — it is a property of a population.
-
-Population databases like gnomAD aggregate data from hundreds of thousands of individuals and are invaluable for identifying common variants. But they are not your cohort. Allele frequencies vary substantially across:
-
-- **Ancestry**: A variant at AF=0.001 in gnomAD Europeans may be at AF=0.01 in a specific Iberian registry — a 10× difference that changes pathogenicity interpretation under ACMG BS1 and PM2 criteria. Turkish breast cancer variants showed up to 354-fold higher frequencies in local databases versus gnomAD, with 6.7% of VUS reclassified to likely benign when population-matched data were used (Agaoglu et al., 2024; PMID: 38308423).
-- **Sequencing technology**: Coverage differences between WES and WGS can create systematic differences in observed genotype rates.
-- **Clinical composition**: A cohort enriched for a specific disease may show elevated frequencies for variants associated with that phenotype.
+Allele frequency is not a fixed property of a variant — it is a property of a population. Frequencies vary substantially across ancestry, sequencing technology, and clinical composition. Global databases like gnomAD are invaluable but may not reflect your cohort's background, leading to misestimated AF and incorrect variant classification.
 
 AFQuery lets you compute allele frequencies on exactly the samples in your hands — and on any dynamically defined subset of them — without rebuilding the database.
+
+For a detailed discussion of the methodological gaps AFQuery addresses, including real-world reclassification examples and peer-reviewed references, see [Why Local Allele Frequencies Matter](motivation.md).
 
 ---
 
@@ -74,7 +70,7 @@ AN depends on the chromosome and sex of eligible samples:
 | chrX (non-PAR) | 2 | 1 |
 | chrX (PAR1/PAR2) | 2 | 2 |
 | chrY | 0 | 1 |
-| chrMT | 1 | 1 |
+| chrM | 1 | 1 |
 
 See [Ploidy & Special Chromosomes](../advanced/ploidy-and-sex-chroms.md) for PAR coordinates.
 
@@ -174,7 +170,7 @@ The manifest is a TSV file that drives database creation. It maps each sample to
 - VCF file path
 - Sex (`male` / `female`)
 - Sequencing technology
-- Metadata/phenotype codes (arbitrary strings, comma-separated)
+- Phenotype codes (arbitrary strings, comma-separated)
 
 The manifest is parsed into `metadata.sqlite` during `create-db`. The original path is recorded in `manifest.json`.
 
@@ -187,7 +183,7 @@ Queries can restrict the eligible sample set along three independent dimensions:
 | Dimension | Filter | Default |
 |-----------|--------|---------|
 | **Sex** | `male`, `female`, or `both` | `both` |
-| **Phenotype** | Include/exclude metadata codes (arbitrary strings) | all samples |
+| **Phenotype** | Include/exclude phenotype codes (arbitrary strings) | all samples |
 | **Technology** | Include/exclude tech names | all samples |
 
 Filters **compose with AND** across dimensions: a sample must satisfy all three to be eligible.

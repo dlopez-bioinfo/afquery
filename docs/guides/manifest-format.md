@@ -12,7 +12,7 @@ The manifest is a tab-separated (TSV) file that describes your sample cohort. It
 | `vcf_path` | Yes | string | Absolute or relative path to the single-sample VCF file (plain or `.gz`). |
 | `sex` | Yes | `male` \| `female` | Biological sex. Used for ploidy-aware AN computation on sex chromosomes. |
 | `tech_name` | Yes | string | Sequencing technology name (e.g., `wgs`, `wes_v1`, `capture_kit_A`). Case-sensitive. |
-| `phenotype_codes` | No | string | Comma-separated metadata codes for this sample (arbitrary strings, e.g., `E11.9,control`). |
+| `phenotype_codes` | No | string | Comma-separated phenotype codes for this sample (arbitrary strings, e.g., `E11.9,control`). |
 
 ---
 
