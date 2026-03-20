@@ -145,11 +145,61 @@ class TestDumpBasic:
         assert "N_FAIL" in rows[0]  # v2 DB
 
     def test_ac_positive_filter(self, test_db):
-        """All exported rows must have AC > 0."""
+        """By default all exported rows must have AC > 0."""
         text, _ = _dump_to_string(test_db)
         rows = _parse_csv(text)
         for row in rows:
             assert int(row["AC"]) > 0, f"AC=0 in row: {row}"
+
+    def test_include_ac_zero_flag(self, test_db):
+        """include_ac_zero=True produces a superset; AC=0 rows have AF=0 and AN>0.
+
+        chr1:3500 G>C has only S07 (phenotype J45) as carrier. When filtered by
+        phenotype I10, no I10 sample carries this variant but several are covered
+        at that position → AC=0, AN>0.
+        """
+        # Default: chr1:3500 G>C is omitted for phenotype I10 (no carriers)
+        text_default, _ = _dump_to_string(test_db, chrom="chr1", phenotype=["I10"])
+        rows_default = _parse_csv(text_default)
+        default_positions = {(r["pos"], r["alt"]) for r in rows_default}
+        assert ("3500", "C") not in default_positions, "chr1:3500 G>C should be absent by default"
+
+        # With include_ac_zero=True it should appear
+        text_all, _ = _dump_to_string(
+            test_db, chrom="chr1", phenotype=["I10"], include_ac_zero=True
+        )
+        rows_all = _parse_csv(text_all)
+        assert len(rows_all) >= len(rows_default)
+
+        ac_zero_rows = [r for r in rows_all if int(r["AC"]) == 0]
+        assert len(ac_zero_rows) > 0, "Expected at least one AC=0 row"
+        for row in ac_zero_rows:
+            assert float(row["AF"]) == 0.0
+            assert int(row["AN"]) > 0
+
+    def test_include_ac_zero_cli(self, test_db, tmp_path):
+        """--all-variants CLI flag includes AC=0 rows for a phenotype-filtered dump."""
+        runner = CliRunner()
+        out_default = str(tmp_path / "default.csv")
+        out_all = str(tmp_path / "all.csv")
+
+        result_default = runner.invoke(cli, [
+            "dump", "--db", test_db, "--chrom", "chr1",
+            "--phenotype", "I10", "--output", out_default,
+        ])
+        assert result_default.exit_code == 0
+        rows_default = _parse_csv(open(out_default).read())
+
+        result_all = runner.invoke(cli, [
+            "dump", "--db", test_db, "--chrom", "chr1",
+            "--phenotype", "I10", "--all-variants", "--output", out_all,
+        ])
+        assert result_all.exit_code == 0
+        rows_all = _parse_csv(open(out_all).read())
+
+        assert len(rows_all) >= len(rows_default)
+        ac_zero_rows = [r for r in rows_all if r.get("AC") == "0"]
+        assert len(ac_zero_rows) > 0, "Expected AC=0 rows with --all-variants"
 
     def test_values_match_query(self, test_db):
         """AC/AN/AF/N_HET match direct query() results."""
