@@ -83,7 +83,7 @@ AFQuery correctly computes AN by intersecting each sample's capture BED with the
 
 ### 7. VCF annotation with custom sample subsets
 
-Annotate a patient VCF with `AFQUERY_AC`, `AFQUERY_AN`, and `AFQUERY_AF` INFO fields computed from any combination of phenotype, sex, and technology filters.
+Annotate a patient VCF with `AFQUERY_AC`, `AFQUERY_AN`, `AFQUERY_AF`, `AFQUERY_N_HET`, `AFQUERY_N_HOM_ALT`, `AFQUERY_N_HOM_REF`, and `AFQUERY_N_FAIL` INFO fields computed from any combination of phenotype, sex, and technology filters.
 
 ### 8. Audit changelog
 
@@ -108,7 +108,7 @@ Every database operation (sample add, remove, or metadata update) is recorded in
 ```mermaid
 graph TD
     A["🔍 Input VCFs<br/>single-sample"]
-    B["📥 Ingest<br/>cyvcf2 reads VCFs →<br/>genotypes stored in SQLite"]
+    B["📥 Ingest<br/>cyvcf2 reads VCFs →<br/>per-sample Parquet files emitted"]
     C["🏗️ Build<br/>DuckDB aggregates per bucket →<br/>Roaring Bitmaps → Parquet"]
     D["💾 Database on Disk<br/>variants/chr*/bucket_*/<br/>capture/*.pkl<br/>metadata.sqlite<br/>manifest.json"]
     E["⚡ Query Engine<br/>Load bitmap → filter samples →<br/>compute AC/AN/AF<br/>~10-100ms"]

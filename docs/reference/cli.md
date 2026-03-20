@@ -50,6 +50,7 @@ Exactly one of `--locus`, `--region`, or `--from-file` must be provided.
 | `--ref` | TEXT | None | Filter to specific reference allele (only for `--locus`) |
 | `--alt` | TEXT | None | Filter to specific alternate allele (only for `--locus`) |
 | `--format` | `text`\|`json`\|`tsv` | `text` | Output format |
+| `--no-warn` | flag | False | Suppress warnings for unknown phenotypes, technologies, and chromosomes |
 
 ---
 
@@ -71,6 +72,7 @@ afquery annotate [OPTIONS]
 | `--tech` | TEXT | None | Technology filter. Repeatable; comma-separated or multiple flags. Use `^` prefix to exclude. |
 | `--threads` | INTEGER | all CPUs | Number of worker threads for parallel annotation |
 | `-v, --verbose` | flag | False | Verbose output with per-item progress |
+| `--no-warn` | flag | False | Suppress warnings for unknown phenotypes, technologies, and chromosomes |
 
 ---
 

@@ -13,7 +13,7 @@ gnomAD provides an excellent first filter, but:
 2. **Fine-grained Control Cohort Selection**: Unlike resources such as gnomAD, where allele frequencies are derived from largely phenotype-agnostic populations, AFQuery allows the dynamic inclusion or exclusion of samples based on any annotated feature. This is particularly valuable in rare disease studies, where overlapping genetic architectures may confound analyses: for example, samples associated with a related condition can be selectively excluded to avoid bias. Because phenotypes are treated as flexible annotations, this control extends to any variable of interest, enabling more precise and context-aware frequency estimation.
 
 
-3. **Local artifacts**: Systematic sequencing artifacts specific to your pipeline or capture kit manifest as recurrent variants that appear rare in gnomAD but accumulate high frequency in your cohort. These are best identified by elevated AF in your local database paired with low allele number (AN) or high FAIL_SAMPLES counts, indicating poor genotype quality at the site.
+3. **Local artifacts**: Systematic sequencing artifacts specific to your pipeline or capture kit manifest as recurrent variants that appear rare in gnomAD but accumulate high frequency in your cohort. These are best identified by elevated AF in your local database paired with low allele number (AN) or high N_FAIL counts, indicating poor genotype quality at the site.
 
 AFQuery lets you apply cohort-specific AF as an additional filter layer on top of gnomAD, removing locally common variants that standard databases miss.
 
