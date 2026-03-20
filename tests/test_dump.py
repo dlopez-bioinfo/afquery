@@ -188,18 +188,38 @@ class TestDumpBasic:
             "--phenotype", "I10", "--output", out_default,
         ])
         assert result_default.exit_code == 0
-        rows_default = _parse_csv(open(out_default).read())
+        rows_default = _parse_csv(Path(out_default).read_text())
 
         result_all = runner.invoke(cli, [
             "dump", "--db", test_db, "--chrom", "chr1",
             "--phenotype", "I10", "--all-variants", "--output", out_all,
         ])
         assert result_all.exit_code == 0
-        rows_all = _parse_csv(open(out_all).read())
+        rows_all = _parse_csv(Path(out_all).read_text())
 
         assert len(rows_all) >= len(rows_default)
         ac_zero_rows = [r for r in rows_all if r.get("AC") == "0"]
         assert len(ac_zero_rows) > 0, "Expected AC=0 rows with --all-variants"
+
+    def test_include_ac_zero_with_disaggregation(self, test_db):
+        """AC=0 rows appear correctly when combined with by_sex disaggregation.
+
+        All sex-disaggregated AC_ columns must also be 0 for AC=0 base rows.
+        """
+        text, _ = _dump_to_string(
+            test_db, chrom="chr1", phenotype=["I10"],
+            by_sex=True, include_ac_zero=True,
+        )
+        rows = _parse_csv(text)
+        ac_zero_rows = [r for r in rows if int(r["AC"]) == 0]
+        assert len(ac_zero_rows) > 0, "Expected AC=0 rows with disaggregation"
+        for row in ac_zero_rows:
+            assert float(row["AF"]) == 0.0
+            assert int(row["AN"]) > 0
+            sex_ac_cols = [k for k in row if k.startswith("AC_")]
+            assert sex_ac_cols, "Expected disaggregated AC_ columns"
+            for col in sex_ac_cols:
+                assert int(row[col]) == 0, f"Expected {col}=0, got {row[col]}"
 
     def test_values_match_query(self, test_db):
         """AC/AN/AF/N_HET match direct query() results."""

@@ -234,7 +234,7 @@ def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose, 
 @click.option("--by-phenotype", multiple=True, help="Disaggregate by specific phenotype codes. Repeatable; comma-separated or multiple flags.")
 @click.option("--all-groups", is_flag=True, help="Disaggregate by ALL sexes x technologies x phenotypes (Cartesian product). WARNING: can generate a very large number of columns. (default: false)")
 @click.option("--threads", default=None, type=int, help="Number of worker threads for parallel export. (default: all available CPU cores)")
-@click.option("--all-variants", is_flag=True, help="Include variants with AC=0 (covered but not observed). (default: false)")
+@click.option("--all-variants", is_flag=True, help="Include variants with AC=0 (covered but not observed). WARNING: may produce very large output on whole-genome databases. (default: false)")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output with per-item progress. (default: false)")
 def dump(db, output, chrom, start, end, phenotype, sex, tech,
          by_sex, by_tech, by_phenotype, all_groups, threads, all_variants, verbose):
