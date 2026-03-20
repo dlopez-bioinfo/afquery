@@ -85,6 +85,7 @@ class Database:
         start: int | None = None,
         end: int | None = None,
         n_workers: int | None = None,
+        include_ac_zero: bool = False,
     ) -> dict:
         from .dump import dump_database, _build_groups
         base_sf = self._make_filter(phenotype, sex, tech)
@@ -94,7 +95,7 @@ class Database:
         )
         return dump_database(
             self._engine, output, base_sf, groups,
-            chrom, start, end, n_workers,
+            chrom, start, end, n_workers, include_ac_zero,
         )
 
     def annotate_vcf(
