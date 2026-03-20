@@ -368,6 +368,34 @@ class QueryEngine:
         results.sort(key=lambda r: (r.variant.pos, r.variant.alt))
         return results
 
+    def query_region_multi(
+        self,
+        regions: list[tuple[str, int, int]],
+        sf: SampleFilter,
+    ) -> list[QueryResult]:
+        """Query variants across multiple genomic regions (may span chromosomes).
+
+        Overlapping regions are deduplicated by variant key. Results are sorted
+        by (chrom, pos, alt).
+
+        Args:
+            regions: List of ``(chrom, start, end)`` tuples, 1-based inclusive.
+            sf: Sample filter.
+
+        Returns:
+            List of :class:`~afquery.models.QueryResult` objects.
+        """
+        seen: set[tuple[str, int, str, str]] = set()
+        results: list[QueryResult] = []
+        for chrom, start, end in regions:
+            for r in self.query_region(chrom, start, end, sf):
+                key = (r.variant.chrom, r.variant.pos, r.variant.ref, r.variant.alt)
+                if key not in seen:
+                    seen.add(key)
+                    results.append(r)
+        results.sort(key=lambda r: (r.variant.chrom, r.variant.pos, r.variant.alt))
+        return results
+
     def query_batch_multi(
         self,
         variants: list[tuple[str, int, str, str]],
