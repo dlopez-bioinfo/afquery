@@ -123,7 +123,7 @@ Genome build:   GRCh38
 DB version:     1.0
 Samples:        1371
 Technologies:   wgs, wes_v1, wes_v2
-Chromosomes:    chr1 ... chrX chrY chrMT
+Chromosomes:    chr1 ... chrX chrY chrM
 ```
 
 These commands are available at any time after database creation — not only immediately after `create-db`. Use `afquery check` to verify database integrity (manifest consistency, Parquet file health, capture index presence) and `afquery info` to inspect sample counts, registered technologies, and phenotype codes.

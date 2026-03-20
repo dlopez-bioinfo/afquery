@@ -38,7 +38,7 @@ A TSV file that maps each sample to its VCF path, sex, sequencing technology, an
 
 ## Metadata Code
 
-See [Phenotype Code](#phenotype-code).
+Legacy term. See [Phenotype Code](#phenotype-code).
 
 ## Parquet
 

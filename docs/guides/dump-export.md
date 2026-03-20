@@ -18,6 +18,9 @@ Write to a file:
 afquery dump --db ./db/ --output all_variants.csv
 ```
 
+!!! note "AC > 0 filter"
+    `dump` exports only variants with AC > 0. Variants at covered positions with no carriers are omitted. Use `afquery query --locus` to verify coverage at specific positions.
+
 ---
 
 ## Filter by Region

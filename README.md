@@ -29,9 +29,13 @@ AFQuery is a bitmap-indexed engine that efficiently recomputes AC/AN/AF for dyna
 - **Ploidy-aware** — correct handling of sex chromosomes (PAR/non-PAR, chrX, chrY)  
 - **ACMG-compatible allele counting** — AC/AN/AF computed per standard definitions  
 - **Flexible metadata filtering** — arbitrary labels (ICD-10, HPO, custom fields) with inclusion/exclusion rules 
-- **Incremental updates** — add new samples without rebuilding the database  
-- **VCF annotation** — annotate variants using subcohort-specific frequencies  
-- **FILTER tracking** — failed calls tracked separately  
+- **Incremental updates** — add or remove samples and update metadata without rebuilding the database
+- **VCF annotation** — annotate variants using subcohort-specific frequencies
+- **FILTER/call quality tracking** — failed calls (FILTER!=PASS) tracked per variant and reported as N_FAIL
+- **Batch and region queries** — query a single locus, a genomic region, or a list of variants from a file
+- **Bulk CSV export** — export all variant frequencies with optional disaggregation by sex, technology, or phenotype
+- **Audit changelog** — all database operations logged with timestamps and operator notes
+- **Database validation** — integrity checks with scripted exit codes
 - **Portable and serverless** — file-based system, no infrastructure required
 
 ## Performance
@@ -48,13 +52,16 @@ AFQuery is a bitmap-indexed engine that efficiently recomputes AC/AN/AF for dyna
 | Metadata filtering | Arbitrary labels | No | No | Custom code |
 | Ploidy-aware sex chromosomes | Yes | Manual | No | Manual |
 | Dynamic subcohort queries | Yes | No | Limited | Requires code |
+| FILTER/call quality tracking | Per variant (N_FAIL) | Manual | No | Manual |
 | Incremental updates | Yes | No | Yes | No |
 | Infrastructure required | None (file-based) | None | Java/server | Spark cluster |
 | Query latency (50K samples) | <100 ms | ~5 min | <1 min | 1–2 min |
 
 ## Algorithm Overview
 
-AFQuery builds per-variant bitmap indexes from VCFs and resolves sample filters into bitmaps at query time. AC and AN are computed via fast bitmap intersections with regions- and metadata-aware rules.
+AFQuery pre-indexes per-variant genotype data as [Roaring Bitmaps](https://roaringbitmap.org/) stored in Parquet files. Each variant row holds three bitmaps: heterozygous carriers, homozygous alt carriers, and samples with FILTER!=PASS. Sample metadata (sex, phenotype, technology) is pre-serialized as bitmaps in SQLite.
+
+At query time, the requested sample filter is resolved to a single candidate bitmap via bitmap intersections and differences — taking microseconds regardless of cohort size. For each variant, the candidate bitmap is intersected with the genotype bitmaps to compute AC/AN/AF. AN accounts for WES capture regions (via BED-indexed interval trees) and for ploidy on sex chromosomes (males are haploid on non-PAR chrX and chrY).
 
 ## Input Requirements
 
@@ -64,19 +71,39 @@ AFQuery builds per-variant bitmap indexes from VCFs and resolves sample filters 
 
 ## Quick Start
 
-Example workflow from raw VCFs to query and annotation:
+Example workflow from raw VCFs to query, export, and annotation:
 
 ```bash
 pip install afquery
+
+# Build the database
 afquery create-db --manifest samples.tsv --output-dir ./db/ --genome-build GRCh38
+
+# Inspect the database
+afquery info --db ./db/
+
+# Query a single position, filtered to a phenotype
 afquery query --db ./db/ --locus chr1:925952 --phenotype E11.9 --sex female
+
+# Query a genomic region
+afquery query --db ./db/ --region chr1:900000-1000000
+
+# Export all variant frequencies to CSV
+afquery dump --db ./db/ --output all_variants.csv
+
+# Annotate a VCF with cohort frequencies
 afquery annotate --db ./db/ --input patient.vcf --output annotated.vcf --threads 12
+
+# Add new samples to an existing database
+afquery update-db --db ./db/ --add-samples new_samples.tsv
 ```
 
 ## Documentation
 
-- [Full Documentation→](https://dlopez-bioinfo.github.io/afquery/)
+- [Full Documentation](https://dlopez-bioinfo.github.io/afquery/)
 - [Getting Started](https://dlopez-bioinfo.github.io/afquery/getting-started/)
+- [Why local allele frequencies?](https://dlopez-bioinfo.github.io/afquery/getting-started/motivation/)
+- [CLI Reference](https://dlopez-bioinfo.github.io/afquery/reference/cli/)
 
 ## Citation
 
