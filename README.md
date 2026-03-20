@@ -48,14 +48,14 @@ AFQuery is a bitmap-indexed engine that efficiently recomputes AC/AN/AF for dyna
 
 | | AFQuery | bcftools | GATK GenomicsDB | Hail |
 |---|---|---|---|---|
-| Technology-aware AN | Yes | No | No | No |
-| Metadata filtering | Arbitrary labels | No | No | Custom code |
-| Ploidy-aware sex chromosomes | Yes | Manual | No | Manual |
-| Dynamic subcohort queries | Yes | No | Limited | Requires code |
-| FILTER/call quality tracking | Per variant (N_FAIL) | Manual | No | Manual |
-| Incremental updates | Yes | No | Yes | No |
-| Infrastructure required | None (file-based) | None | Java/server | Spark cluster |
-| Query latency (50K samples) | <100 ms | ~5 min | <1 min | 1–2 min |
+| Technology-aware AN | **Yes** | No | No | No |
+| Metadata filtering | **Arbitrary labels** | No | No | Custom code |
+| Ploidy-aware sex chromosomes | **Yes** | Manual | No | Manual |
+| Dynamic subcohort queries | **Yes** | No | Limited | Requires code |
+| FILTER/call quality tracking | **Per variant** | Manual | No | Manual |
+| Incremental updates | **Yes** | No | **Yes** | No |
+| Infrastructure required | **None** | **None** | Java/server | Spark cluster |
+| Query latency (50K samples) | **<100 ms** | ~5 min | <1 min | 1–2 min |
 
 ## Algorithm Overview
 
