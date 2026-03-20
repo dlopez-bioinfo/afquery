@@ -378,8 +378,10 @@ class QueryEngine:
             unique = list(dict.fromkeys(per_chrom))
             results = self._query_batch_inner(chrom, unique, sample_bm)
             result_map = {(r.variant.pos, r.variant.ref, r.variant.alt): r for r in results}
+            seen_on_chrom: set[tuple[int, str, str]] = set()
             for i, (pos, ref, alt) in zip(idxs, per_chrom):
-                if (pos, ref, alt) in result_map:
+                if (pos, ref, alt) in result_map and (pos, ref, alt) not in seen_on_chrom:
+                    seen_on_chrom.add((pos, ref, alt))
                     tagged.append((i, result_map[(pos, ref, alt)]))
         tagged.sort(key=lambda x: x[0])
         return [r for _, r in tagged]
