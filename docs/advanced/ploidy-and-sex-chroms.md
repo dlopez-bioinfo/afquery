@@ -51,7 +51,7 @@ afquery query --db ./db/ --locus chrY:2787758 --sex female
 # chrY:2787758 — no results (AN=0 for all variants)
 
 afquery query --db ./db/ --locus chrY:2787758 --sex male
-# chrY:2787758  REF=C  ALT=T  AC=3  AN=856  AF=0.0035
+# chrY:2787758 C>T  AC=3  AN=856  AF=0.0035  n_eligible=856  N_HET=3  N_HOM_ALT=0  N_HOM_REF=853  N_FAIL=0
 ```
 
 ### chrX non-PAR
