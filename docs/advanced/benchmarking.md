@@ -23,14 +23,14 @@ This generates 1,000 synthetic samples and 10,000 variants per chromosome, build
 | `--n-samples` | `1000` | Number of synthetic samples |
 | `--n-variants` | `10000` | Number of variants per chromosome |
 | `--output` | `benchmark_report.json` | Output path for JSON report |
-| `--db-dir` | None | Run against an existing database instead of synthetic data |
+| `--db` | None | Run against an existing database instead of synthetic data |
 
 ---
 
 ## Benchmark Against a Real Database
 
 ```bash
-afquery benchmark --db-dir ./my_db/ --output my_db_benchmark.json
+afquery benchmark --db ./my_db/ --output my_db_benchmark.json
 ```
 
 This uses your actual Parquet files and sample metadata, giving realistic performance numbers for your specific cohort size and variant density.
@@ -90,11 +90,11 @@ Run the benchmark after major updates to detect regressions:
 
 ```bash
 # Before update
-afquery benchmark --db-dir ./db/ --output before.json
+afquery benchmark --db ./db/ --output before.json
 
 # After adding 500 samples
 afquery update-db --db ./db/ --add-samples new_batch.tsv
-afquery benchmark --db-dir ./db/ --output after.json
+afquery benchmark --db ./db/ --output after.json
 
 # Compare
 python3 -c "
@@ -150,10 +150,10 @@ Run the benchmark after each major update to detect performance regressions:
 
 ```bash
 # Save baseline before changes
-afquery benchmark --db-dir ./db/ --output baseline.json
+afquery benchmark --db ./db/ --output baseline.json
 
 # After update
-afquery benchmark --db-dir ./db/ --output after_update.json
+afquery benchmark --db ./db/ --output after_update.json
 
 # Compare
 python3 - <<'EOF'

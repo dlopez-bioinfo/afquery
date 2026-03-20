@@ -38,6 +38,24 @@ A variant you expect to find is not in the database:
 | Multiallelic sites | AFQuery stores each ALT separately. Query the specific ALT allele, not just position |
 | Chromosome naming | Ensure consistent `chr` prefix usage |
 
+### 4. Unexpected N_FAIL > 0
+
+`N_FAIL > 0` means some eligible samples had the alt allele called but with `FILTER≠PASS`. These samples are excluded from AC/AN. This is usually benign (1–2 samples), but a high N_FAIL warrants investigation:
+
+| N_FAIL relative to n_eligible | Likely cause |
+|---|---|
+| 1–2 samples | Isolated low-quality calls — not concerning |
+| > 5% of n_eligible | Systematic sequencing artifact at this site |
+| All eligible samples | Site-wide QC failure — AF=0 but variant is present in source VCFs |
+
+To inspect a site with high N_FAIL, query with `--format json` to see all fields:
+
+```bash
+afquery query --db ./db/ --locus chr1:12345678 --format json
+```
+
+If N_FAIL is consistently high across many sites, check the variant calling pipeline and FILTER field settings in your VCFs.
+
 ---
 
 ## Diagnostic Commands
@@ -65,7 +83,7 @@ Validates: manifest consistency, Parquet file integrity, capture index presence.
 afquery query --db ./db/ --locus chr1:12345678 --format json
 ```
 
-JSON format shows all fields including N_HET, N_HOM_ALT, N_HOM_REF, and FAIL_SAMPLES — useful for understanding the composition of the result.
+JSON format shows all fields including N_HET, N_HOM_ALT, N_HOM_REF, and N_FAIL — useful for understanding the composition of the result.
 
 
 ### Direct Metadata Inspection
@@ -108,6 +126,7 @@ conn.close()
 | AN much lower than sample count | Mixed WGS/WES, position outside WES capture | Filter by `--tech wgs` to isolate |
 | AF=None in output | AN=0 (division by zero) | See AN=0 diagnosis above |
 | Different AF between `query` and `annotate` | Different default filters or phenotype context | Ensure same `--phenotype`, `--sex`, `--tech` flags |
+| N_FAIL high at a site | Systematic QC failure in source VCFs at this position | Inspect site with `--format json`; check VCF FILTER annotations |
 
 ---
 

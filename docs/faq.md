@@ -146,9 +146,9 @@ On chrX non-PAR positions, males contribute AN=1 and females contribute AN=2. Wh
 
 ---
 
-## What does FAIL_SAMPLES mean in query output?
+## What does N_FAIL mean in query output?
 
-`FAIL_SAMPLES` (shown as `FAIL=N` in text output) is the count of eligible samples that had the alt allele called but with `FILTER≠PASS`. These samples are not counted in AC/AN. See [FILTER=PASS Tracking](advanced/filter-pass-tracking.md).
+`N_FAIL` is the count of eligible samples that had the alt allele called but with `FILTER≠PASS`. Shown as `N_FAIL=N` in text output. These samples are not counted in AC/AN. See [FILTER=PASS Tracking](advanced/filter-pass-tracking.md).
 
 ---
 

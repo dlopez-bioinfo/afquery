@@ -28,9 +28,9 @@ An interval tree (stored as a `.pkl` file) built from a BED file that defines th
 
 A sample that passes all query filters (sex, phenotype, technology) and has coverage at the queried position. Only eligible samples contribute to AC and AN. See [Sample Filtering](../guides/sample-filtering.md).
 
-## FAIL_SAMPLES
+## N_FAIL
 
-The count of eligible samples at a position where the genotype call had FILTER≠PASS in the source VCF. Available only in schema v2 databases. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
+The count of eligible samples at a position where the genotype call had FILTER≠PASS in the source VCF. These samples are not counted in AC/AN. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
 
 ## Manifest
 
@@ -58,7 +58,7 @@ A compressed bitset data structure that efficiently stores sets of integers. AFQ
 
 ## Schema Version
 
-The AFQuery database format. Each variant stores `het_bitmap`, `hom_bitmap`, and `fail_bitmap`. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
+The AFQuery database format version stored in `manifest.json`. Each variant stores `het_bitmap`, `hom_bitmap`, and `fail_bitmap`. See [Data Model](data-model.md).
 
 ## Technology
 
