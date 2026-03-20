@@ -125,7 +125,7 @@ When using `afquery annotate`, the following INFO fields are added to each varia
 | `AFQUERY_N_HET` | Heterozygous sample count |
 | `AFQUERY_N_HOM_ALT` | Homozygous alt sample count |
 | `AFQUERY_N_HOM_REF` | Homozygous ref sample count |
-| `AFQUERY_FAIL` | Fail sample count |
+| `AFQUERY_N_FAIL` | Fail sample count |
 
 These fields can be used directly in downstream filtering with `bcftools filter`:
 

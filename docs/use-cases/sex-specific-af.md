@@ -32,8 +32,7 @@ afquery query --db ./db/ --locus chrX:153296777
 ```
 
 ```
-chrX:153296777
-  REF=C  ALT=T  AC=15  AN=2500  AF=0.0060  N_HET=5  N_HOM_ALT=0
+chrX:153296777 C>T  AC=15  AN=2500  AF=0.0060  n_eligible=1500  N_HET=5  N_HOM_ALT=0  N_HOM_REF=1495  N_FAIL=0
 ```
 
 AN=2500: 500 males × 1 + 1000 females × 2 = 2500 (mixed ploidy)
@@ -45,8 +44,7 @@ afquery query --db ./db/ --locus chrX:153296777 --sex male
 ```
 
 ```
-chrX:153296777
-  REF=C  ALT=T  AC=10  AN=500  AF=0.0200  N_HET=10  N_HOM_ALT=0
+chrX:153296777 C>T  AC=10  AN=500  AF=0.0200  n_eligible=500  N_HET=10  N_HOM_ALT=0  N_HOM_REF=490  N_FAIL=0
 ```
 
 Hemizygous rate: 2% (N_HET here represents hemizygous males, GT=1)
@@ -58,8 +56,7 @@ afquery query --db ./db/ --locus chrX:153296777 --sex female
 ```
 
 ```
-chrX:153296777
-  REF=C  ALT=T  AC=5  AN=2000  AF=0.0025  N_HET=5  N_HOM_ALT=0
+chrX:153296777 C>T  AC=5  AN=2000  AF=0.0025  n_eligible=1000  N_HET=5  N_HOM_ALT=0  N_HOM_REF=995  N_FAIL=0
 ```
 
 Carrier rate: 0.25%

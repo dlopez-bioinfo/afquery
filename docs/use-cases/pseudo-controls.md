@@ -128,4 +128,4 @@ The pseudo-control AF provides a cleaner background frequency than a gnomAD look
 
 - [Sample Filtering](../guides/sample-filtering.md) — full phenotype filter syntax
 - [Cohort Stratification](cohort-stratification.md) — compare multiple groups simultaneously
-- [Clinical Prioritization](../clinical/clinical-prioritization.md) — annotate patient VCFs with cohort-specific AF
+- [Clinical Prioritization](clinical-prioritization.md) — annotate patient VCFs with cohort-specific AF
