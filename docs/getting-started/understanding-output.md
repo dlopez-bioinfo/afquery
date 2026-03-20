@@ -14,7 +14,8 @@ This page explains what each field in AFQuery output means and how to interpret 
 | **N_HET** | int | Number of eligible samples heterozygous for the alt allele (GT=0/1) |
 | **N_HOM_ALT** | int | Number of eligible samples homozygous for the alt allele (GT=1/1 or GT=1) |
 | **N_HOM_REF** | int | Number of eligible samples homozygous reference (GT=0/0 or GT=0) |
-| **FAIL_SAMPLES** | int | Number of eligible samples with FILTER≠PASS at this position. |
+| **n_eligible** | int | Number of samples in the eligible set (after sex/phenotype/tech filters) |
+| **N_FAIL** | int | Number of eligible samples with FILTER≠PASS at this position |
 
 
 ---
@@ -28,7 +29,7 @@ afquery query --db ./db/ --locus chr1:925952 --ref G --alt A
 ```
 
 ```
-chr1:925952 G>A  AC=3  AN=120  AF=0.0250  N_HET=1  N_HOM_ALT=1  N_HOM_REF=57
+chr1:925952 G>A  AC=3  AN=120  AF=0.0250  n_eligible=60  N_HET=1  N_HOM_ALT=1  N_HOM_REF=57  N_FAIL=0
 ```
 
 ### TSV
@@ -38,8 +39,8 @@ afquery query --db ./db/ --locus chr1:925952 --ref G --alt A --format tsv
 ```
 
 ```
-chrom	pos	ref	alt	AC	AN	AF	N_HET	N_HOM_ALT	N_HOM_REF	FAIL_SAMPLES
-chr1	925952	G	A	3	120	0.0250	1	1	57	0
+chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HOM_REF	N_FAIL
+chr1	925952	G	A	3	120	0.025000	60	1	1	57	0
 ```
 
 ### JSON
@@ -57,10 +58,11 @@ afquery query --db ./db/ --locus chr1:925952 --ref G --alt A --format json
   "AC": 3,
   "AN": 120,
   "AF": 0.025,
+  "n_eligible": 60,
   "N_HET": 1,
   "N_HOM_ALT": 1,
   "N_HOM_REF": 57,
-  "FAIL_SAMPLES": 0
+  "N_FAIL": 0
 }
 ```
 
@@ -105,9 +107,9 @@ afquery annotate --db ./my_db/ --input in.vcf --output out.vcf --no-warn
 AC=0 with a high AN (e.g., AN=4000) means the variant was **genuinely not observed** in a well-covered cohort. This is meaningful evidence that the variant is rare or absent in your population.
 
 
-### FAIL_SAMPLES > 0
+### N_FAIL > 0
 
-When FAIL_SAMPLES > 0, some eligible samples had a non-PASS filter at this position in their source VCF. A high FAIL_SAMPLES relative to AN may indicate a problematic site (e.g., systematic sequencing artifacts). Consider filtering positions with more than 10% of failing (`FAIL_SAMPLES / (AN / 2) > 0.1`).
+When N_FAIL > 0, some eligible samples had a non-PASS filter at this position in their source VCF. A high N_FAIL relative to AN may indicate a problematic site (e.g., systematic sequencing artifacts). Consider filtering positions with more than 10% of failing (`N_FAIL / (AN / 2) > 0.1`).
 
 ---
 
@@ -123,7 +125,7 @@ When using `afquery annotate`, the following INFO fields are added to each varia
 | `AFQUERY_N_HET` | Heterozygous sample count |
 | `AFQUERY_N_HOM_ALT` | Homozygous alt sample count |
 | `AFQUERY_N_HOM_REF` | Homozygous ref sample count |
-| `AFQUERY_FAIL` | Fail sample count |
+| `AFQUERY_N_FAIL` | Fail sample count |
 
 These fields can be used directly in downstream filtering with `bcftools filter`:
 

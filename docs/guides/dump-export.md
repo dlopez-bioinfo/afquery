@@ -54,7 +54,12 @@ afquery dump --db ./db/ \
 
 ## Disaggregate Output
 
-All three disaggregation modes work on the same principle: add stratified AC/AN/AF columns alongside the totals. They can be combined in a single command.
+All three disaggregation modes work on the same principle: add stratified columns alongside the totals. They can be combined in a single command.
+
+Base columns (always present):
+```
+chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL
+```
 
 === "--by-sex"
 
@@ -66,7 +71,7 @@ All three disaggregation modes work on the same principle: add stratified AC/AN/
 
     Output columns:
     ```
-    chrom,pos,ref,alt,AC,AN,AF,AC_male,AN_male,AF_male,AC_female,AN_female,AF_female
+    chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL,AC_male,AN_male,AF_male,N_HET_male,N_HOM_ALT_male,N_HOM_REF_male,N_FAIL_male,AC_female,AN_female,AF_female,N_HET_female,N_HOM_ALT_female,N_HOM_REF_female,N_FAIL_female
     ```
 
 === "--by-tech"
@@ -77,7 +82,7 @@ All three disaggregation modes work on the same principle: add stratified AC/AN/
     afquery dump --db ./db/ --by-tech --output by_tech.csv
     ```
 
-    Output columns include `AC_wgs`, `AN_wgs`, `AF_wgs`, `AC_wes_v1`, `AN_wes_v1`, etc. (one group per registered technology).
+    Output columns include `AC_wgs`, `AN_wgs`, `AF_wgs`, `N_HET_wgs`, `N_HOM_ALT_wgs`, `N_HOM_REF_wgs`, `N_FAIL_wgs`, `AC_wes_v1`, `AN_wes_v1`, etc. (one group of seven columns per registered technology).
 
 === "--by-phenotype"
 
@@ -90,7 +95,7 @@ All three disaggregation modes work on the same principle: add stratified AC/AN/
       --output by_phenotype.csv
     ```
 
-    Output includes `AC_E11.9`, `AN_E11.9`, `AF_E11.9`, `AC_I10`, etc.
+    Output includes `AC_E11.9`, `AN_E11.9`, `AF_E11.9`, `N_HET_E11.9`, `N_HOM_ALT_E11.9`, `N_HOM_REF_E11.9`, `N_FAIL_E11.9`, `AC_I10`, etc.
 
 === "--all-groups"
 
