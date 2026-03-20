@@ -8,7 +8,7 @@ from pyroaring import BitMap
 
 from .bitmaps import deserialize
 from .capture import CaptureIndex, load_capture_indices
-from .constants import normalize_chrom
+from .constants import normalize_chrom, ALL_CHROMS, CHROM_ORDER
 from .models import AfqueryWarning, QueryParams, QueryResult, VariantKey, Sample, Technology, SampleFilter
 from .ploidy import compute_AN, split_ploidy
 
@@ -293,13 +293,175 @@ class QueryEngine:
             )
             return []
 
-        # Deduplicate by full variant, preserve order
         unique_variants = list(dict.fromkeys(variants))
-
-        # AN is per-position; collect unique positions
-        unique_positions = list(dict.fromkeys(pos for pos, _ref, _alt in unique_variants))
-
         sample_bm = self._build_sample_bitmap(sf)
+        return self._query_batch_inner(chrom, unique_variants, sample_bm)
+
+    def query_region_multi(
+        self,
+        regions: list[tuple[str, int, int]],
+        sf: SampleFilter,
+    ) -> list[QueryResult]:
+        """Query variants across multiple genomic regions (may span chromosomes).
+
+        The sample bitmap is resolved once for all regions.
+        Overlapping regions are deduplicated by variant key.
+        Results are sorted in genomic order (chr1, chr2, …, chr22, chrX, chrY, chrM).
+
+        Args:
+            regions: List of ``(chrom, start, end)`` tuples, 1-based inclusive.
+            sf: Sample filter.
+
+        Returns:
+            List of :class:`~afquery.models.QueryResult` objects.
+        """
+        if not regions:
+            return []
+        sample_bm = self._build_sample_bitmap(sf)
+        seen: set[tuple[str, int, str, str]] = set()
+        results: list[QueryResult] = []
+        for chrom, start, end in regions:
+            chrom = normalize_chrom(chrom)
+            if chrom not in self._all_known_chroms:
+                warnings.warn(
+                    f"Chromosome {chrom!r} has no data in this database.",
+                    AfqueryWarning, stacklevel=3,
+                )
+                continue
+            for r in self._query_region_inner(chrom, start, end, sample_bm):
+                key = (r.variant.chrom, r.variant.pos, r.variant.ref, r.variant.alt)
+                if key not in seen:
+                    seen.add(key)
+                    results.append(r)
+        results.sort(key=lambda r: (
+            CHROM_ORDER.get(r.variant.chrom, len(ALL_CHROMS)),
+            r.variant.pos,
+            r.variant.alt,
+        ))
+        return results
+
+    def query_batch_multi(
+        self,
+        variants: list[tuple[str, int, str, str]],
+        sf: SampleFilter,
+    ) -> list[QueryResult]:
+        """Query variants across multiple chromosomes, preserving input order.
+
+        The sample bitmap is resolved once for all chromosomes.
+        Duplicate input variants are deduplicated per chromosome (same as query_batch).
+
+        Args:
+            variants: List of ``(chrom, pos, ref, alt)`` tuples.
+            sf: Sample filter.
+
+        Returns:
+            List of :class:`~afquery.models.QueryResult` objects in input order.
+            Variants not found in the database are omitted.
+        """
+        if not variants:
+            return []
+        from collections import defaultdict
+        sample_bm = self._build_sample_bitmap(sf)
+        by_chrom: dict[str, list[tuple[int, tuple[int, str, str]]]] = defaultdict(list)
+        for idx, (chrom, pos, ref, alt) in enumerate(variants):
+            by_chrom[normalize_chrom(chrom)].append((idx, (pos, ref, alt)))
+        tagged: list[tuple[int, QueryResult]] = []
+        for chrom, idx_variants in by_chrom.items():
+            if chrom not in self._all_known_chroms:
+                warnings.warn(
+                    f"Chromosome {chrom!r} has no data in this database.",
+                    AfqueryWarning, stacklevel=3,
+                )
+                continue
+            idxs = [i for i, _ in idx_variants]
+            per_chrom = [v for _, v in idx_variants]
+            unique = list(dict.fromkeys(per_chrom))
+            results = self._query_batch_inner(chrom, unique, sample_bm)
+            result_map = {(r.variant.pos, r.variant.ref, r.variant.alt): r for r in results}
+            seen_on_chrom: set[tuple[int, str, str]] = set()
+            for i, (pos, ref, alt) in zip(idxs, per_chrom):
+                if (pos, ref, alt) in result_map and (pos, ref, alt) not in seen_on_chrom:
+                    seen_on_chrom.add((pos, ref, alt))
+                    tagged.append((i, result_map[(pos, ref, alt)]))
+        tagged.sort(key=lambda x: x[0])
+        return [r for _, r in tagged]
+
+    def _query_region_inner(
+        self,
+        chrom: str,
+        start: int,
+        end: int,
+        sample_bm: BitMap,
+    ) -> list[QueryResult]:
+        """Run a region query with a pre-built sample bitmap.
+
+        Caller is responsible for normalization and chrom existence check.
+        """
+        parquet_glob = self._parquet_glob(chrom)
+        if parquet_glob is None:
+            return []
+
+        escaped_glob = parquet_glob.replace("'", "''")
+
+        con = duckdb.connect(config={"temp_directory": "/tmp"})
+        rows = con.execute(
+            f"SELECT pos, ref, alt, het_bitmap, hom_bitmap, fail_bitmap"
+            f" FROM read_parquet('{escaped_glob}') WHERE pos BETWEEN ? AND ?",
+            [start, end],
+        ).fetchall()
+        con.close()
+
+        if not rows:
+            return []
+
+        pos_data: dict[int, tuple[BitMap, int]] = {}
+        for row in rows:
+            pos = row[0]
+            if pos not in pos_data:
+                eligible, AN = self._compute_eligible(chrom, pos, sample_bm)
+                pos_data[pos] = (eligible, AN)
+
+        results = []
+        for row in rows:
+            pos, ref, alt, het_bytes, hom_bytes, fail_bytes = row
+            eligible, AN = pos_data[pos]
+            if AN == 0:
+                continue
+            het_bm = deserialize(bytes(het_bytes))
+            hom_bm = deserialize(bytes(hom_bytes))
+            haploid_elig, diploid_elig = split_ploidy(
+                eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
+            )
+            het_elig = het_bm & eligible
+            hom_elig = hom_bm & eligible
+            AC = (len((het_elig | hom_elig) & haploid_elig)
+                  + len(het_elig & diploid_elig)
+                  + 2 * len(hom_elig & diploid_elig))
+            N_HET = len(het_elig & diploid_elig)
+            N_HOM_ALT = len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
+            AF = AC / AN if AN > 0 else None
+            fail_bm = deserialize(bytes(fail_bytes))
+            N_FAIL = len(fail_bm & eligible)
+            N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL
+            results.append(QueryResult(
+                variant=VariantKey(chrom=chrom, pos=pos, ref=ref, alt=alt),
+                AC=AC, AN=AN, AF=AF, n_samples_eligible=len(eligible),
+                N_HET=N_HET, N_HOM_ALT=N_HOM_ALT, N_HOM_REF=N_HOM_REF, N_FAIL=N_FAIL,
+            ))
+        results.sort(key=lambda r: (r.variant.pos, r.variant.alt))
+        return results
+
+    def _query_batch_inner(
+        self,
+        chrom: str,
+        unique_variants: list[tuple[int, str, str]],
+        sample_bm: BitMap,
+    ) -> list[QueryResult]:
+        """Run a batch query with a pre-built sample bitmap.
+
+        Caller is responsible for normalization, chrom existence check, and deduplication.
+        """
+        unique_positions = list(dict.fromkeys(pos for pos, _ref, _alt in unique_variants))
 
         pos_data: dict[int, tuple[BitMap, int]] = {}
         for pos in unique_positions:
@@ -310,7 +472,6 @@ class QueryEngine:
         if not valid_positions:
             return []
 
-        # Only keep variants whose position has AN > 0
         requested_variants: set[tuple[int, str, str]] = {
             (pos, ref, alt) for pos, ref, alt in unique_variants if pos in set(valid_positions)
         }
@@ -368,29 +529,6 @@ class QueryEngine:
         results.sort(key=lambda r: (r.variant.pos, r.variant.alt))
         return results
 
-    def query_batch_multi(
-        self,
-        variants: list[tuple[str, int, str, str]],
-        sf: SampleFilter,
-    ) -> list[QueryResult]:
-        """Query variants across multiple chromosomes, preserving input order."""
-        from collections import defaultdict
-        indexed = list(enumerate(variants))
-        by_chrom: dict[str, list[tuple[int, tuple[int, str, str]]]] = defaultdict(list)
-        for idx, (chrom, pos, ref, alt) in indexed:
-            by_chrom[chrom].append((idx, (pos, ref, alt)))
-        tagged: list[tuple[int, QueryResult]] = []
-        for chrom, idx_variants in by_chrom.items():
-            idxs = [i for i, _ in idx_variants]
-            per_chrom = [v for _, v in idx_variants]
-            results = self.query_batch(chrom, per_chrom, sf)
-            result_map = {(r.variant.pos, r.variant.ref, r.variant.alt): r for r in results}
-            for i, (pos, ref, alt) in zip(idxs, per_chrom):
-                if (pos, ref, alt) in result_map:
-                    tagged.append((i, result_map[(pos, ref, alt)]))
-        tagged.sort(key=lambda x: x[0])
-        return [r for _, r in tagged]
-
     def query_region(
         self,
         chrom: str,
@@ -409,58 +547,5 @@ class QueryEngine:
             )
             return []
 
-        parquet_glob = self._parquet_glob(chrom)
-        if parquet_glob is None:
-            return []
-
-        escaped_glob = parquet_glob.replace("'", "''")
-
         sample_bm = self._build_sample_bitmap(sf)
-
-        con = duckdb.connect(config={"temp_directory": "/tmp"})
-        rows = con.execute(
-            f"SELECT pos, ref, alt, het_bitmap, hom_bitmap, fail_bitmap"
-            f" FROM read_parquet('{escaped_glob}') WHERE pos BETWEEN ? AND ?",
-            [start, end],
-        ).fetchall()
-        con.close()
-
-        if not rows:
-            return []
-
-        pos_data: dict[int, tuple[BitMap, int]] = {}
-        for row in rows:
-            pos = row[0]
-            if pos not in pos_data:
-                eligible, AN = self._compute_eligible(chrom, pos, sample_bm)
-                pos_data[pos] = (eligible, AN)
-
-        results = []
-        for row in rows:
-            pos, ref, alt, het_bytes, hom_bytes, fail_bytes = row
-            eligible, AN = pos_data[pos]
-            if AN == 0:
-                continue
-            het_bm = deserialize(bytes(het_bytes))
-            hom_bm = deserialize(bytes(hom_bytes))
-            haploid_elig, diploid_elig = split_ploidy(
-                eligible, self._male_bm, self._female_bm, chrom, pos, self._genome_build
-            )
-            het_elig = het_bm & eligible
-            hom_elig = hom_bm & eligible
-            AC = (len((het_elig | hom_elig) & haploid_elig)
-                  + len(het_elig & diploid_elig)
-                  + 2 * len(hom_elig & diploid_elig))
-            N_HET = len(het_elig & diploid_elig)
-            N_HOM_ALT = len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
-            AF = AC / AN if AN > 0 else None
-            fail_bm = deserialize(bytes(fail_bytes))
-            N_FAIL = len(fail_bm & eligible)
-            N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL
-            results.append(QueryResult(
-                variant=VariantKey(chrom=chrom, pos=pos, ref=ref, alt=alt),
-                AC=AC, AN=AN, AF=AF, n_samples_eligible=len(eligible),
-                N_HET=N_HET, N_HOM_ALT=N_HOM_ALT, N_HOM_REF=N_HOM_REF, N_FAIL=N_FAIL,
-            ))
-        results.sort(key=lambda r: (r.variant.pos, r.variant.alt))
-        return results
+        return self._query_region_inner(chrom, start, end, sample_bm)

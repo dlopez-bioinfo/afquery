@@ -56,6 +56,21 @@ class Database:
         sex: str = "both",
         tech: list[str] | None = None,
     ) -> list[QueryResult]:
+        """Query variants across multiple chromosomes, preserving input order.
+
+        Duplicate input variants are deduplicated per chromosome.
+        Chromosome names are normalized (``"1"`` and ``"chr1"`` are equivalent).
+
+        Args:
+            variants: List of ``(chrom, pos, ref, alt)`` tuples.
+            phenotype: Phenotype filter tokens. Use ``"^CODE"`` prefix to exclude.
+            sex: ``"both"`` (default), ``"male"``, or ``"female"``.
+            tech: Technology filter tokens. Use ``"^TECH"`` prefix to exclude.
+
+        Returns:
+            List of :class:`~afquery.models.QueryResult` objects in input order
+            (by original index). Variants not found in the database are omitted.
+        """
         sf = self._make_filter(phenotype, sex, tech)
         return self._engine.query_batch_multi(variants, sf)
 
@@ -70,6 +85,29 @@ class Database:
     ) -> list[QueryResult]:
         sf = self._make_filter(phenotype, sex, tech)
         return self._engine.query_region(chrom, start, end, sf)
+
+    def query_region_multi(
+        self,
+        regions: list[tuple[str, int, int]],
+        phenotype: list[str] | None = None,
+        sex: str = "both",
+        tech: list[str] | None = None,
+    ) -> list[QueryResult]:
+        """Query variants across multiple genomic regions (may span chromosomes).
+
+        Args:
+            regions: List of ``(chrom, start, end)`` tuples, 1-based inclusive.
+            phenotype: Phenotype filter tokens. Use ``"^CODE"`` prefix to exclude.
+            sex: ``"both"`` (default), ``"male"``, or ``"female"``.
+            tech: Technology filter tokens. Use ``"^TECH"`` prefix to exclude.
+
+        Returns:
+            List of :class:`~afquery.models.QueryResult` objects sorted in
+            genomic order (chr1, chr2, …, chr22, chrX, chrY, chrM).
+            Overlapping regions are deduplicated.
+        """
+        sf = self._make_filter(phenotype, sex, tech)
+        return self._engine.query_region_multi(regions, sf)
 
     def dump(
         self,

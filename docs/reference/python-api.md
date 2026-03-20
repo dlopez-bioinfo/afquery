@@ -112,6 +112,49 @@ print(f"Found {len(results)} variants")
 
 ---
 
+### query_region_multi
+
+```python
+db.query_region_multi(
+    regions: list[tuple[str, int, int]],
+    phenotype: list[str] | None = None,
+    sex: str = "both",
+    tech: list[str] | None = None,
+) -> list[QueryResult]
+```
+
+Query allele frequencies across multiple genomic regions, which may span
+different chromosomes. Overlapping regions are deduplicated automatically.
+Chromosome names are normalized (`"1"` and `"chr1"` are equivalent).
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `regions` | list[tuple[str, int, int]] | List of `(chrom, start, end)` tuples, 1-based inclusive |
+| `phenotype` | list[str] \| None | Phenotype filter |
+| `sex` | str | Sex filter |
+| `tech` | list[str] \| None | Technology filter |
+
+**Returns:** List of `QueryResult` objects sorted in genomic order
+(chr1, chr2, …, chr22, chrX, chrY, chrM).
+
+**Example:**
+
+```python
+# Gene panel spanning multiple chromosomes
+regions = [
+    ("chr1",  925000,   1000000),
+    ("chr17", 41196311, 41277500),  # BRCA1
+    ("chr13", 32315086, 32400266),  # BRCA2
+]
+results = db.query_region_multi(regions, phenotype=["C50"])
+for r in results:
+    print(f"{r.variant.chrom}:{r.variant.pos}  AF={r.AF:.4f}")
+```
+
+---
+
 ### query_batch
 
 ```python
@@ -141,6 +184,48 @@ Query allele frequencies for a list of specific variants.
 ```python
 variants = [(925952, "G", "A"), (1014541, "C", "T"), (1020172, "A", "G")]
 results = db.query_batch("chr1", variants=variants)
+```
+
+---
+
+### query_batch_multi
+
+```python
+db.query_batch_multi(
+    variants: list[tuple[str, int, str, str]],
+    phenotype: list[str] | None = None,
+    sex: str = "both",
+    tech: list[str] | None = None,
+) -> list[QueryResult]
+```
+
+Query allele frequencies for a list of specific variants across multiple
+chromosomes. Chromosome names are normalized (`"1"` and `"chr1"` are
+equivalent). Duplicate input entries are deduplicated per chromosome — if the
+same `(chrom, pos, ref, alt)` appears more than once, only the first
+occurrence is included.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `variants` | list[tuple[str, int, str, str]] | List of `(chrom, pos, ref, alt)` tuples |
+| `phenotype` | list[str] \| None | Phenotype filter |
+| `sex` | str | Sex filter |
+| `tech` | list[str] \| None | Technology filter |
+
+**Returns:** List of `QueryResult` objects in input order (by original index).
+Variants not found in the database are omitted.
+
+**Example:**
+
+```python
+variants = [
+    ("chr1",  925952,   "G", "A"),
+    ("chrX",  5000000,  "A", "G"),
+    ("chr17", 41223094, "C", "T"),
+]
+results = db.query_batch_multi(variants, phenotype=["E11.9"])
 ```
 
 ---
@@ -187,10 +272,12 @@ db.dump(
     start: int | None = None,
     end: int | None = None,
     n_workers: int | None = None,
+    include_ac_zero: bool = False,
 ) -> dict
 ```
 
 Export allele frequency data to CSV. If `output` is None, writes to stdout.
+`include_ac_zero=True` includes positions with `AC=0` (equivalent to `--all-variants` in the CLI).
 
 ---
 
@@ -392,4 +479,13 @@ print(f"Samples: {meta['n_samples']}, Build: {meta['genome_build']}")
 # List all phenotypes
 phenotypes = db.get_all_phenotypes()
 print("Phenotypes:", phenotypes)
+
+# Multi-chromosome batch query
+variants = [("chr1", 925952, "G", "A"), ("chrX", 5000000, "A", "G")]
+batch_results = db.query_batch_multi(variants)
+
+# Multi-region query
+regions = [("chr1", 900000, 1000000), ("chrX", 5000000, 6000000)]
+region_results = db.query_region_multi(regions)
+print(f"Found {len(region_results)} variants across {len(regions)} regions")
 ```

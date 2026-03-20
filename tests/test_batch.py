@@ -305,3 +305,131 @@ def test_parse_variants_file_2col(tmp_path):
     f.write_text("chr1\t1500\n")
     result = _parse_variants_file(str(f))
     assert result == [("chr1", 1500, "", "")]
+
+
+# ---------------------------------------------------------------------------
+# query_region_multi — multi-chromosome region queries
+# ---------------------------------------------------------------------------
+
+def test_query_region_multi_spans_two_chroms(test_db):
+    """Regions on chr1 and chrX both return results."""
+    db = _db(test_db)
+    results = db.query_region_multi([
+        ("chr1", 1000, 4000),      # covers chr1:1500 A>T and chr1:3500 G>C
+        ("chrX", 1, 10_000_000),   # covers chrX:5000000 A>G
+    ])
+    chroms = {r.variant.chrom for r in results}
+    assert "chr1" in chroms
+    assert "chrX" in chroms
+
+
+def test_query_region_multi_single_region_matches_query_region(test_db):
+    """Single-region call produces identical output to query_region."""
+    db = _db(test_db)
+    expected = db.query_region("chr1", 1000, 4000)
+    actual   = db.query_region_multi([("chr1", 1000, 4000)])
+    assert [(r.variant.pos, r.variant.alt, r.AC) for r in expected] == \
+           [(r.variant.pos, r.variant.alt, r.AC) for r in actual]
+
+
+def test_query_region_multi_overlapping_deduplicates(test_db):
+    """Overlapping regions must not return the same variant twice."""
+    db = _db(test_db)
+    results = db.query_region_multi([
+        ("chr1", 1000, 2000),   # covers chr1:1500
+        ("chr1", 1400, 2500),   # also covers chr1:1500
+    ])
+    keys = [(r.variant.pos, r.variant.ref, r.variant.alt) for r in results]
+    assert len(keys) == len(set(keys))
+
+
+def test_query_region_multi_empty_list(test_db):
+    assert _db(test_db).query_region_multi([]) == []
+
+
+def test_query_region_multi_chrom_normalization(test_db):
+    """'1' and 'chr1' yield identical results."""
+    db = _db(test_db)
+    r_chr = db.query_region_multi([("chr1", 1000, 4000)])
+    r_num = db.query_region_multi([("1",    1000, 4000)])
+    assert [(r.variant.pos, r.variant.alt) for r in r_chr] == \
+           [(r.variant.pos, r.variant.alt) for r in r_num]
+
+
+def test_query_region_multi_sorted_by_chrom_pos_alt(test_db):
+    """Output sorted by (chrom, pos, alt)."""
+    db = _db(test_db)
+    results = db.query_region_multi([
+        ("chrX", 1, 10_000_000),
+        ("chr1", 1, 10_000_000),
+    ])
+    keys = [(r.variant.chrom, r.variant.pos, r.variant.alt) for r in results]
+    assert keys == sorted(keys)
+
+
+def test_query_region_multi_filter_propagates(test_db):
+    """Phenotype filter is applied consistently across all regions."""
+    db = _db(test_db)
+    r_all = db.query_region_multi([("chr1", 1000, 4000)])
+    r_c50 = db.query_region_multi([("chr1", 1000, 4000)], phenotype=["C50"])
+    # C50 has only 3 samples — AN must be ≤ unfiltered AN for every shared variant
+    all_map = {(r.variant.pos, r.variant.alt): r.AN for r in r_all}
+    for r in r_c50:
+        assert r.AN <= all_map[(r.variant.pos, r.variant.alt)]
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for multi-query fix (PR #11 review)
+# ---------------------------------------------------------------------------
+
+def test_query_region_multi_genomic_sort_order(test_db):
+    """chrX must come before chrM in genomic order (but chrM < chrX lexicographically)."""
+    db = _db(test_db)
+    results = db.query_region_multi([
+        ("chrM", 1, 200),             # chrM:100 C>A
+        ("chrX", 4_000_000, 6_000_000),  # chrX:5000000 A>G
+    ])
+    chroms = [r.variant.chrom for r in results]
+    assert chroms == sorted(chroms, key=lambda c: ["chrX", "chrM"].index(c)), \
+        f"Expected chrX before chrM, got {chroms}"
+
+
+def test_query_batch_multi_normalizes_chrom(test_db):
+    """'1' and 'chr1' must be treated as the same chromosome."""
+    db = _db(test_db)
+    # Pass one variant with '1' spelling and one with 'chr1' spelling
+    results = db.query_batch_multi([
+        ("1",    1500, "A", "T"),
+        ("chr1", 3500, "G", "C"),
+    ])
+    chroms = {r.variant.chrom for r in results}
+    assert chroms == {"chr1"}
+    assert len(results) == 2
+
+
+def test_query_batch_multi_deduplicates_input(test_db):
+    """Duplicate (chrom, pos, ref, alt) in input must appear only once in output."""
+    db = _db(test_db)
+    results = db.query_batch_multi([
+        ("chr1", 1500, "A", "T"),
+        ("chr1", 1500, "A", "T"),  # duplicate
+    ])
+    keys = [(r.variant.chrom, r.variant.pos, r.variant.ref, r.variant.alt) for r in results]
+    assert len(keys) == len(set(keys))
+    assert len(results) == 1
+
+
+def test_query_batch_multi_mixed_chrom_spellings(test_db):
+    """Variants from '1' and 'chr1' spellings are grouped on same chromosome — no duplicate warnings."""
+    db = _db(test_db)
+    import warnings as _warnings
+    from afquery.models import AfqueryWarning
+    with _warnings.catch_warnings(record=True) as caught:
+        _warnings.simplefilter("always", AfqueryWarning)
+        results = db.query_batch_multi([
+            ("1",    1500, "A", "T"),
+            ("chr1", 3500, "G", "C"),
+        ])
+    chrom_not_found = [w for w in caught if "has no data" in str(w.message)]
+    assert chrom_not_found == [], f"Unexpected warnings: {chrom_not_found}"
+    assert len(results) == 2
