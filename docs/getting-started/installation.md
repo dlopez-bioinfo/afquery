@@ -54,7 +54,7 @@ docker run --rm \
 ```
 
 !!! note
-    Images are built for `linux/amd64`. The `latest` tag always points to the most recent stable release.
+    Images are available for `linux/amd64` and `linux/arm64`. The `latest` tag always points to the most recent stable release.
 
 ---
 
