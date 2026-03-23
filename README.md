@@ -76,8 +76,7 @@ Example workflow from raw VCFs to query, export, and annotation:
 
 ```bash
 pip install afquery
-# or with Docker
-# docker pull ghcr.io/dlopez-bioinfo/afquery:latest
+# Docker: see Installation docs for docker pull / run usage
 
 # Build the database
 afquery create-db --manifest samples.tsv --output-dir ./db/ --genome-build GRCh38
