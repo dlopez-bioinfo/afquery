@@ -6,6 +6,7 @@
 <br>
 [![PyPI](https://img.shields.io/pypi/v/afquery.svg?color=blue)](https://pypi.org/project/afquery/)
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/afquery.svg)](https://anaconda.org/bioconda/afquery)
+[![Docker](https://img.shields.io/badge/ghcr.io-afquery-blue?logo=docker)](https://github.com/dlopez-bioinfo/afquery/pkgs/container/afquery)
 [![Python](https://img.shields.io/pypi/pyversions/afquery.svg)](https://pypi.org/project/afquery/)
 [![License: MIT](https://img.shields.io/github/license/dlopez-bioinfo/afquery)](https://github.com/dlopez-bioinfo/afquery/blob/master/LICENSE)
 
@@ -75,6 +76,8 @@ Example workflow from raw VCFs to query, export, and annotation:
 
 ```bash
 pip install afquery
+# or with Docker
+# docker pull ghcr.io/dlopez-bioinfo/afquery:latest
 
 # Build the database
 afquery create-db --manifest samples.tsv --output-dir ./db/ --genome-build GRCh38
