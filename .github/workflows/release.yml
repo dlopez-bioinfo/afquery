@@ -100,6 +100,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Wait for PyPI propagation
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          echo "Waiting for afquery==${VERSION} on PyPI..."
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              "https://pypi.org/pypi/afquery/${VERSION}/json")
+            if [ "$STATUS" = "200" ]; then
+              echo "Package available."
+              exit 0
+            fi
+            echo "Attempt ${i}/12: HTTP ${STATUS} — retrying in 30 s..."
+            sleep 30
+          done
+          echo "Not available after 6 min, proceeding anyway."
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
