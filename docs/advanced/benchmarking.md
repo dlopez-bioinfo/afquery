@@ -168,3 +168,10 @@ EOF
 ```
 
 A regression of >20% on `point_query_cold_ms` warrants investigation.
+
+---
+
+## Next Steps
+
+- [Performance Tuning](performance.md) — tune threads and memory to improve build and query speed
+- [Debugging Results](debugging-results.md) — diagnose unexpected AN=0 or surprising AF values

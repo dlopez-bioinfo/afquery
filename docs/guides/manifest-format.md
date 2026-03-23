@@ -94,3 +94,9 @@ BED files for WES capture regions must be:
 | Relative VCF path from wrong CWD | File not found error | Use absolute paths or run from the correct directory |
 
 ---
+
+## Next Steps
+
+- [Create a Database](create-database.md) — use the manifest to build the AFQuery database
+- [Key Concepts](../getting-started/concepts.md) — phenotype code model and metadata filtering
+- [Sample Filtering](sample-filtering.md) — how phenotype codes translate to query filters

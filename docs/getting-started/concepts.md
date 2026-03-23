@@ -213,3 +213,11 @@ When planning phenotype codes, consider:
 ---
 
 PASS-only ingestion is always enforced. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) for details.
+
+---
+
+## Next Steps
+
+- [5-Min Quickstart](quickstart.md) — build your first database and run queries
+- [Sample Filtering](../guides/sample-filtering.md) — phenotype, sex, and technology filter syntax
+- [Ploidy & Special Chromosomes](../advanced/ploidy-and-sex-chroms.md) — PAR regions and ploidy rules in detail

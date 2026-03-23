@@ -98,3 +98,11 @@ To upgrade a legacy database, rebuild it with `afquery create-db`. There is no i
 ## PASS-Only Enforcement
 
 AF reflects the quality-filtered allele frequency — the frequency of the alt allele among high-quality calls. This is appropriate for most clinical and research use cases. PASS-only ingestion is always enforced.
+
+---
+
+## Next Steps
+
+- [Understanding Output](../getting-started/understanding-output.md) — interpreting N_FAIL in query and annotate results
+- [ACMG Criteria](../use-cases/acmg-use-cases.md) — using N_FAIL to assess site quality before applying BA1/PM2
+- [Debugging Results](debugging-results.md) — diagnosing unexpectedly high N_FAIL values

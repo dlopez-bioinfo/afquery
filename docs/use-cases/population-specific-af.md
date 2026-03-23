@@ -72,7 +72,7 @@ for r in results:
 
 For the third variant, gnomAD would support PM2 (very rare), but local frequency shows it is common in this population (BS1 level). Using gnomAD alone would misclassify this variant.
 
-## Related Features
+## Next Steps
 
 - [Cohort Stratification](cohort-stratification.md) — compare AF across subgroups within one database
 - [Sample Filtering](../guides/sample-filtering.md) — filter by population tags

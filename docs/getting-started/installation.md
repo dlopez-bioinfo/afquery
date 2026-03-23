@@ -82,3 +82,11 @@ If you want to build or serve the documentation locally:
 pip install -e ".[docs]"
 mkdocs serve
 ```
+
+---
+
+## Next Steps
+
+- [VCF Preprocessing](preprocessing.md) — normalize and prepare VCFs before ingestion
+- [5-Min Quickstart](quickstart.md) — build your first database and run queries
+- [Key Concepts](concepts.md) — understand the bitmap index, manifest, and metadata model

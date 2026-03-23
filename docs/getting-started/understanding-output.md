@@ -139,7 +139,7 @@ bcftools filter -i 'AFQUERY_AF < 0.001 && AFQUERY_AN >= 1000' annotated.vcf.gz
 
 ---
 
-## Next steps
+## Next Steps
 
 - [Key Concepts](concepts.md) — how AC, AN, and AF are computed
 - [Sample Filtering Guide](../guides/sample-filtering.md) — phenotype, sex, and technology filters

@@ -118,4 +118,11 @@ The output VCF gains INFO fields:
 | `AFQUERY_N_HOM_REF` | A (per ALT) | Homozygous ref sample count |
 | `AFQUERY_N_FAIL` | 1 (per site) | Samples with FILTER≠PASS |
 
+---
 
+## Next Steps
+
+- [Key Concepts](concepts.md) — understand how bitmaps, Parquet, and metadata filtering work together
+- [Sample Filtering](../guides/sample-filtering.md) — full syntax for phenotype, sex, and technology filters
+- [Annotate a VCF](../guides/annotate-vcf.md) — annotation options, parallelism, and downstream usage
+- [ACMG Criteria](../use-cases/acmg-use-cases.md) — applying local AF to BA1, PM2, and PS4

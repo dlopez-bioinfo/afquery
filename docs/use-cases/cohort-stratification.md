@@ -106,7 +106,7 @@ if disease and controls and disease[0].AF and controls[0].AF:
 
 Low AN values (<100) indicate small group sizes — interpret those frequencies cautiously.
 
-## Related Features
+## Next Steps
 
 - [Bulk Export](../guides/dump-export.md) — export stratified AF across all variants
 - [Pseudo-controls](pseudo-controls.md) — exclusion-based background frequency

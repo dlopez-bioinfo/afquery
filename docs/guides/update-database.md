@@ -223,3 +223,11 @@ afquery query --db ./db/ --locus chr1:925952 --phenotype E11.9
 ## Full Option Reference
 
 See [CLI Reference → update-db](../reference/cli.md#update-db).
+
+---
+
+## Next Steps
+
+- [Create a Database](create-database.md) — initial database creation from a manifest
+- [Performance Tuning](../advanced/performance.md) — thread and memory configuration for the build phase
+- [Multi-cohort Strategies](../advanced/multi-cohort-strategies.md) — organizing and versioning databases across cohorts

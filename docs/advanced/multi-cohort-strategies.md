@@ -152,7 +152,7 @@ afquery annotate --db /databases/institutional/cardiology/ \
 
 ---
 
-## Related Pages
+## Next Steps
 
 - [Create a Database](../guides/create-database.md) — database creation options
 - [Update a Database](../guides/update-database.md) — adding samples to an existing database
