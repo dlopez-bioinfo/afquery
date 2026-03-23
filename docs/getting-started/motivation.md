@@ -35,35 +35,17 @@ These are not edge cases. Every cohort with a population composition that differ
 
 ## Gap 2 — Mixed Sequencing Technologies Inflate the Denominator
 
-Modern cohorts routinely combine WGS, multiple WES capture kits, and targeted gene panels. Each technology covers a different set of genomic regions — and even different versions of the same WES kit can differ by hundreds of base pairs at capture boundaries.
+Modern cohorts routinely combine samples sequenced with different technologies — WGS, multiple WES capture kits, and targeted gene panels. Even different versions of the same WES kit can differ by hundreds of base pairs at capture boundaries.
 
-When computing AF from a mixed cohort, every sample must be checked for coverage at the queried position. A sample sequenced with a panel that does not cover the variant site contributes nothing to AN — but if naively included, it inflates the denominator and **underestimates AF**.
+This matters because **allele number (AN) must be computed per position, not per cohort**. A sample whose capture kit does not cover the queried position has no genotype there: it contributes nothing to AN. If it is naively counted, the denominator is inflated and the resulting AF is artificially deflated.
 
-```mermaid
-gantt
-    title Sequencing Coverage by Technology (illustrative)
-    dateFormat X
-    axisFormat %s
+The figure below illustrates the problem with a minimal example: two versions of the same WES capture kit (V1, n = 120 and V2, n = 80) sequencing a schematic gene with eight exons.
 
-    section WGS
-    Full coverage :done, wgs, 0, 100
+![Mixed sequencing technologies: coverage at different query positions](../assets/img/gap2_mixed_technologies.png)
 
-    section WES_KIT_1
-    Region A :done, k1a, 10, 25
-    Region B :done, k1b, 40, 55
-    Region C :done, k1c, 65, 80
-    Region D :done, k1d, 85, 95
+**Position A** (Exon 5) falls within the capture region of both kit versions. All 200 samples have a genotype at this position, so AN = 200 × 2 = **400**. Both kits contribute to the count, and the resulting AF is correct.
 
-    section WES_KIT_2_v1
-    Region A' :done, k2v1a, 10, 25
-    Region E  :done, k2v1e, 70, 82
-
-    section WES_KIT_2_v2
-    Region A'' :done, k2v2a, 13, 25
-    Region E'  :done, k2v2e, 70, 84
-```
-
-At position 50 in the diagram, only WGS and WES_KIT_1 have coverage. Including WES_KIT_2 samples in the denominator would inflate AN and deflate AF — potentially causing a truly common variant to appear rare enough to pass PM2 filtering.
+**Position B** (Exon 7) is covered only by WES_KIT_V2. The 120 samples sequenced with V1 have no data at this position. The correct AN is 80 × 2 = **160** — but a naïve calculation that ignores capture boundaries would use 200 × 2 = 400, **underestimating AF by more than half**. A variant with AC = 5 would appear to have AF = 1.25% (5/400) instead of the true 3.13% (5/160) — enough to cross PM2 filtering thresholds and mislead clinical interpretation.
 
 This is not hypothetical. In the Alzheimer's Disease Sequencing Project, hidden variant-level batch effects between two exome capture kits **significantly impacted disease-associated variant identification**, with a subset of top risk variants originating exclusively from one kit [(Wickland et al., 2021)](https://pubmed.ncbi.nlm.nih.gov/33861770/). A population-based WES study found that separating samples by capture protocol yielded **40.9% more high-quality variants** than pooling them [(Carson et al., 2014)](https://pubmed.ncbi.nlm.nih.gov/24884706/).
 
