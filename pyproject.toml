@@ -37,6 +37,7 @@ docs = [
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.25",
     "pymdown-extensions>=10.7",
+    "mkdocs-print-site-plugin>=2.6.1",
 ]
 
 [tool.hatch.version]

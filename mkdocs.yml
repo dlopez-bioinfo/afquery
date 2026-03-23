@@ -57,6 +57,10 @@ plugins:
           paths: [src]
           options:
             docstring_style: google
+  - print-site:
+      add_to_navigation: false
+      print_page_title: 'AFQuery — Complete Documentation'
+      add_print_site_banner: false
 
 nav:
   - Home: index.md
