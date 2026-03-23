@@ -88,8 +88,8 @@ afquery query --db ./db/ --locus chr1:925952 --phenotype E11.9 --sex female
 # Query a genomic region
 afquery query --db ./db/ --region chr1:900000-1000000
 
-# Export all variant frequencies to CSV
-afquery dump --db ./db/ --output all_variants.csv
+# Export BRCA1 variant frequencies to CSV
+afquery dump --db ./db/ --output all_variants.csv --chrom chr17 --start 43044292 --end 43170327
 
 # Annotate a VCF with cohort frequencies
 afquery annotate --db ./db/ --input patient.vcf --output annotated.vcf --threads 12
