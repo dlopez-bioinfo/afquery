@@ -194,3 +194,11 @@ For systematic comparison across many variants, consider [Bulk Export](dump-expo
 ## Full Option Reference
 
 See [CLI Reference → query](../reference/cli.md#query).
+
+---
+
+## Next Steps
+
+- [Sample Filtering](sample-filtering.md) — full filter syntax for phenotype, sex, and technology
+- [Understanding Output](../getting-started/understanding-output.md) — field definitions and special cases (AN=0, N_FAIL)
+- [Cohort Stratification](../use-cases/cohort-stratification.md) — comparing AF across multiple groups systematically

@@ -158,7 +158,7 @@ Sites with AF ratio > 5× between WGS and WES may reflect systematic sequencing 
 - Report `AN` alongside `AF`: AN < 100 indicates insufficient coverage to interpret AF reliably
 - For variant interpretation, prefer positions where both WGS and WES samples are covered (high AN from both tech groups)
 
-## Related Features
+## Next Steps
 
 - [Manifest Format](../guides/manifest-format.md) — tech_name and BED file setup
 - [Create a Database](../guides/create-database.md) — `--bed-dir` option

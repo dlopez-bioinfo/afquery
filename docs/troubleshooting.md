@@ -149,3 +149,11 @@ afquery check --db ./db/
 ```
 
 Look for warnings like `"Capture file missing for wes_v1"`. Rebuild with the BED files if necessary.
+
+---
+
+## Next Steps
+
+- [FAQ](faq.md) — common questions and answers
+- [Debugging Results](advanced/debugging-results.md) — diagnostic checklist for unexpected results
+- [Performance Tuning](advanced/performance.md) — memory and thread configuration for build and query phases

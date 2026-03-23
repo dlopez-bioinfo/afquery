@@ -147,3 +147,11 @@ When `--sex male` is used on chrX (non-PAR), AN is purely haploid:
 - AF reflects the observed allele frequency in haploid male calls
 
 This makes it straightforward to compare X-linked variant frequencies between sexes without manual ploidy adjustment.
+
+---
+
+## Next Steps
+
+- [Sex-Specific AF](../use-cases/sex-specific-af.md) — X-linked variant analysis using sex-stratified queries
+- [Key Concepts](../getting-started/concepts.md) — AC/AN/AF overview and the ploidy table
+- [Sample Filtering](../guides/sample-filtering.md) — `--sex` filter syntax

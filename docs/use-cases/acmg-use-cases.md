@@ -218,7 +218,7 @@ bcftools filter -i 'AFQUERY_N_FAIL > 0' annotated.vcf | head
 
 ---
 
-## Related Pages
+## Next Steps
 
 - [Clinical Prioritization](../use-cases/clinical-prioritization.md) — full annotation and filtering workflow
 - [Pseudo-controls](../use-cases/pseudo-controls.md) — case vs. control AF comparison

@@ -177,7 +177,7 @@ afquery_db: /shared/databases/afquery/cohort_v2
 
 ---
 
-## Related Pages
+## Next Steps
 
 - [Annotate a VCF](../guides/annotate-vcf.md) — full annotation CLI reference
 - [Performance Tuning](performance.md) — thread and memory optimization

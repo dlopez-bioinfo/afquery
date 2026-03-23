@@ -104,7 +104,7 @@ The Pseudoautosomal Regions (PAR1/PAR2) on chrX behave like autosomes. At PAR po
 
 See [Ploidy & Special Chromosomes](../advanced/ploidy-and-sex-chroms.md) for PAR coordinates.
 
-## Related Features
+## Next Steps
 
 - [Ploidy & Special Chromosomes](../advanced/ploidy-and-sex-chroms.md) — PAR regions, ploidy rules
 - [Sample Filtering](../guides/sample-filtering.md) — sex filter syntax

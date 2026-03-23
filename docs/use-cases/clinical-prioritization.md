@@ -112,7 +112,7 @@ A typical clinical pipeline retains ~1,500 rare/novel candidates after cohort AF
 For detailed ACMG workflows with worked examples and AN threshold guidance, see [ACMG Criteria (BA1/PM2/PS4)](acmg-use-cases.md).
 
 
-## Related Features
+## Next Steps
 
 - [Annotate a VCF](../guides/annotate-vcf.md) — full annotation options
 - [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) — using N_FAIL in filtering

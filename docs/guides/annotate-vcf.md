@@ -110,3 +110,11 @@ info(vcf)$AFQUERY_AF
 ## Full Option Reference
 
 See [CLI Reference → annotate](../reference/cli.md#annotate).
+
+---
+
+## Next Steps
+
+- [Clinical Prioritization](../use-cases/clinical-prioritization.md) — filter annotated VCFs to retain only rare local variants
+- [Sample Filtering](sample-filtering.md) — annotate using subgroup-specific AF (phenotype, sex, tech)
+- [Understanding Output](../getting-started/understanding-output.md) — what AFQUERY_AF/AC/AN/N_FAIL fields mean

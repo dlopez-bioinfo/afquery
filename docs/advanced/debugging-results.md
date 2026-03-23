@@ -130,7 +130,7 @@ conn.close()
 
 ---
 
-## Related Pages
+## Next Steps
 
 - [Understanding Output](../getting-started/understanding-output.md) — what each field means
 - [FAQ](../faq.md) — common questions and answers

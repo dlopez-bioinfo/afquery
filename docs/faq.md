@@ -231,3 +231,11 @@ ManifestError: BED file not found for technology '<tech>': '<path>'
   passed to `--bed-dir`.
 - If the samples are genuinely whole-genome (no capture), change `tech_name` to `WGS`
   in the manifest (no BED file required for WGS).
+
+---
+
+## Next Steps
+
+- [Troubleshooting](troubleshooting.md) — error messages and step-by-step fixes
+- [Debugging Results](advanced/debugging-results.md) — diagnostic checklist for unexpected AN=0 or AF values
+- [CLI Reference](reference/cli.md) — complete flag documentation for all commands

@@ -183,3 +183,11 @@ Enable verbose output to see per-step timings (available on `annotate`, `dump`, 
 ```bash
 afquery annotate --db ./db/ --input variants.vcf --output annotated.vcf --verbose
 ```
+
+---
+
+## Next Steps
+
+- [Benchmarking](benchmarking.md) — measure and track query performance on your database
+- [Create a Database](../guides/create-database.md) — build options including `--build-threads` and `--build-memory`
+- [Pipeline Integration](pipeline-integration.md) — thread configuration in Nextflow and Snakemake workflows

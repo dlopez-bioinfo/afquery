@@ -194,3 +194,11 @@ results = db.query(
 ```
 
 The `^` prefix exclusion syntax works the same in the Python API as in the CLI.
+
+---
+
+## Next Steps
+
+- [Query Allele Frequencies](query.md) — apply filters in point, region, and batch queries
+- [Cohort Stratification](../use-cases/cohort-stratification.md) — systematic multi-group AF comparison
+- [Pseudo-controls](../use-cases/pseudo-controls.md) — exclusion-based background frequency for case enrichment

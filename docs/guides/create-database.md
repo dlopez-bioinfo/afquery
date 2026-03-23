@@ -133,3 +133,11 @@ These commands are available at any time after database creation — not only im
 ## Full Option Reference
 
 See [CLI Reference → create-db](../reference/cli.md#create-db).
+
+---
+
+## Next Steps
+
+- [Manifest Format](manifest-format.md) — TSV manifest column reference and common mistakes
+- [Query Allele Frequencies](query.md) — run your first queries against the new database
+- [Performance Tuning](../advanced/performance.md) — build thread and memory configuration for large cohorts
