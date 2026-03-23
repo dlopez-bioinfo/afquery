@@ -1,0 +1,12 @@
+.git
+.github
+docs/
+tests/
+recipes/
+*.md
+*.yml
+!pyproject.toml
+__pycache__
+*.pyc
+.venv
+dist/
