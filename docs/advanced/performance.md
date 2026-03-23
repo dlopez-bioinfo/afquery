@@ -107,7 +107,7 @@ graph TD
 
 ### Sub-100 ms Point Queries
 
-Query performance for a typical 50K-sample cohort:
+Query performance for a typical 50K-sample cohort (see [Benchmarking](benchmarking.md) to measure these on your own database):
 
 | Query type | Cold (first call) | Warm (cached) |
 |------------|-------------------|---------------|

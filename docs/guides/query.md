@@ -187,7 +187,7 @@ afquery query --db ./db/ --locus chr1:925952 --phenotype E11.9 --format json
 afquery query --db ./db/ --locus chr1:925952 --phenotype ^E11.9 --format json
 ```
 
-For systematic comparison across many variants, consider [Bulk Export](dump-export.md) with `--by-phenotype`.
+For systematic comparison across many variants, consider [Bulk Export](dump-export.md) with `--by-phenotype`, or see [Cohort Stratification](../use-cases/cohort-stratification.md) for a worked multi-group comparison.
 
 ---
 

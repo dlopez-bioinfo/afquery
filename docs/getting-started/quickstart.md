@@ -79,6 +79,8 @@ afquery query \
   --phenotype E11.9
 ```
 
+See [Sample Filtering](../guides/sample-filtering.md) for the full include/exclude syntax.
+
 !!! note "Warnings for missing data"
     If a phenotype code, technology name, or chromosome is not found in the database, afquery prints a warning to stderr and returns empty results. Use `--no-warn` to suppress these warnings.
 
@@ -106,7 +108,7 @@ afquery annotate \
   --threads 12
 ```
 
-The output VCF gains INFO fields:
+The output VCF gains INFO fields (see [Annotate a VCF](../guides/annotate-vcf.md) for parallelism options and downstream usage):
 
 | Field | Number | Description |
 |-------|--------|-------------|

@@ -102,7 +102,7 @@ For X-linked recessive disorders, always use `--sex male` when evaluating the he
 
 The Pseudoautosomal Regions (PAR1/PAR2) on chrX behave like autosomes. At PAR positions, males contribute AN=2 and sex-stratified queries are less meaningful. AFQuery applies the correct PAR/non-PAR boundary automatically.
 
-See [Ploidy & Special Chromosomes](../advanced/ploidy-and-sex-chroms.md) for PAR coordinates.
+See [Ploidy & Special Chromosomes](../advanced/ploidy-and-sex-chroms.md) for exact PAR coordinates and genotype counting rules for haploid regions.
 
 ## Next Steps
 

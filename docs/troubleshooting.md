@@ -44,6 +44,8 @@ See [Performance Tuning](advanced/performance.md) for sizing guidance.
 - Check disk I/O: annotation reads many small Parquet files; SSDs are significantly faster than spinning disks
 - For very large VCFs (1M+ variants), annotation time scales linearly with variant count
 
+See [Performance Tuning](advanced/performance.md) for general thread and memory sizing guidance.
+
 ---
 
 ## DuckDB Errors During Build
