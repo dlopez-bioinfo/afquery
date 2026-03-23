@@ -6,6 +6,7 @@
 <br>
 [![PyPI](https://img.shields.io/pypi/v/afquery.svg?color=blue)](https://pypi.org/project/afquery/)
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/afquery.svg)](https://anaconda.org/bioconda/afquery)
+[![Docker](https://img.shields.io/badge/ghcr.io-afquery-blue?logo=docker)](https://github.com/dlopez-bioinfo/afquery/pkgs/container/afquery)
 [![Python](https://img.shields.io/pypi/pyversions/afquery.svg)](https://pypi.org/project/afquery/)
 [![License: MIT](https://img.shields.io/github/license/dlopez-bioinfo/afquery)](https://github.com/dlopez-bioinfo/afquery/blob/master/LICENSE)
 
@@ -75,6 +76,7 @@ Example workflow from raw VCFs to query, export, and annotation:
 
 ```bash
 pip install afquery
+# Docker: see Installation docs for docker pull / run usage
 
 # Build the database
 afquery create-db --manifest samples.tsv --output-dir ./db/ --genome-build GRCh38
@@ -88,8 +90,8 @@ afquery query --db ./db/ --locus chr1:925952 --phenotype E11.9 --sex female
 # Query a genomic region
 afquery query --db ./db/ --region chr1:900000-1000000
 
-# Export all variant frequencies to CSV
-afquery dump --db ./db/ --output all_variants.csv
+# Export BRCA1 variant frequencies to CSV
+afquery dump --db ./db/ --output all_variants.csv --chrom chr17 --start 43044292 --end 43170327
 
 # Annotate a VCF with cohort frequencies
 afquery annotate --db ./db/ --input patient.vcf --output annotated.vcf --threads 12
