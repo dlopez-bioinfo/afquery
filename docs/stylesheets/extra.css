@@ -1,0 +1,4 @@
+.md-content__inner p,
+.md-content__inner li {
+    text-align: justify;
+}

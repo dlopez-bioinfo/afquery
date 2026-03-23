@@ -4,6 +4,9 @@ repo_url: https://github.com/dlopez-bioinfo/afquery
 repo_name: afquery
 edit_uri: edit/master/docs/
 
+extra_css:
+  - stylesheets/extra.css
+
 theme:
   name: material
   palette:
