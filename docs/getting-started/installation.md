@@ -36,6 +36,28 @@ mamba install bioconda::afquery
 
 ---
 
+## Docker
+
+Official images are published to [GitHub Container Registry](https://github.com/dlopez-bioinfo/afquery/pkgs/container/afquery) for every release.
+
+```bash
+docker pull ghcr.io/dlopez-bioinfo/afquery:latest
+```
+
+Run the CLI by mounting a local directory with your database:
+
+```bash
+docker run --rm \
+  -v /path/to/db:/db \
+  ghcr.io/dlopez-bioinfo/afquery:latest \
+  query --db /db --locus chr1:925952 --phenotype E11.9
+```
+
+!!! note
+    Images are built for `linux/amd64`. The `latest` tag always points to the most recent stable release.
+
+---
+
 ## From Source
 
 ```bash
