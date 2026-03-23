@@ -44,6 +44,8 @@ If AF differs substantially between technologies (>2×), this may indicate a cap
 
 ### 2. Disease group comparison
 
+For the exclusion-based pseudo-control pattern, see [Pseudo-controls](pseudo-controls.md).
+
 ```bash
 # Epilepsy group
 afquery query --db ./db/ --locus chr1:925952 --phenotype epilepsy --format json

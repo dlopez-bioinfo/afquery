@@ -88,7 +88,7 @@ See [Updating sample metadata](guides/update-database.md#update-sample-metadata)
 
 AFQuery has been tested with up to 50,000 samples. Bitmap operations remain fast at this scale because Roaring Bitmaps are highly compressed for sparse data. At 50K samples, a typical variant bitmap is ~64 KB.
 
-For cohorts larger than 50K, performance should remain sub-second for point queries, but build-phase memory requirements scale with cohort size. See [Performance Tuning](advanced/performance.md).
+For cohorts larger than 50K, performance should remain sub-second for point queries, but build-phase memory requirements scale with cohort size. See [Performance Tuning](advanced/performance.md) and [Benchmarking](advanced/benchmarking.md) to measure latency on your own database.
 
 ---
 
