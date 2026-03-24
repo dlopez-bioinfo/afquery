@@ -49,6 +49,10 @@ markdown_extensions:
   - tables
   - attr_list
 
+extra:
+  version:
+    provider: mike
+
 plugins:
   - search
   - mkdocstrings:
