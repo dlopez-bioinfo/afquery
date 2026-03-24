@@ -47,7 +47,7 @@ query_colors = {
 # ---------------------------------------------------------------------------
 # Figure
 # ---------------------------------------------------------------------------
-fig, ax = plt.subplots(figsize=(11, 3.5))
+fig, ax = plt.subplots(figsize=(10.9, 4.5))
 fig.patch.set_facecolor("white")
 ax.set_facecolor("white")
 
@@ -68,7 +68,7 @@ for i, (start, end) in enumerate(exons):
     ax.add_patch(rect)
     ax.text(
         (start + end) / 2, gene_y,
-        f"E{i+1}", ha="center", va="center", fontsize=7, color="#616161",
+        f"E{i+1}", ha="center", va="center", fontsize=8, color="#616161",
         fontweight="bold", zorder=3,
     )
 
@@ -82,7 +82,7 @@ for idx, (name, n_label, covered, color) in enumerate(technologies):
 
     ax.text(-3, y + 0.08, name, ha="right", va="center", fontsize=9,
             fontweight="bold", color="#333333")
-    ax.text(-3, y - 0.28, n_label, ha="right", va="center", fontsize=7.5,
+    ax.text(-3, y - 0.28, n_label, ha="right", va="center", fontsize=8.5,
             color="#777777")
 
     for ei in covered:
@@ -151,11 +151,7 @@ plt.tight_layout()
 out_path = (Path(__file__).resolve().parent.parent
             / "assets" / "img" / "gap2_mixed_technologies.png")
 out_path.parent.mkdir(parents=True, exist_ok=True)
-fig.savefig(out_path, dpi=180, bbox_inches="tight", facecolor="white")
+fig.savefig(out_path, dpi=200, bbox_inches="tight", facecolor="white")
 print(f"Saved: {out_path}")
-
-svg_path = out_path.with_suffix(".svg")
-fig.savefig(svg_path, bbox_inches="tight", facecolor="white")
-print(f"Saved: {svg_path}")
 
 plt.close()
