@@ -67,9 +67,9 @@ nav:
   - Getting Started:
     - Motivation: getting-started/motivation.md
     - Installation: getting-started/installation.md
-    - Preprocessing: getting-started/preprocessing.md
     - 5-Min Quick Start: getting-started/quickstart.md
     - Key Concepts: getting-started/concepts.md
+    - Preprocessing: getting-started/preprocessing.md
     - Understanding Output: getting-started/understanding-output.md
   - User Guides:
     - 🧬 Bioinformatics Workflows:
