@@ -109,6 +109,57 @@ def _print_results(results, fmt: str) -> None:
             )
 
 
+def _print_carriers(carriers, variant_key, fmt: str) -> None:
+    """Print variant_info results in the requested format."""
+    if fmt == "json":
+        out = {
+            "variant": {
+                "chrom": variant_key[0], "pos": variant_key[1],
+                "ref": variant_key[2], "alt": variant_key[3],
+            },
+            "samples": [
+                {
+                    "sample_id": c.sample_id,
+                    "sample_name": c.sample_name,
+                    "sex": c.sex,
+                    "tech": c.tech_name,
+                    "phenotypes": c.phenotypes,
+                    "genotype": c.genotype,
+                    "filter": "PASS" if c.filter_pass else "FAIL",
+                }
+                for c in carriers
+            ],
+        }
+        click.echo(json.dumps(out, indent=2))
+    elif fmt == "tsv":
+        click.echo("sample_id\tsample_name\tsex\ttech\tphenotypes\tgenotype\tfilter")
+        for c in carriers:
+            click.echo(
+                f"{c.sample_id}\t{c.sample_name}\t{c.sex}\t{c.tech_name}\t"
+                f"{','.join(c.phenotypes)}\t{c.genotype}\t"
+                f"{'PASS' if c.filter_pass else 'FAIL'}"
+            )
+    else:  # text
+        if not carriers:
+            click.echo("No carriers found for the given filters.")
+            return
+        headers = ["sample_id", "sample_name", "sex", "tech", "phenotypes", "genotype", "filter"]
+        rows = [
+            [
+                str(c.sample_id), c.sample_name, c.sex, c.tech_name,
+                ",".join(c.phenotypes) if c.phenotypes else ".",
+                c.genotype, "PASS" if c.filter_pass else "FAIL",
+            ]
+            for c in carriers
+        ]
+        widths = [max(len(h), max((len(r[i]) for r in rows), default=0)) for i, h in enumerate(headers)]
+        fmt_row = "  ".join(f"{{:<{w}}}" for w in widths)
+        click.echo(fmt_row.format(*headers))
+        click.echo("  ".join("-" * w for w in widths))
+        for row in rows:
+            click.echo(fmt_row.format(*row))
+
+
 @click.group()
 def cli():
     """AFQuery: bitmap-indexed allele frequency engine for local genomic cohorts.
@@ -116,7 +167,7 @@ def cli():
     Enables fast AC/AN/AF queries on user-defined subcohorts (phenotype, sex,
     technology) without rescanning VCFs.
 
-    Commands: query, annotate, dump, info, version, create-db, update-db, check, benchmark
+    Commands: query, variant-info, annotate, dump, info, version, create-db, update-db, check, benchmark
     """
 
 
@@ -176,6 +227,47 @@ def query(db, locus, region, from_file, phenotype, sex, ref, alt, tech, fmt, no_
         )
 
     _print_results(results, fmt)
+
+
+@cli.command("variant-info")
+@click.option("--db",       required=True, help="Path to database directory.")
+@click.option("--locus",    required=True, help="Position as CHROM:POS (e.g., chr1:925952).")
+@click.option("--ref",      default=None, help="Filter to specific reference allele.")
+@click.option("--alt",      default=None, help="Filter to specific alternate allele.")
+@click.option("--phenotype", multiple=True, help="Phenotype to include. Repeatable; comma-separated or multiple flags. Use ^ prefix to exclude. (default: include all samples)")
+@click.option("--sex",   default="both", type=click.Choice(["male", "female", "both"]), help="Restrict to specified sex. Options: male, female, both. (default: both)")
+@click.option("--tech",  multiple=True, help="Technology filter. Repeatable; comma-separated or multiple flags. Use ^ prefix to exclude. (default: include all samples)")
+@click.option("--format", "fmt", default="text", type=click.Choice(["text", "json", "tsv"]), help="Output format. Options: text, json, tsv. (default: text)")
+@click.option("--no-warn", is_flag=True, default=False, help="Suppress AfqueryWarning messages.")
+def variant_info_cmd(db, locus, ref, alt, phenotype, sex, tech, fmt, no_warn):
+    """List samples carrying a specific variant, with their metadata.
+
+    Returns one row per carrier sample with genotype (het/hom/alt) and FILTER
+    status (PASS/FAIL).  Use --ref/--alt to restrict to a specific allele when
+    multiple alleles share the same position.
+
+    \b
+    Examples:
+      afquery variant-info --db ./db --locus chr1:925952
+      afquery variant-info --db ./db --locus chr1:925952 --ref A --alt T
+      afquery variant-info --db ./db --locus chrX:2700000 --sex female --format tsv
+    """
+    if no_warn:
+        import warnings
+        from .models import AfqueryWarning
+        warnings.filterwarnings("ignore", category=AfqueryWarning)
+
+    chrom, pos = _parse_locus(locus)
+    database = Database(db)
+    carriers = database.variant_info(
+        chrom=chrom, pos=pos,
+        ref=ref, alt=alt,
+        phenotype=_expand_tokens(phenotype), sex=sex,
+        tech=_expand_tokens(tech),
+    )
+
+    _variant_key = (chrom, pos, ref or ".", alt or ".")
+    _print_carriers(carriers, _variant_key, fmt)
 
 
 @cli.command()
