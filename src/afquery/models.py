@@ -73,3 +73,15 @@ class QueryResult:
     N_HOM_ALT: int = 0
     N_HOM_REF: int = 0
     N_FAIL: int = 0
+
+
+@dataclass
+class SampleCarrier:
+    """A sample carrying a given variant, with its associated metadata."""
+    sample_id: int
+    sample_name: str
+    sex: str            # 'male' | 'female'
+    tech_name: str
+    phenotypes: list[str]
+    genotype: str       # 'het' | 'hom' | 'alt' (FILTER≠PASS, ploidy unknown)
+    filter_pass: bool | None  # None = v1 DB (no fail_bitmap)
