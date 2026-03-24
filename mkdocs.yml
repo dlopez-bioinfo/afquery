@@ -68,6 +68,7 @@ nav:
     - Motivation: getting-started/motivation.md
     - Installation: getting-started/installation.md
     - 5-Min Quick Start: getting-started/quickstart.md
+    - Tutorial: getting-started/tutorial.md
     - Key Concepts: getting-started/concepts.md
     - Preprocessing: getting-started/preprocessing.md
     - Understanding Output: getting-started/understanding-output.md
