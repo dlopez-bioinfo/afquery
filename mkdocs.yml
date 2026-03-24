@@ -84,6 +84,7 @@ nav:
       - Query Allele Frequencies: guides/query.md
       - Annotate a VCF: guides/annotate-vcf.md
       - Bulk Export: guides/dump-export.md
+      - Variant Info: guides/variant-info.md
       - Sample Filtering: guides/sample-filtering.md
     - 🏥 Clinical Workflows:
       - ACMG Criteria (BA1/PM2/PS4): use-cases/acmg-use-cases.md
