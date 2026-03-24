@@ -69,6 +69,16 @@ for r in results:
 
 `N_FAIL` is always an `int` (default `0`).
 
+### Identifying specific FAIL samples
+
+To see which individual samples have FAIL status at a position, use `variant-info`:
+
+```bash
+afquery variant-info --db ./db/ --locus chr1:925952
+```
+
+Each carrier row shows its `filter` column as `PASS` or `FAIL`, along with sample metadata (technology, phenotype codes). This helps pinpoint whether failures cluster in a specific technology or sample group. See [Variant Info](../guides/variant-info.md) for full options.
+
 ---
 
 ## VCF Annotation

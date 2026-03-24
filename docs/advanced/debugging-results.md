@@ -54,6 +54,9 @@ To inspect a site with high N_FAIL, query with `--format json` to see all fields
 afquery query --db ./db/ --locus chr1:12345678 --format json
 ```
 
+!!! tip "Identify failing samples"
+    Use `afquery variant-info --db ./db/ --locus chr1:12345678` to see exactly which samples have FAIL status and their metadata (technology, phenotype codes). This helps determine if failures cluster in a specific technology or sample subset. See [Variant Info](../guides/variant-info.md).
+
 If N_FAIL is consistently high across many sites, check the variant calling pipeline and FILTER field settings in your VCFs.
 
 ---

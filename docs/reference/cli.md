@@ -104,6 +104,30 @@ afquery dump [OPTIONS]
 
 ---
 
+## variant-info
+
+List samples carrying a specific variant, with their metadata.
+
+```
+afquery variant-info [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--db` | TEXT | **required** | Path to database directory |
+| `--locus` | TEXT | **required** | Single position as `CHROM:POS` (e.g., `chr1:925952`) |
+| `--ref` | TEXT | None | Filter to specific reference allele |
+| `--alt` | TEXT | None | Filter to specific alternate allele |
+| `--phenotype` | TEXT | None | Phenotype filter. Repeatable; comma-separated or multiple flags. Use `^` prefix to exclude. |
+| `--sex` | `male`\|`female`\|`both` | `both` | Restrict to specified sex |
+| `--tech` | TEXT | None | Technology filter. Repeatable; comma-separated or multiple flags. Use `^` prefix to exclude. |
+| `--format` | `text`\|`json`\|`tsv` | `text` | Output format |
+| `--no-warn` | flag | False | Suppress `AfqueryWarning` messages |
+
+Returns one row per carrier sample with genotype (`het`/`hom`/`alt`) and FILTER status (`PASS`/`FAIL`). Use `--ref`/`--alt` to restrict to a specific allele when multiple alleles share the same position.
+
+---
+
 ## update-db
 
 Add samples, remove samples, update sample metadata, or compact the database.

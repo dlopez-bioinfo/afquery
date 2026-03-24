@@ -12,6 +12,9 @@ This avoids the need to re-query raw VCF files when inspecting individual varian
 afquery variant-info --db ./db/ --locus chr1:925952
 ```
 
+!!! tip
+    `variant-info` is the natural next step after `query` — once you find a variant of interest, use it to see which specific samples carry it.
+
 By default all samples are queried and results are printed as an aligned text table:
 
 ```
@@ -32,7 +35,8 @@ When multiple alleles exist at the same position, use `--ref` and `--alt` to res
 afquery variant-info --db ./db/ --locus chr17:41245466 --ref A --alt T
 ```
 
-Without `--ref`/`--alt`, carriers for all alleles at the locus are returned and a warning is emitted if more than one allele is found.
+!!! note
+    Without `--ref`/`--alt`, carriers for all alleles at the locus are returned and a warning is emitted if more than one allele is found. Specify both flags to disambiguate at multi-allelic sites.
 
 ---
 
@@ -132,41 +136,6 @@ When `--ref` and `--alt` are specified, the `variant` block contains the actual 
 
 ---
 
-## Python API
-
-```python
-from afquery import Database
-
-db = Database("./db/")
-
-# All carriers at a locus
-carriers = db.variant_info("chr1", 925952)
-
-# With allele and sample filters
-carriers = db.variant_info(
-    chrom="chr17",
-    pos=41245466,
-    ref="A",
-    alt="T",
-    phenotype=["E11.9"],
-    sex="female",
-    tech=["WGS"],
-)
-
-for c in carriers:
-    print(c.sample_name, c.genotype, c.filter_pass, c.phenotypes)
-```
-
-The `variant_info` function is also available at the top level for one-off use:
-
-```python
-from afquery import variant_info
-
-carriers = variant_info("./db/", "chr1", 925952, ref="G", alt="A")
-```
-
----
-
 ## All options
 
 | Option | Default | Description |
@@ -180,3 +149,15 @@ carriers = variant_info("./db/", "chr1", 925952, ref="G", alt="A")
 | `--tech` | all | Include technology (repeatable; `^NAME` excludes) |
 | `--format` | `text` | `text`, `tsv`, or `json` |
 | `--no-warn` | off | Suppress `AfqueryWarning` messages |
+
+See also [CLI Reference → variant-info](../reference/cli.md#variant-info).
+
+---
+
+## Next Steps
+
+- [Sample Filtering](sample-filtering.md) — full filter syntax for phenotype, sex, and technology
+- [Understanding Output](../getting-started/understanding-output.md) — field definitions and special cases
+- [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) — understanding FAIL genotypes
+- [Python API → variant_info](../reference/python-api.md#variant_info) — programmatic access
+- [ACMG Criteria](../use-cases/acmg-use-cases.md) — using carrier info for variant classification

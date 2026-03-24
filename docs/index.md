@@ -30,6 +30,7 @@ AFQuery pre-indexes genotypes as [Roaring Bitmaps](https://roaringbitmap.org/) i
 - **Server-less** — a directory of Parquet files + SQLite. Copy to share, no daemon required.
 - **Ploidy-aware** — correct AN on chrX PAR/non-PAR, chrY, and chrM.
 - **Technology-aware AN** — per-position capture BED intersection across WGS, WES kits, and panels.
+- **Carrier lookup** — list samples carrying any variant with full metadata (sex, tech, phenotypes, genotype, FILTER status).
 - **VCF annotation** — add `AFQUERY_AC/AN/AF/N_HET/N_HOM_ALT/N_HOM_REF/N_FAIL` INFO fields from any sample subset.
 - **Audit changelog** — every database operation is recorded for reproducibility.
 
@@ -78,18 +79,22 @@ graph TD
     E["Classify variants<br/>using ACMG criteria"]
     F["Compare AF across<br/>groups"]
 
+    M["Find carriers of<br/>a variant"]
+
     A -->|First time| G["5-Min Quickstart"]
     A -->|Build| B
     A -->|Query| C
     A -->|Annotate| D
     A -->|Classify| E
     A -->|Compare| F
+    A -->|Carriers| M
 
     B --> H["Create a Database"]
     C --> I["Query Guide"]
     D --> J["Annotate a VCF"]
     E --> K["ACMG Criteria"]
     F --> L["Cohort Stratification"]
+    M --> N["Variant Info"]
 
     click G "getting-started/quickstart/"
     click H "guides/create-database/"
@@ -97,6 +102,7 @@ graph TD
     click J "guides/annotate-vcf/"
     click K "use-cases/acmg-use-cases/"
     click L "use-cases/cohort-stratification/"
+    click N "guides/variant-info/"
 
     style A fill:#e3f2fd
     style G fill:#e8f5e9

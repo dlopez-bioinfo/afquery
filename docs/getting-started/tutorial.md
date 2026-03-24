@@ -138,7 +138,39 @@ chr1:946000 T>C  AC=2  AN=20  AF=0.1000  n_eligible=10  N_HET=2  N_HOM_ALT=0  N_
 
 ---
 
-## 5. Filter by Sex
+## 5. Inspect Variant Carriers
+
+After finding a variant of interest, use `variant-info` to see which specific samples carry it:
+
+```bash
+afquery variant-info --db ./demo_db/ --locus chr1:925952
+```
+
+Example output:
+
+```
+sample_id  sample_name  sex     tech    phenotypes       genotype  filter
+---------  -----------  ------  ------  ---------------  --------  ------
+0          DEMO_001     female  wgs     E11.9,I10        het       PASS
+2          DEMO_003     male    wgs     E11.9            het       PASS
+4          DEMO_005     female  wes_v1  E11.9,control    het       PASS
+6          DEMO_007     male    wes_v2  control          het       PASS
+8          DEMO_009     female  wgs     E11.9            hom       PASS
+```
+
+Each row is one carrier. The `genotype` column shows `het` (heterozygous), `hom` (homozygous alt), or `alt` (non-ref with FILTER≠PASS). The `filter` column indicates whether the call passed quality filters in the source VCF.
+
+For machine-readable output, use `--format tsv`:
+
+```bash
+afquery variant-info --db ./demo_db/ --locus chr1:925952 --format tsv > carriers.tsv
+```
+
+See [Variant Info](../guides/variant-info.md) for full options including allele-specific queries and sample filtering.
+
+---
+
+## 6. Filter by Sex
 
 Query only female samples:
 
@@ -168,7 +200,7 @@ AN drops from 20 to 10 in both cases because only 5 samples are eligible. The AF
 
 ---
 
-## 6. Filter by Phenotype
+## 7. Filter by Phenotype
 
 Query samples tagged with `E11.9`:
 
@@ -198,7 +230,7 @@ The `^` prefix means "exclude". Excluding controls removes 4 samples, leaving 6.
 
 ---
 
-## 7. Filter by Technology
+## 8. Filter by Technology
 
 Restrict to WGS samples only:
 
@@ -259,7 +291,7 @@ No variants found for the given filters.
 
 ---
 
-## 8. Combine Filters
+## 9. Combine Filters
 
 All filter dimensions compose with AND:
 
@@ -282,7 +314,7 @@ Only one sample meets all three criteria (DEMO_001: female, wgs, E11.9). With n_
 
 ---
 
-## 9. Annotate a VCF
+## 10. Annotate a VCF
 
 Use one of the demo VCFs as input:
 
@@ -313,7 +345,7 @@ See [Annotate a VCF](../guides/annotate-vcf.md) for filtering and downstream usa
 
 ---
 
-## 10. Bulk Export with Dump
+## 11. Bulk Export with Dump
 
 Export all variant frequencies to CSV:
 
@@ -350,7 +382,7 @@ This adds columns following the pattern `AC_{sex}_{tech}`, `AN_{sex}_{tech}`, `A
 
 ---
 
-## 11. Interpret Results with ACMG Criteria
+## 12. Interpret Results with ACMG Criteria
 
 With the annotated VCF or query results, you can apply ACMG criteria:
 
