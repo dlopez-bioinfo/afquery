@@ -107,6 +107,9 @@ For every query result, the following identity holds:
 
 This can be used to validate results. N_HOM_REF is the number of eligible samples that are homozygous reference (i.e., do not carry the alt allele and passed quality filters).
 
+!!! note "Mutual exclusivity"
+    N_HET, N_HOM_ALT, N_HOM_REF, and N_FAIL are mutually exclusive. A sample with a non-ref allele but FILTER≠PASS is counted in N_FAIL only — it does not appear in N_HET or N_HOM_ALT. Likewise, N_HOM_REF counts only PASS-filtered samples.
+
 ### chrX non-PAR
 
 - A male with GT=`1` contributes AC=1, AN=1
