@@ -157,12 +157,15 @@ afquery query \
 ```
 
 Filters compose with AND:
+
 - `--phenotype E11.9 --sex female` = female samples with E11.9
 
 Multiple values for the same filter compose with OR:
+
 - `--phenotype E11.9 --phenotype I10` = samples with E11.9 OR I10
 
 Exclude with `^` prefix:
+
 - `--tech ^wes_v1` = all technologies except `wes_v1`
 
 See [Sample Filtering](sample-filtering.md) for full syntax.
@@ -187,10 +190,18 @@ afquery query --db ./db/ --locus chr1:925952 --phenotype E11.9 --format json
 afquery query --db ./db/ --locus chr1:925952 --phenotype ^E11.9 --format json
 ```
 
-For systematic comparison across many variants, consider [Bulk Export](dump-export.md) with `--by-phenotype`.
+For systematic comparison across many variants, consider [Bulk Export](dump-export.md) with `--by-phenotype`, or see [Cohort Stratification](../use-cases/cohort-stratification.md) for a worked multi-group comparison.
 
 ---
 
 ## Full Option Reference
 
 See [CLI Reference → query](../reference/cli.md#query).
+
+---
+
+## Next Steps
+
+- [Sample Filtering](sample-filtering.md) — full filter syntax for phenotype, sex, and technology
+- [Understanding Output](../getting-started/understanding-output.md) — field definitions and special cases (AN=0, N_FAIL)
+- [Cohort Stratification](../use-cases/cohort-stratification.md) — comparing AF across multiple groups systematically

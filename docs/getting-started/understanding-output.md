@@ -15,7 +15,7 @@ This page explains what each field in AFQuery output means and how to interpret 
 | **N_HOM_ALT** | int | Number of eligible samples homozygous for the alt allele (GT=1/1 or GT=1). Includes haploid carriers on sex chromosomes and chrM. See [Ploidy](../advanced/ploidy-and-sex-chroms.md#genotype-counting). |
 | **N_HOM_REF** | int | Number of eligible samples homozygous reference (GT=0/0 or GT=0) |
 | **n_eligible** | int | Number of samples in the eligible set (after sex/phenotype/tech filters) |
-| **N_FAIL** | int | Number of eligible samples with FILTER≠PASS at this position |
+| **N_FAIL** | int | Number of eligible samples with a non-ref allele called but FILTER≠PASS at this position. These samples are counted *only* in N_FAIL — not in N_HET, N_HOM_ALT, or N_HOM_REF. |
 
 
 ---
@@ -139,7 +139,7 @@ bcftools filter -i 'AFQUERY_AF < 0.001 && AFQUERY_AN >= 1000' annotated.vcf.gz
 
 ---
 
-## Next steps
+## Next Steps
 
 - [Key Concepts](concepts.md) — how AC, AN, and AF are computed
 - [Sample Filtering Guide](../guides/sample-filtering.md) — phenotype, sex, and technology filters

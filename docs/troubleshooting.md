@@ -9,6 +9,7 @@
 **Cause:** The per-worker DuckDB memory limit is too low for your cohort size or variant density.
 
 **Fix:**
+
 - Lower the number of parallel build workers: `--build-threads 4`
 - Increase per-worker memory: `--build-memory 4GB`
 - Both together keep total RAM the same with fewer concurrent workers
@@ -26,12 +27,7 @@ See [Performance Tuning](advanced/performance.md) for sizing guidance.
 
 **Symptom:** A query returns `AC=0, AN=0, AF=None` for a variant you know exists.
 
-**Possible causes:**
-
-1. **All samples excluded by filters** — Check your `--phenotype`, `--sex`, or `--tech` filters. AN=0 means no eligible samples.
-2. **WES position outside capture regions** — If all samples use WES and the position is not in any BED file, no samples are eligible.
-3. **Chromosome not ingested** — Check `afquery info --db ./db/` to confirm the chromosome is present.
-4. **Variant not in database** — The variant may not be present in any sample VCF. Use `--region` to check nearby positions.
+Common causes include restrictive filters, WES positions outside capture regions, or missing chromosomes. For a step-by-step diagnostic checklist, see [Debugging Results → Unexpected AN=0](advanced/debugging-results.md#1-unexpected-an0).
 
 ---
 
@@ -40,9 +36,12 @@ See [Performance Tuning](advanced/performance.md) for sizing guidance.
 **Symptom:** `afquery annotate` takes much longer than expected.
 
 **Fixes:**
+
 - Increase thread count: `--threads 16`
 - Check disk I/O: annotation reads many small Parquet files; SSDs are significantly faster than spinning disks
 - For very large VCFs (1M+ variants), annotation time scales linearly with variant count
+
+See [Performance Tuning](advanced/performance.md) for general thread and memory sizing guidance.
 
 ---
 
@@ -149,3 +148,11 @@ afquery check --db ./db/
 ```
 
 Look for warnings like `"Capture file missing for wes_v1"`. Rebuild with the BED files if necessary.
+
+---
+
+## Next Steps
+
+- [FAQ](faq.md) — common questions and answers
+- [Debugging Results](advanced/debugging-results.md) — diagnostic checklist for unexpected results
+- [Performance Tuning](advanced/performance.md) — memory and thread configuration for build and query phases

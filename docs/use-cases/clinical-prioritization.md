@@ -30,6 +30,7 @@ afquery annotate \
 ```
 
 This adds to each variant:
+
 - `AFQUERY_AC`: allele count in cohort
 - `AFQUERY_AN`: allele number (eligible samples at this position)
 - `AFQUERY_AF`: allele frequency
@@ -105,6 +106,7 @@ print(f"Rare candidates: {len(rare_candidates)}")
 A typical clinical pipeline retains ~1,500 rare/novel candidates after cohort AF filtering, compared to 500,000 before.
 
 **AN threshold guidance:**
+
 - `AN >= 100`: minimum for any AF interpretation
 - `AN >= 500`: recommended for rare variant filtering
 - `AN >= 1000`: conservative threshold for robust AF estimates
@@ -112,7 +114,7 @@ A typical clinical pipeline retains ~1,500 rare/novel candidates after cohort AF
 For detailed ACMG workflows with worked examples and AN threshold guidance, see [ACMG Criteria (BA1/PM2/PS4)](acmg-use-cases.md).
 
 
-## Related Features
+## Next Steps
 
 - [Annotate a VCF](../guides/annotate-vcf.md) — full annotation options
 - [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) — using N_FAIL in filtering

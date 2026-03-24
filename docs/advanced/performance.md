@@ -107,7 +107,7 @@ graph TD
 
 ### Sub-100 ms Point Queries
 
-Query performance for a typical 50K-sample cohort:
+Query performance for a typical 50K-sample cohort (see [Benchmarking](benchmarking.md) to measure these on your own database):
 
 | Query type | Cold (first call) | Warm (cached) |
 |------------|-------------------|---------------|
@@ -168,6 +168,7 @@ Actual disk usage depends on variant density and carrier rates. Rare variants (l
 ## Memory at Query Time
 
 Query memory is very low:
+
 - **Bitmap operations**: only the relevant bitmaps are loaded from Parquet (~64 KB per variant at 50K samples)
 - **No full chromosome load**: DuckDB reads only the specific rows matching the query position
 - **Capture index**: one small interval tree per WES technology loaded at `Database.__init__`
@@ -183,3 +184,11 @@ Enable verbose output to see per-step timings (available on `annotate`, `dump`, 
 ```bash
 afquery annotate --db ./db/ --input variants.vcf --output annotated.vcf --verbose
 ```
+
+---
+
+## Next Steps
+
+- [Benchmarking](benchmarking.md) — measure and track query performance on your database
+- [Create a Database](../guides/create-database.md) — build options including `--build-threads` and `--build-memory`
+- [Pipeline Integration](pipeline-integration.md) — thread configuration in Nextflow and Snakemake workflows

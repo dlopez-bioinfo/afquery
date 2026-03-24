@@ -131,3 +131,11 @@ afquery dump --db ./db/ --threads 16 --output all_variants.csv
 ## Full Option Reference
 
 See [CLI Reference → dump](../reference/cli.md#dump).
+
+---
+
+## Next Steps
+
+- [Cohort Stratification](../use-cases/cohort-stratification.md) — systematic cross-group AF comparison on specific loci
+- [Sample Filtering](sample-filtering.md) — filter syntax shared across query, annotate, and dump
+- [Performance Tuning](../advanced/performance.md) — thread tuning for large export jobs

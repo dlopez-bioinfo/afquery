@@ -2,6 +2,9 @@
 
 This tutorial walks through building a small AFQuery database and running your first queries. It takes about 5 minutes.
 
+!!! tip "New to AFQuery?"
+    If you want to understand how bitmaps, Parquet storage, and metadata filtering work together before diving in, read [Key Concepts](concepts.md) first. Otherwise, follow along — you can always come back to the theory later.
+
 !!! tip "Normalize your VCFs first"
     AFQuery works best with normalized, left-aligned VCFs with ploidy-corrected sex chromosome calls. See [VCF Preprocessing](preprocessing.md) for a reference normalization pipeline using bcftools.
 
@@ -19,6 +22,7 @@ SAMPLE_003	/data/vcfs/sample003.vcf.gz	female	wes_v1	I10
 ```
 
 Fields:
+
 - `sample_name`: unique identifier
 - `vcf_path`: path to single-sample VCF (plain or `.gz`)
 - `sex`: `male` or `female`
@@ -79,6 +83,8 @@ afquery query \
   --phenotype E11.9
 ```
 
+See [Sample Filtering](../guides/sample-filtering.md) for the full include/exclude syntax.
+
 !!! note "Warnings for missing data"
     If a phenotype code, technology name, or chromosome is not found in the database, afquery prints a warning to stderr and returns empty results. Use `--no-warn` to suppress these warnings.
 
@@ -106,7 +112,7 @@ afquery annotate \
   --threads 12
 ```
 
-The output VCF gains INFO fields:
+The output VCF gains INFO fields (see [Annotate a VCF](../guides/annotate-vcf.md) for parallelism options and downstream usage):
 
 | Field | Number | Description |
 |-------|--------|-------------|
@@ -118,4 +124,11 @@ The output VCF gains INFO fields:
 | `AFQUERY_N_HOM_REF` | A (per ALT) | Homozygous ref sample count |
 | `AFQUERY_N_FAIL` | 1 (per site) | Samples with FILTER≠PASS |
 
+---
 
+## Next Steps
+
+- [Key Concepts](concepts.md) — understand how bitmaps, Parquet, and metadata filtering work together
+- [Sample Filtering](../guides/sample-filtering.md) — full syntax for phenotype, sex, and technology filters
+- [Annotate a VCF](../guides/annotate-vcf.md) — annotation options, parallelism, and downstream usage
+- [ACMG Criteria](../use-cases/acmg-use-cases.md) — applying local AF to BA1, PM2, and PS4

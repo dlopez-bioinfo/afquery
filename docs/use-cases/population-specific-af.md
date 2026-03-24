@@ -7,6 +7,7 @@ You manage a rare disease registry for a specific regional population. A variant
 ## Why Standard Databases Fall Short
 
 gnomAD aggregates data from wide ancestry groups worldwide. A variant at AF=0.001 at European (non finish) group may be at AF=0.01 in a specific Iberian, French, or German population — a 10× difference that directly impacts ACMG criteria:
+
 - BA1 (benign standalone): AF > 0.05 in any population
 - BS1 (benign strong): AF > 0.01 in a matched population
 - PM2 (pathogenic moderate): AF < 0.001
@@ -72,7 +73,7 @@ for r in results:
 
 For the third variant, gnomAD would support PM2 (very rare), but local frequency shows it is common in this population (BS1 level). Using gnomAD alone would misclassify this variant.
 
-## Related Features
+## Next Steps
 
 - [Cohort Stratification](cohort-stratification.md) — compare AF across subgroups within one database
 - [Sample Filtering](../guides/sample-filtering.md) — filter by population tags

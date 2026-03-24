@@ -44,6 +44,9 @@ chr7:117559590 C>T  AC=160  AN=2000  AF=0.0800  n_eligible=1000  N_HET=140  N_HO
 
 **Definition**: Absent or extremely low frequency in population databases → supporting evidence for pathogenicity.
 
+!!! important "PM2 strength update (ClinGen SVI, 2020)"
+    The ClinGen Sequence Variant Interpretation Working Group [recommends](https://clinicalgenome.org/site/assets/files/5182/pm2_-_svi_recommendation_-_approved_sept2020.pdf) applying PM2 at **supporting strength** (PM2_Supporting) rather than the original moderate level. Most ClinGen Variant Curation Expert Panels have adopted this downgrade. When using AFQuery results to apply PM2, treat the evidence as supporting unless your laboratory's classification framework specifies otherwise.
+
 ### Distinguishing "Absent" from "Unknown"
 
 This is the most critical distinction when applying PM2:
@@ -131,7 +134,7 @@ if cases and controls:
 ```
 
 !!! warning "Statistical considerations"
-    PS4 formally requires a statistically significant odds ratio (typically OR > 5 with p < 0.05). The enrichment ratio above is a screening tool. For formal PS4 application, compute a Fisher's exact test on the 2×2 table of (carrier/non-carrier) × (case/control).
+    The original ACMG/AMP framework (Richards et al., 2015) does not specify a minimum odds ratio for PS4. The OR > 5.0 threshold used here is a widely adopted convention, but ClinGen expert panels have proposed different thresholds depending on the gene/disease context (e.g., OR ≥ 6 for strong, OR ≥ 3 for moderate in hearing loss). The enrichment ratio above is a screening tool. For formal PS4 application, compute a Fisher's exact test on the 2×2 table of (carrier/non-carrier) × (case/control) and apply the thresholds relevant to your clinical context.
 
 For a full pseudo-control workflow, see [Pseudo-controls](../use-cases/pseudo-controls.md).
 
@@ -162,7 +165,7 @@ AF=0.000625 < 0.05 → **BA1 not met** (variant is not common enough to be stand
 
 ### Step 2: Check PM2
 
-AC=3, AF=0.000625 → the variant is present, so strict PM2 (absent) does not apply. However, AF < 0.001 with AN=4800 means the variant is extremely rare — PM2 may apply at the supporting level depending on disease prevalence and inheritance model.
+AC=3, AF=0.000625 → the variant is present, so strict PM2 (absent) does not apply. However, AF < 0.001 with AN=4800 means the variant is extremely rare — PM2_Supporting may apply depending on disease prevalence and inheritance model (see PM2 strength note above).
 
 ### Step 3: Check PS4
 
@@ -218,7 +221,7 @@ bcftools filter -i 'AFQUERY_N_FAIL > 0' annotated.vcf | head
 
 ---
 
-## Related Pages
+## Next Steps
 
 - [Clinical Prioritization](../use-cases/clinical-prioritization.md) — full annotation and filtering workflow
 - [Pseudo-controls](../use-cases/pseudo-controls.md) — case vs. control AF comparison

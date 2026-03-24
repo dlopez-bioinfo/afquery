@@ -88,7 +88,7 @@ See [Updating sample metadata](guides/update-database.md#update-sample-metadata)
 
 AFQuery has been tested with up to 50,000 samples. Bitmap operations remain fast at this scale because Roaring Bitmaps are highly compressed for sparse data. At 50K samples, a typical variant bitmap is ~64 KB.
 
-For cohorts larger than 50K, performance should remain sub-second for point queries, but build-phase memory requirements scale with cohort size. See [Performance Tuning](advanced/performance.md).
+For cohorts larger than 50K, performance should remain sub-second for point queries, but build-phase memory requirements scale with cohort size. See [Performance Tuning](advanced/performance.md) and [Benchmarking](advanced/benchmarking.md) to measure latency on your own database.
 
 ---
 
@@ -135,6 +135,7 @@ print(db.get_all_phenotypes())
 ## Does filtering by technology affect WGS samples?
 
 WGS samples are always covered at every position (no BED file). Technology filters work by sample membership, not coverage:
+
 - `--tech wgs` restricts to samples with `tech=wgs` in the manifest
 - WES samples at positions outside their capture BED are excluded by coverage, not by the tech filter
 
@@ -177,16 +178,15 @@ Use `afquery info --db ./db/` to list all registered codes before running querie
 
 ### What if AN is very low?
 
-Low AN means the allele frequency estimate is unreliable. For example: AC=1, AN=4, AF=0.25 — this is not a robust 25% frequency estimate.
+Low AN means the allele frequency estimate is unreliable.
 
 **Rules of thumb:**
+
 - **AN ≥ 100**: bare minimum for any interpretation
 - **AN ≥ 500**: necessary for rare variant filtering
 - **AN ≥ 1000**: required for clinical variant interpretation
 
-For detailed per-criterion AN thresholds, see [ACMG Criteria — AN Threshold Guidance](use-cases/acmg-use-cases.md#an-threshold-guidance).
-
-Always check `AFQUERY_AN` alongside `AFQUERY_AF` in downstream analyses. A variant with high AF but very low AN should be treated with skepticism.
+For per-criterion thresholds see [ACMG Criteria — AN Threshold Guidance](use-cases/acmg-use-cases.md#an-threshold-guidance). If AN=0 unexpectedly, see [Debugging Results](advanced/debugging-results.md#1-unexpected-an0) for a step-by-step diagnostic checklist.
 
 ---
 
@@ -195,6 +195,7 @@ Always check `AFQUERY_AN` alongside `AFQUERY_AF` in downstream analyses. A varia
 If your cohort is a mix of ancestries, the AF reflects a weighted average across all ancestries. A variant at AF=0.001 globally may be at AF=0.01 in a subpopulation.
 
 **Mitigation:**
+
 - Tag samples by ancestry or population in `phenotype_codes`
 - Use stratified queries: `afquery query --phenotype AFR` for African samples, `--phenotype EUR` for European samples, etc.
 - Compare AF across subgroups to detect ancestry-specific signals
@@ -231,3 +232,4 @@ ManifestError: BED file not found for technology '<tech>': '<path>'
   passed to `--bed-dir`.
 - If the samples are genuinely whole-genome (no capture), change `tech_name` to `WGS`
   in the manifest (no BED file required for WGS).
+

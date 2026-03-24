@@ -8,7 +8,7 @@ AFQuery stores genotype data as Roaring Bitmaps in Parquet files and answers all
 
 ## When to Use AFQuery
 
-- You need allele frequencies for **phenotype-defined subcohorts** (not just whole-population AF)
+- You need allele frequencies for **phenotype-defined subgroups** (not just whole-population AF)
 - You mix **WGS, WES, and panels** in one cohort and need technology-aware AN
 - You require **reproducible local AF** computed on your own samples — not just public reference databases
 - You run **repeated queries** on the same dataset (annotation, clinical interpretation, research)
@@ -66,6 +66,43 @@ graph TD
 
 ---
 
+
+## Where to Start
+
+```mermaid
+graph TD
+    A["What do you want to do?"]
+    B["Build a database<br/>from VCFs"]
+    C["Query allele<br/>frequencies"]
+    D["Annotate a<br/>patient VCF"]
+    E["Classify variants<br/>using ACMG criteria"]
+    F["Compare AF across<br/>groups"]
+
+    A -->|First time| G["5-Min Quickstart"]
+    A -->|Build| B
+    A -->|Query| C
+    A -->|Annotate| D
+    A -->|Classify| E
+    A -->|Compare| F
+
+    B --> H["Create a Database"]
+    C --> I["Query Guide"]
+    D --> J["Annotate a VCF"]
+    E --> K["ACMG Criteria"]
+    F --> L["Cohort Stratification"]
+
+    click G "getting-started/quickstart/"
+    click H "guides/create-database/"
+    click I "guides/query/"
+    click J "guides/annotate-vcf/"
+    click K "use-cases/acmg-use-cases/"
+    click L "use-cases/cohort-stratification/"
+
+    style A fill:#e3f2fd
+    style G fill:#e8f5e9
+```
+
+---
 
 ## Next Steps
 

@@ -107,6 +107,9 @@ See [Use Cases: Pseudo-controls](../use-cases/pseudo-controls.md) for a full wor
 
 ## Technology Filter
 
+!!! note "Naming conventions"
+    In the documentation, "WGS" (uppercase) refers to whole-genome sequencing as a concept. In CLI examples, `wgs` (lowercase) is used as the manifest technology name. Both work — the WGS check is case-insensitive. All other technology names are case-sensitive.
+
 ### Include a Technology
 
 ```bash
@@ -143,6 +146,7 @@ afquery query \
 ```
 
 This selects samples that are:
+
 - Female **AND**
 - Have phenotype code E11.9 **AND**
 - Use WGS technology
@@ -152,6 +156,7 @@ This selects samples that are:
 ## Effect on AN
 
 AN is computed only over eligible samples. When filters are applied:
+
 - Samples excluded by phenotype/sex/tech do not contribute to AN
 - WES samples at positions outside their capture regions do not contribute to AN
 - A result with `AN=0` means no eligible samples at that position
@@ -194,3 +199,11 @@ results = db.query(
 ```
 
 The `^` prefix exclusion syntax works the same in the Python API as in the CLI.
+
+---
+
+## Next Steps
+
+- [Query Allele Frequencies](query.md) — apply filters in point, region, and batch queries
+- [Cohort Stratification](../use-cases/cohort-stratification.md) — systematic multi-group AF comparison
+- [Pseudo-controls](../use-cases/pseudo-controls.md) — exclusion-based background frequency for case enrichment

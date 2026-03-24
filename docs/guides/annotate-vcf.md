@@ -26,7 +26,7 @@ afquery annotate \
 | `AFQUERY_N_HET` | Integer | A (per ALT) | Heterozygous sample count |
 | `AFQUERY_N_HOM_ALT` | Integer | A (per ALT) | Homozygous alt sample count |
 | `AFQUERY_N_HOM_REF` | Integer | A (per ALT) | Homozygous ref sample count |
-| `AFQUERY_N_FAIL` | Integer | 1 (per site) | Samples with FILTER≠PASS and alt allele called |
+| `AFQUERY_N_FAIL` | Integer | 1 (per site) | Samples with FILTER≠PASS and alt allele called. Mutually exclusive with N_HET/N_HOM_ALT/N_HOM_REF. |
 
 !!! note "Multi-allelic sites"
     Number=A fields have one value per ALT allele (comma-separated for multi-allelic sites). Number=1 fields are shared across all ALT alleles at the same position.
@@ -110,3 +110,11 @@ info(vcf)$AFQUERY_AF
 ## Full Option Reference
 
 See [CLI Reference → annotate](../reference/cli.md#annotate).
+
+---
+
+## Next Steps
+
+- [Clinical Prioritization](../use-cases/clinical-prioritization.md) — filter annotated VCFs to retain only rare local variants
+- [Sample Filtering](sample-filtering.md) — annotate using subgroup-specific AF (phenotype, sex, tech)
+- [Understanding Output](../getting-started/understanding-output.md) — what AFQUERY_AF/AC/AN/N_FAIL fields mean

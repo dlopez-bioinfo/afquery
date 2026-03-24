@@ -107,6 +107,9 @@ For every query result, the following identity holds:
 
 This can be used to validate results. N_HOM_REF is the number of eligible samples that are homozygous reference (i.e., do not carry the alt allele and passed quality filters).
 
+!!! note "Mutual exclusivity"
+    N_HET, N_HOM_ALT, N_HOM_REF, and N_FAIL are mutually exclusive. A sample with a non-ref allele but FILTER≠PASS is counted in N_FAIL only — it does not appear in N_HET or N_HOM_ALT. Likewise, N_HOM_REF counts only PASS-filtered samples.
+
 ### chrX non-PAR
 
 - A male with GT=`1` contributes AC=1, AN=1
@@ -114,6 +117,7 @@ This can be used to validate results. N_HOM_REF is the number of eligible sample
 - A female with GT=`1/1` contributes AC=2, AN=2
 
 N_HET and N_HOM_ALT are counted per sample (not per allele):
+
 - Males at chrX non-PAR (haploid positions) are counted in **N_HOM_ALT** when GT=1, because all alleles at that position are alternate. N_HET is reserved for diploid positions where both reference and alternate alleles are present.
 - Females at chrX with GT=`0/1` are counted in N_HET; with GT=`1/1` in N_HOM_ALT.
 
@@ -139,11 +143,21 @@ chrM is haploid for all samples (both sexes contribute AN=1):
 ## Sex Filter Interaction
 
 When `--sex female` is used on chrX (non-PAR), AN is purely diploid:
+
 - Each eligible female contributes AN=2
 - AF is computed over a fully diploid denominator
 
 When `--sex male` is used on chrX (non-PAR), AN is purely haploid:
+
 - Each eligible male contributes AN=1
 - AF reflects the observed allele frequency in haploid male calls
 
 This makes it straightforward to compare X-linked variant frequencies between sexes without manual ploidy adjustment.
+
+---
+
+## Next Steps
+
+- [Sex-Specific AF](../use-cases/sex-specific-af.md) — X-linked variant analysis using sex-stratified queries
+- [Key Concepts](../getting-started/concepts.md) — AC/AN/AF overview and the ploidy table
+- [Sample Filtering](../guides/sample-filtering.md) — `--sex` filter syntax

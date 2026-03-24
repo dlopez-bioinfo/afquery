@@ -11,6 +11,7 @@ General population databases do not allow stratification by disease group or seq
 ## Solution with AFQuery
 
 AFQuery allows computing AF over any combination of metadata filters on the same database. You can compare:
+
 - WGS vs. WES (technology artifact detection)
 - Disease group A vs. disease group B (disease enrichment)
 - Within-technology disease comparisons (controlling for technology)
@@ -43,6 +44,8 @@ afquery query --db ./db/ --locus chr1:925952 --tech wes_v1 --format tsv
 If AF differs substantially between technologies (>2×), this may indicate a capture artifact or systematic genotyping difference. Use `afquery check` to verify BED file coverage.
 
 ### 2. Disease group comparison
+
+For the exclusion-based pseudo-control pattern, see [Pseudo-controls](pseudo-controls.md).
 
 ```bash
 # Epilepsy group
@@ -106,7 +109,7 @@ if disease and controls and disease[0].AF and controls[0].AF:
 
 Low AN values (<100) indicate small group sizes — interpret those frequencies cautiously.
 
-## Related Features
+## Next Steps
 
 - [Bulk Export](../guides/dump-export.md) — export stratified AF across all variants
 - [Pseudo-controls](pseudo-controls.md) — exclusion-based background frequency

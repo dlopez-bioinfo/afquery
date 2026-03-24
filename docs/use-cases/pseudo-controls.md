@@ -124,7 +124,7 @@ The pseudo-control AF provides a cleaner background frequency than a gnomAD look
 
 **Key advantage**: The pseudo-control query runs in under 100 ms. No database rebuild is needed — you can explore different disease stratifications interactively within a single clinical session.
 
-## Related Features
+## Next Steps
 
 - [Sample Filtering](../guides/sample-filtering.md) — full phenotype filter syntax
 - [Cohort Stratification](cohort-stratification.md) — compare multiple groups simultaneously
