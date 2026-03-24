@@ -293,7 +293,7 @@ def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose, 
       AFQUERY_N_HET       heterozygous carrier count (per ALT)
       AFQUERY_N_HOM_ALT   homozygous alt count (per ALT)
       AFQUERY_N_HOM_REF   homozygous ref count (per ALT)
-      AFQUERY_N_FAIL      samples with FILTER!=PASS (v2 databases only)
+      AFQUERY_N_FAIL      samples with FILTER!=PASS
     """
     if no_warn:
         import warnings

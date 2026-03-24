@@ -564,8 +564,7 @@ class QueryEngine:
 
         Each returned :class:`~afquery.models.SampleCarrier` includes the
         sample's name, sex, technology, phenotype codes, genotype (het/hom/alt),
-        and FILTER status.  ``filter_pass=None`` is returned for v1 databases
-        that do not store a ``fail_bitmap``.
+        and FILTER status.
 
         Args:
             params: Query parameters (chrom, pos, optional ref/alt, sample filter).

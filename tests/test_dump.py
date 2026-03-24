@@ -142,7 +142,7 @@ class TestDumpBasic:
         assert "N_HET" in rows[0]
         assert "N_HOM_ALT" in rows[0]
         assert "N_HOM_REF" in rows[0]
-        assert "N_FAIL" in rows[0]  # v2 DB
+        assert "N_FAIL" in rows[0]
 
     def test_ac_positive_filter(self, test_db):
         """By default all exported rows must have AC > 0."""
@@ -360,7 +360,7 @@ class TestDumpDisaggregation:
         assert "AC_female_E11.9" in rows[0]
 
     def test_n_fail_in_group_columns(self, test_db):
-        """v2 DB: N_FAIL_<label> columns present in disaggregated output."""
+        """N_FAIL_<label> columns present in disaggregated output."""
         database = Database(test_db)
         buf = io.StringIO()
         database.dump(output=buf, chrom="chr1", by_sex=True)
