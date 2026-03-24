@@ -177,16 +177,14 @@ Use `afquery info --db ./db/` to list all registered codes before running querie
 
 ### What if AN is very low?
 
-Low AN means the allele frequency estimate is unreliable. For example: AC=1, AN=4, AF=0.25 — this is not a robust 25% frequency estimate.
+Low AN means the allele frequency estimate is unreliable.
 
 **Rules of thumb:**
 - **AN ≥ 100**: bare minimum for any interpretation
 - **AN ≥ 500**: necessary for rare variant filtering
 - **AN ≥ 1000**: required for clinical variant interpretation
 
-For detailed per-criterion AN thresholds, see [ACMG Criteria — AN Threshold Guidance](use-cases/acmg-use-cases.md#an-threshold-guidance).
-
-Always check `AFQUERY_AN` alongside `AFQUERY_AF` in downstream analyses. A variant with high AF but very low AN should be treated with skepticism.
+For per-criterion thresholds see [ACMG Criteria — AN Threshold Guidance](use-cases/acmg-use-cases.md#an-threshold-guidance). If AN=0 unexpectedly, see [Debugging Results](advanced/debugging-results.md#1-unexpected-an0) for a step-by-step diagnostic checklist.
 
 ---
 
@@ -232,10 +230,3 @@ ManifestError: BED file not found for technology '<tech>': '<path>'
 - If the samples are genuinely whole-genome (no capture), change `tech_name` to `WGS`
   in the manifest (no BED file required for WGS).
 
----
-
-## Next Steps
-
-- [Troubleshooting](troubleshooting.md) — error messages and step-by-step fixes
-- [Debugging Results](advanced/debugging-results.md) — diagnostic checklist for unexpected AN=0 or AF values
-- [CLI Reference](reference/cli.md) — complete flag documentation for all commands
