@@ -4,7 +4,7 @@
 
 Allele frequency (AF) is one of the strongest lines of evidence in clinical variant classification. Under the ACMG/AMP framework, AF thresholds directly determine whether a variant is classified as benign (BA1: AF > 5%), supporting-pathogenic (PM2: absent or extremely rare), or strongly pathogenic through case enrichment (PS4). A misestimated AF can flip a classification — and with it, a clinical decision.
 
-Yet AF is not a fixed property of a variant: it is a property of a population. The same variant can be common in one cohort and absent in another. When the reference population does not match the patient's background, variant classification becomes unreliable.
+Yet AF is not an intrinsic property of a variant — it depends on the population in which it is measured. The same variant can be common in one cohort and absent in another. When the reference population does not match the patient's background, variant classification becomes unreliable.
 
 This page describes four methodological gaps in current allele frequency workflows that AFQuery was designed to address.
 
