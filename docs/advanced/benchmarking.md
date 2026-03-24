@@ -76,6 +76,7 @@ If `point_query_cold_ms` exceeds 500 ms, check disk I/O performance. If `point_q
 ## Synthetic Data Generation
 
 The benchmark generates:
+
 - `N` samples with random sex (50/50) and random technology assignment
 - `M` variants per chromosome with uniformly random positions
 - Random genotypes with configurable carrier rates

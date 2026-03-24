@@ -157,12 +157,15 @@ afquery query \
 ```
 
 Filters compose with AND:
+
 - `--phenotype E11.9 --sex female` = female samples with E11.9
 
 Multiple values for the same filter compose with OR:
+
 - `--phenotype E11.9 --phenotype I10` = samples with E11.9 OR I10
 
 Exclude with `^` prefix:
+
 - `--tech ^wes_v1` = all technologies except `wes_v1`
 
 See [Sample Filtering](sample-filtering.md) for full syntax.

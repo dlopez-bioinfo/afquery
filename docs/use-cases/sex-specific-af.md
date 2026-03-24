@@ -9,6 +9,7 @@ You are analyzing a candidate X-linked recessive gene. A hemizygous variant in m
 Most population databases report a single AF for chrX variants, combining diploid female calls and haploid male calls. This average is appropriate for some purposes but misleading for X-linked recessive analysis, where the male hemizygous frequency is the clinically relevant metric.
 
 For a variant at chrX non-PAR with AC=10 in 500 males (AN=500) and AC=5 in 1000 females (AN=2000):
+
 - Male hemizygous rate: 10/500 = 2%
 - Female carrier rate: 5/2000 = 0.25%
 - Combined AF: 15/2500 = 0.6%
@@ -18,6 +19,7 @@ The combined AF (0.6%) obscures the fact that 2% of males are hemizygous carrier
 ## Solution with AFQuery
 
 AFQuery applies ploidy-aware AN computation automatically. For chrX non-PAR positions:
+
 - Males contribute AN=1 (haploid)
 - Females contribute AN=2 (diploid)
 

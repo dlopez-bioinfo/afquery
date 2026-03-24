@@ -168,6 +168,7 @@ Actual disk usage depends on variant density and carrier rates. Rare variants (l
 ## Memory at Query Time
 
 Query memory is very low:
+
 - **Bitmap operations**: only the relevant bitmaps are loaded from Parquet (~64 KB per variant at 50K samples)
 - **No full chromosome load**: DuckDB reads only the specific rows matching the query position
 - **Capture index**: one small interval tree per WES technology loaded at `Database.__init__`

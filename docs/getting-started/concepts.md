@@ -167,6 +167,7 @@ WGS samples are always eligible (no BED file needed).
 ## The Manifest
 
 The manifest is a TSV file that drives database creation. It maps each sample to its:
+
 - VCF file path
 - Sex (`male` / `female`)
 - Sequencing technology
@@ -206,6 +207,7 @@ AN is computed only over eligible samples, so AF naturally reflects the chosen s
 Multiple labels per sample are supported. There is no validation or controlled vocabulary — you define the ontology for your cohort.
 
 When planning phenotype codes, consider:
+
 - Codes can be updated after ingestion using `afquery update-db --update-sample` (see [Updating sample metadata](../guides/update-database.md#update-sample-metadata))
 - Codes are case-sensitive: `E11.9` ≠ `e11.9`
 - Trailing or leading spaces cause silent mismatch (always use `E11.9,I10`, never `E11.9, I10`)

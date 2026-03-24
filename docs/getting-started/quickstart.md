@@ -22,6 +22,7 @@ SAMPLE_003	/data/vcfs/sample003.vcf.gz	female	wes_v1	I10
 ```
 
 Fields:
+
 - `sample_name`: unique identifier
 - `vcf_path`: path to single-sample VCF (plain or `.gz`)
 - `sex`: `male` or `female`
