@@ -82,7 +82,7 @@ The lack of integrated metadata filtering is particularly problematic for:
 
 ## How AFQuery Addresses These Gaps
 
-AFQuery introduces a pre-indexed database architecture that separates the slow step (building the genotype index from VCFs) from the fast step (querying AF on arbitrary subcohorts).
+AFQuery introduces a pre-indexed database architecture that separates the slow step (building the genotype index from VCFs) from the fast step (querying AF on arbitrary subgroups).
 
 The key data structure is the [Roaring Bitmap](https://roaringbitmap.org/) — a compressed bitset that records, for each variant, which samples carry the alternate allele. At query time, computing AC/AN/AF requires only:
 
@@ -94,7 +94,7 @@ This reduces each query to microsecond-scale bitmap operations, achieving sub-10
 
 | Gap | Existing tools | AFQuery |
 |-----|---------------|---------|
-| Population-specific AF | Compare against gnomAD; build separate databases per population | Compute AF on any phenotype-defined subcohort at query time |
+| Population-specific AF | Compare against gnomAD; build separate databases per population | Compute AF on any phenotype-defined subgroup at query time |
 | Mixed technologies | Manual BED intersection or ignore the problem | Automatic per-position, per-technology AN via capture index |
 | Reprocessing | Re-scan VCF per subset (minutes) | Bitmap intersection (milliseconds) |
 | Metadata filtering | Multi-step: extract IDs → subset VCF → compute | Single query with `--phenotype`, `--sex`, `--tech` flags |

@@ -34,6 +34,9 @@ SAMP_005	/data/vcfs/SAMP_005.vcf.gz	female	wgs	E11.9,I10,N18.3
 
 ## Phenotype Codes
 
+!!! info "Naming map"
+    The manifest column is `phenotype_codes` (plural, comma-separated). The CLI flag is `--phenotype` (singular, repeatable). In documentation text, "phenotype codes" refers to the values stored in this field.
+
 The `phenotype_codes` column accepts **any arbitrary strings** — there is no required ontology. Common choices include:
 
 - ICD-10 disease codes (e.g., `E11.9`, `I10`, `N18.3`)
@@ -55,6 +58,10 @@ Samples with no phenotype can leave the `phenotype_codes` column empty
 
 - Technology names are arbitrary strings — use whatever is meaningful for your cohort
 - Common conventions: `wgs`, `wes_v1`, `wes_v2`, `capture_twist_v2`
+
+!!! note "WGS is case-insensitive"
+    The technology name `WGS` is matched case-insensitively: `wgs`, `WGS`, `Wgs` are all recognized as whole-genome sequencing (no BED file required). All other technology names are case-sensitive and must match exactly between the manifest and the `--tech` query filter.
+
 - **WGS technologies** (no BED file): all positions are always eligible
 - **WES technologies** (with BED file): coverage is determined by `<tech>.bed` in `--bed-dir`
 
