@@ -57,6 +57,94 @@ WES_V2_REGIONS = WES_V1_REGIONS + [
     ("chr12", 3000000, 3050000),
 ]
 
+# --- Pinned variants -----------------------------------------------------------
+# These variants are injected into every sample with fixed genotypes and filters.
+# They exist at tutorial-specific positions so query examples are reproducible.
+#
+# Format: (chrom, pos, ref, alt, gt_by_sample_name)
+# gt_by_sample_name values:
+#   str          → GT string, FILTER=PASS implied
+#   (str, str)   → (GT, FILTER) — used for the N_FAIL teaching variant
+
+PINNED_VARIANTS = [
+    # chr1:925952 — inside wes_v1 + wes_v2 capture region (chr1:900000-950000)
+    # Primary teaching variant used throughout steps 4–8 of the tutorial.
+    # Expected (no filter): AC=6, AN=20, AF=0.3000, N_HET=4, N_HOM_ALT=1, N_HOM_REF=5, N_FAIL=0
+    ("chr1", 925952, "G", "A", {
+        "DEMO_001": "0/1",   # female, wgs,    E11.9+I10
+        "DEMO_002": "1/1",   # male,   wgs,    E11.9
+        "DEMO_003": "0/1",   # female, wgs,    I10
+        "DEMO_004": "0/0",   # male,   wgs,    control
+        "DEMO_005": "0/1",   # female, wes_v1, E11.9+I10
+        "DEMO_006": "0/0",   # male,   wes_v1, control
+        "DEMO_007": "0/0",   # female, wes_v1, I10
+        "DEMO_008": "0/1",   # male,   wes_v2, E11.9
+        "DEMO_009": "0/0",   # female, wes_v2, control
+        "DEMO_010": "0/0",   # male,   wes_v2, I10+control
+    }),
+    # chr1:925100 — second variant in the same WES region, adds a second row to
+    # region queries on chr1:900000-950000.
+    # Expected (no filter): AC=4, AN=20, AF=0.2000, N_HET=4, N_HOM_ALT=0, N_HOM_REF=6, N_FAIL=0
+    ("chr1", 925100, "C", "T", {
+        "DEMO_001": "0/1",
+        "DEMO_002": "0/0",
+        "DEMO_003": "0/0",
+        "DEMO_004": "0/1",
+        "DEMO_005": "0/0",
+        "DEMO_006": "0/1",
+        "DEMO_007": "0/0",
+        "DEMO_008": "0/0",
+        "DEMO_009": "0/1",
+        "DEMO_010": "0/0",
+    }),
+    # chr1:946000 — inside wes_v1 + wes_v2 capture region (chr1:900000-950000)
+    # N_FAIL teaching variant: DEMO_002 and DEMO_004 carry the alt allele with
+    # a LowQual filter → they contribute to N_FAIL, not AC/AN.
+    # Expected (no filter): AC=2, AN=16, AF=0.1250, N_HET=2, N_HOM_ALT=0, N_HOM_REF=6, N_FAIL=2
+    ("chr1", 946000, "T", "C", {
+        "DEMO_001": ("0/1", "PASS"),
+        "DEMO_002": ("0/1", "LowQual"),
+        "DEMO_003": ("0/0", "PASS"),
+        "DEMO_004": ("0/1", "LowQual"),
+        "DEMO_005": ("0/0", "PASS"),
+        "DEMO_006": ("0/0", "PASS"),
+        "DEMO_007": ("0/1", "PASS"),
+        "DEMO_008": ("0/0", "PASS"),
+        "DEMO_009": ("0/0", "PASS"),
+        "DEMO_010": ("0/0", "PASS"),
+    }),
+    # chr1:1399914 — OUTSIDE all WES capture regions (between chr1:950000–1200000)
+    # Used in step 7 to show that WES queries return no results at non-captured sites.
+    # Expected (--tech wgs): AC=2, AN=8, AF=0.2500, N_HET=2, N_HOM_REF=2, N_FAIL=0
+    # Expected (--tech wes_v1): "No variants found" (AN=0 → engine returns [])
+    ("chr1", 1399914, "G", "T", {
+        "DEMO_001": "0/1",
+        "DEMO_002": "0/0",
+        "DEMO_003": "0/1",
+        "DEMO_004": "0/0",
+        "DEMO_005": "0/1",
+        "DEMO_006": "0/0",
+        "DEMO_007": "0/0",
+        "DEMO_008": "0/1",
+        "DEMO_009": "0/0",
+        "DEMO_010": "0/0",
+    }),
+    # chr1:1225000 — inside wes_v1 + wes_v2 capture region (chr1:1200000-1250000)
+    # Adds coverage in a second WES region for completeness.
+    ("chr1", 1225000, "A", "G", {
+        "DEMO_001": "0/1",
+        "DEMO_002": "0/0",
+        "DEMO_003": "0/0",
+        "DEMO_004": "0/1",
+        "DEMO_005": "0/1",
+        "DEMO_006": "0/0",
+        "DEMO_007": "0/1",
+        "DEMO_008": "0/0",
+        "DEMO_009": "0/0",
+        "DEMO_010": "0/1",
+    }),
+]
+
 
 def _alt_for(ref: str) -> str:
     """Pick a random ALT allele different from REF."""
@@ -100,9 +188,22 @@ def _generate_variant_pool(n_per_chrom: int = 20) -> list[tuple[str, int, str, s
     return pool
 
 
-def _write_vcf(path: Path, sample_name: str, sex: str,
-               variants: list[tuple[str, int, str, str]]) -> None:
-    """Write a minimal single-sample VCF."""
+def _write_vcf(
+    path: Path,
+    sample_name: str,
+    sex: str,
+    variants: list[tuple[str, int, str, str]],
+    pinned: list | None = None,
+) -> None:
+    """Write a minimal single-sample VCF.
+
+    Random variants get random GTs and a 5% chance of LowQual filter.
+    Pinned variants use fixed GTs and filters from PINNED_VARIANTS.
+    """
+    chrom_order = {c: i for i, c in enumerate(
+        CHROMS_AUTOSOME + ["chrX", "chrY", "chrM"]
+    )}
+
     header = (
         "##fileformat=VCFv4.2\n"
         '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n'
@@ -112,6 +213,8 @@ def _write_vcf(path: Path, sample_name: str, sex: str,
 
     # Add contig headers
     contigs = sorted({v[0] for v in variants})
+    if pinned:
+        contigs = sorted(set(contigs) | {v[0] for v in pinned})
     for c in contigs:
         header += f"##contig=<ID={c}>\n"
 
@@ -148,6 +251,21 @@ def _write_vcf(path: Path, sample_name: str, sex: str,
 
         lines.append(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t50\t{filt}\t.\tGT\t{gt}\n")
 
+    # Inject pinned variants with controlled GTs and filters
+    if pinned:
+        for chrom, pos, ref, alt, gt_map in pinned:
+            entry = gt_map.get(sample_name)
+            if entry is None:
+                continue
+            if isinstance(entry, tuple):
+                gt, filt = entry
+            else:
+                gt, filt = entry, "PASS"
+            lines.append(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t50\t{filt}\t.\tGT\t{gt}\n")
+
+    # Sort all lines by (chrom, pos) so the VCF is in genomic order
+    lines.sort(key=lambda l: (chrom_order.get(l.split("\t")[0], 99), int(l.split("\t")[1])))
+
     with gzip.open(path, "wt") as f:
         f.write(header)
         f.writelines(lines)
@@ -168,15 +286,17 @@ def main() -> None:
     vcf_dir.mkdir(parents=True, exist_ok=True)
     bed_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate variant pool
+    # Generate variant pool, excluding any positions already pinned
     pool = _generate_variant_pool(n_per_chrom=20)
+    pinned_positions = {(chrom, pos) for chrom, pos, *_ in PINNED_VARIANTS}
+    pool = [v for v in pool if (v[0], v[1]) not in pinned_positions]
 
     # Write VCFs
     for name, sex, tech, pheno in SAMPLES:
         # Each sample gets ~80% of the pool (random subset)
         sample_variants = [v for v in pool if random.random() < 0.80]
         vcf_path = vcf_dir / f"{name}.vcf.gz"
-        _write_vcf(vcf_path, name, sex, sample_variants)
+        _write_vcf(vcf_path, name, sex, sample_variants, pinned=PINNED_VARIANTS)
 
     # Write BED files
     _write_bed(bed_dir / "wes_v1.bed", WES_V1_REGIONS)
