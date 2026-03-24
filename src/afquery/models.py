@@ -84,4 +84,4 @@ class SampleCarrier:
     tech_name: str
     phenotypes: list[str]
     genotype: str       # 'het' | 'hom' | 'alt' (FILTER≠PASS, ploidy unknown)
-    filter_pass: bool | None  # None = v1 DB (no fail_bitmap)
+    filter_pass: bool   # False = FILTER≠PASS
