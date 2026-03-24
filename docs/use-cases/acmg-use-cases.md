@@ -133,6 +133,9 @@ if cases and controls:
             print("Strong enrichment — PS4 applicable if case count is sufficient")
 ```
 
+!!! tip "Verify carriers"
+    Use `afquery variant-info` to list the specific samples carrying the variant and confirm their phenotype assignments match expectations. See [Variant Info](../guides/variant-info.md).
+
 !!! warning "Statistical considerations"
     The original ACMG/AMP framework (Richards et al., 2015) does not specify a minimum odds ratio for PS4. The OR > 5.0 threshold used here is a widely adopted convention, but ClinGen expert panels have proposed different thresholds depending on the gene/disease context (e.g., OR ≥ 6 for strong, OR ≥ 3 for moderate in hearing loss). The enrichment ratio above is a screening tool. For formal PS4 application, compute a Fisher's exact test on the 2×2 table of (carrier/non-carrier) × (case/control) and apply the thresholds relevant to your clinical context.
 
@@ -223,6 +226,7 @@ bcftools filter -i 'AFQUERY_N_FAIL > 0' annotated.vcf | head
 
 ## Next Steps
 
+- [Variant Info](../guides/variant-info.md) — list carriers with metadata to verify phenotype assignments
 - [Clinical Prioritization](../use-cases/clinical-prioritization.md) — full annotation and filtering workflow
 - [Pseudo-controls](../use-cases/pseudo-controls.md) — case vs. control AF comparison
 - [Population-Specific AF](../use-cases/population-specific-af.md) — ancestry-stratified queries

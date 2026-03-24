@@ -69,6 +69,16 @@ for r in results:
 
 `N_FAIL` is always an `int` (default `0`).
 
+### Identifying specific FAIL samples
+
+To see which individual samples have FAIL status at a position, use `variant-info`:
+
+```bash
+afquery variant-info --db ./db/ --locus chr1:925952
+```
+
+Each carrier row shows its `filter` column as `PASS` or `FAIL`, along with sample metadata (technology, phenotype codes). This helps pinpoint whether failures cluster in a specific technology or sample group. See [Variant Info](../guides/variant-info.md) for full options.
+
 ---
 
 ## VCF Annotation
@@ -82,19 +92,6 @@ AFQuery adds an additional INFO field to annotated VCFs:
 ```bash
 afquery annotate --db ./db/ --input variants.vcf --output annotated.vcf
 ```
-
----
-
-## Schema Version Compatibility
-
-The `fail_bitmap` and `N_FAIL` tracking requires schema version 2.0 or later. Databases created with older versions of AFQuery do not contain `fail_bitmap` data.
-
-| Database schema | N_FAIL behavior |
-|----------------|-----------------|
-| ≥ 2.0 | `N_FAIL` is always an integer (0 or more) |
-| < 2.0 (legacy) | `N_FAIL` is `None` in Python API results |
-
-To upgrade a legacy database, rebuild it with `afquery create-db`. There is no in-place migration.
 
 ---
 

@@ -9,7 +9,7 @@ from pyroaring import BitMap
 from .bitmaps import deserialize
 from .capture import CaptureIndex, load_capture_indices
 from .constants import normalize_chrom, ALL_CHROMS, CHROM_ORDER
-from .models import AfqueryWarning, QueryParams, QueryResult, VariantKey, Sample, Technology, SampleFilter
+from .models import AfqueryWarning, QueryParams, QueryResult, SampleCarrier, VariantKey, Sample, Technology, SampleFilter
 from .ploidy import compute_AN, split_ploidy
 
 BATCH_IN_THRESHOLD = 10_000
@@ -43,9 +43,18 @@ class QueryEngine:
                 "SELECT tech_id, tech_name, bed_path FROM technologies"
             ).fetchall()
         ]
+
+        # Phenotype cache: sample_id → list of phenotype codes
+        self._sample_phenotypes: dict[int, list[str]] = {}
+        for row in con.execute(
+            "SELECT sample_id, phenotype_code FROM sample_phenotype"
+        ).fetchall():
+            self._sample_phenotypes.setdefault(row[0], []).append(row[1])
+
         con.close()
 
         self._samples = samples
+        self._samples_by_id: dict[int, Sample] = {s.sample_id: s for s in samples}
         self._tech_map = {t.tech_id: t for t in techs}
         sex_bms = self._bitmaps.get("sex", {})
         self._male_bm = sex_bms.get("male", BitMap())
@@ -549,3 +558,108 @@ class QueryEngine:
 
         sample_bm = self._build_sample_bitmap(sf)
         return self._query_region_inner(chrom, start, end, sample_bm)
+
+    def variant_info(self, params: QueryParams) -> list[SampleCarrier]:
+        """Return all samples carrying the variant at params.chrom:params.pos.
+
+        Each returned :class:`~afquery.models.SampleCarrier` includes the
+        sample's name, sex, technology, phenotype codes, genotype (het/hom/alt),
+        and FILTER status.
+
+        Args:
+            params: Query parameters (chrom, pos, optional ref/alt, sample filter).
+
+        Returns:
+            List of :class:`~afquery.models.SampleCarrier`, sorted by
+            ``sample_id``.  Empty if the variant is absent or no eligible
+            carrier exists.
+        """
+        chrom = normalize_chrom(params.chrom)
+        pos = params.pos
+
+        if chrom not in self._all_known_chroms:
+            warnings.warn(
+                f"Chromosome {chrom!r} has no data in this database. "
+                f"Available: {sorted(self._all_known_chroms)!r}",
+                AfqueryWarning, stacklevel=3,
+            )
+            return []
+
+        sample_bm = self._build_sample_bitmap(params.filter)
+        parquet_path = self._parquet_path(chrom, pos)
+        if parquet_path is None:
+            return []
+
+        con = duckdb.connect(config={"temp_directory": "/tmp"})
+        rows = con.execute(
+            "SELECT pos, ref, alt, het_bitmap, hom_bitmap, fail_bitmap"
+            " FROM read_parquet(?) WHERE pos = ?",
+            [str(parquet_path), pos],
+        ).fetchall()
+        con.close()
+
+        if not rows:
+            return []
+
+        if params.ref is not None:
+            rows = [r for r in rows if r[1] == params.ref]
+        if params.alt is not None:
+            rows = [r for r in rows if r[2] == params.alt]
+        if not rows:
+            return []
+
+        # Warn if multiple alleles found without explicit ref/alt filter
+        if len(rows) > 1 and params.ref is None and params.alt is None:
+            alts = ", ".join(r[2] for r in rows)
+            warnings.warn(
+                f"Multiple alleles found at {chrom}:{pos} ({alts}). "
+                "Use --ref/--alt to restrict to a specific variant.",
+                AfqueryWarning, stacklevel=3,
+            )
+
+        carriers: list[SampleCarrier] = []
+        for row in rows:
+            row_pos, ref, alt, het_bytes, hom_bytes, fail_bytes = row
+            het_bm = deserialize(bytes(het_bytes))
+            hom_bm = deserialize(bytes(hom_bytes))
+            fail_bm = deserialize(bytes(fail_bytes))
+            het_elig = het_bm & sample_bm
+            hom_elig = hom_bm & sample_bm
+            fail_elig = fail_bm & sample_bm
+
+            seen: set[int] = set()
+            for sid in sorted(hom_elig):
+                seen.add(sid)
+                is_fail = sid in fail_elig
+                carriers.append(self._make_carrier(sid, "alt" if is_fail else "hom", not is_fail))
+            for sid in sorted(het_elig):
+                if sid not in seen:
+                    seen.add(sid)
+                    is_fail = sid in fail_elig
+                    carriers.append(self._make_carrier(sid, "alt" if is_fail else "het", not is_fail))
+            for sid in sorted(fail_elig):
+                if sid not in seen:
+                    seen.add(sid)
+                    carriers.append(self._make_carrier(sid, "alt", False))
+
+        carriers.sort(key=lambda c: c.sample_id)
+        return carriers
+
+    def _make_carrier(
+        self,
+        sample_id: int,
+        genotype: str,
+        filter_pass: bool,
+    ) -> SampleCarrier:
+        s = self._samples_by_id[sample_id]
+        tech_name = self._tech_map[s.tech_id].tech_name
+        phenotypes = self._sample_phenotypes.get(sample_id, [])
+        return SampleCarrier(
+            sample_id=sample_id,
+            sample_name=s.sample_name,
+            sex=s.sex,
+            tech_name=tech_name,
+            phenotypes=sorted(phenotypes),
+            genotype=genotype,
+            filter_pass=filter_pass,
+        )

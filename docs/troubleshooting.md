@@ -119,16 +119,6 @@ afquery info --db ./db/ --samples | grep SAMP
 
 ---
 
-## Version Compatibility
-
-If you get `"Unsupported schema_version"` errors, upgrade AFQuery:
-
-```bash
-pip install --upgrade afquery
-```
-
----
-
 ## WES Technology Treated as WGS
 
 **Symptom:** AN for WES samples is much higher than expected; positions outside the capture panel return results.
