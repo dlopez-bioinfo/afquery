@@ -2,6 +2,9 @@
 
 This tutorial walks through building a small AFQuery database and running your first queries. It takes about 5 minutes.
 
+!!! tip "New to AFQuery?"
+    If you want to understand how bitmaps, Parquet storage, and metadata filtering work together before diving in, read [Key Concepts](concepts.md) first. Otherwise, follow along — you can always come back to the theory later.
+
 !!! tip "Normalize your VCFs first"
     AFQuery works best with normalized, left-aligned VCFs with ploidy-corrected sex chromosome calls. See [VCF Preprocessing](preprocessing.md) for a reference normalization pipeline using bcftools.
 
