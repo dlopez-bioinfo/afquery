@@ -631,11 +631,13 @@ class QueryEngine:
             seen: set[int] = set()
             for sid in sorted(hom_elig):
                 seen.add(sid)
-                carriers.append(self._make_carrier(sid, "hom", True))
+                is_fail = sid in fail_elig
+                carriers.append(self._make_carrier(sid, "alt" if is_fail else "hom", not is_fail))
             for sid in sorted(het_elig):
                 if sid not in seen:
                     seen.add(sid)
-                    carriers.append(self._make_carrier(sid, "het", True))
+                    is_fail = sid in fail_elig
+                    carriers.append(self._make_carrier(sid, "alt" if is_fail else "het", not is_fail))
             for sid in sorted(fail_elig):
                 if sid not in seen:
                     seen.add(sid)
