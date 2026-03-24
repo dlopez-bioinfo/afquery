@@ -107,6 +107,9 @@ See [Use Cases: Pseudo-controls](../use-cases/pseudo-controls.md) for a full wor
 
 ## Technology Filter
 
+!!! note "Naming conventions"
+    In the documentation, "WGS" (uppercase) refers to whole-genome sequencing as a concept. In CLI examples, `wgs` (lowercase) is used as the manifest technology name. Both work — the WGS check is case-insensitive. All other technology names are case-sensitive.
+
 ### Include a Technology
 
 ```bash

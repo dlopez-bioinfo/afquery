@@ -8,7 +8,7 @@ AFQuery stores genotype data as Roaring Bitmaps in Parquet files and answers all
 
 ## When to Use AFQuery
 
-- You need allele frequencies for **phenotype-defined subcohorts** (not just whole-population AF)
+- You need allele frequencies for **phenotype-defined subgroups** (not just whole-population AF)
 - You mix **WGS, WES, and panels** in one cohort and need technology-aware AN
 - You require **reproducible local AF** computed on your own samples — not just public reference databases
 - You run **repeated queries** on the same dataset (annotation, clinical interpretation, research)
