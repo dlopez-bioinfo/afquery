@@ -90,7 +90,19 @@ See [Sample Filtering](../guides/sample-filtering.md) for the full include/exclu
 
 ---
 
-## 5. Query a Region
+## 5. Inspect Carriers (optional)
+
+See which samples carry the variant you just queried:
+
+```bash
+afquery variant-info --db ./my_db/ --locus chr1:925952
+```
+
+This lists each carrier with their sex, technology, phenotype codes, genotype (het/hom), and FILTER status. See [Variant Info](../guides/variant-info.md) for details.
+
+---
+
+## 6. Query a Region
 
 ```bash
 afquery query \
@@ -100,7 +112,7 @@ afquery query \
 
 ---
 
-## 6. Annotate a VCF
+## 7. Annotate a VCF
 
 Given a VCF with variants you want to annotate:
 
@@ -130,5 +142,6 @@ The output VCF gains INFO fields (see [Annotate a VCF](../guides/annotate-vcf.md
 
 - [Key Concepts](concepts.md) — understand how bitmaps, Parquet, and metadata filtering work together
 - [Sample Filtering](../guides/sample-filtering.md) — full syntax for phenotype, sex, and technology filters
+- [Variant Info](../guides/variant-info.md) — list carriers of any variant with metadata
 - [Annotate a VCF](../guides/annotate-vcf.md) — annotation options, parallelism, and downstream usage
 - [ACMG Criteria](../use-cases/acmg-use-cases.md) — applying local AF to BA1, PM2, and PS4

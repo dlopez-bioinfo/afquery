@@ -114,8 +114,19 @@ A typical clinical pipeline retains ~1,500 rare/novel candidates after cohort AF
 For detailed ACMG workflows with worked examples and AN threshold guidance, see [ACMG Criteria (BA1/PM2/PS4)](acmg-use-cases.md).
 
 
+### 6. Inspect carriers of rare candidates
+
+After identifying rare variants, use `variant-info` to see who carries each one — useful for confirming case/control enrichment or checking sample quality:
+
+```bash
+afquery variant-info --db ./db/ --locus chr2:166845670 --ref G --alt A
+```
+
+This lists each carrier with their phenotype codes, sequencing technology, genotype, and FILTER status. See [Variant Info](../guides/variant-info.md) for filtering options.
+
 ## Next Steps
 
+- [Variant Info](../guides/variant-info.md) — list carriers of any variant with metadata
 - [Annotate a VCF](../guides/annotate-vcf.md) — full annotation options
 - [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) — using N_FAIL in filtering
 - [Population-Specific AF](population-specific-af.md) — local vs. gnomAD comparison

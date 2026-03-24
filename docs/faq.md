@@ -209,7 +209,7 @@ Without stratification, rare variant interpretation in mixed cohorts can be misl
 AFQuery is purpose-built for fast subcohort AF computation and is not a general-purpose genomic database:
 
 - **Not a joint genotyper**: AFQuery does not perform joint genotyping. Input VCFs should be individually called before ingestion.
-- **Not a variant database**: AFQuery stores only genotype-level summaries (bitmaps). Individual sample genotypes cannot be retrieved from the database.
+- **Not a genotype store**: AFQuery stores genotype summaries as bitmaps, not raw FORMAT fields. Use `variant-info` to list carriers and their genotype class (het/hom) at a specific position; for full per-sample VCF fields (GQ, DP, AD, etc.), consult the source VCFs.
 - **No statistical genetics**: AFQuery does not compute Hardy-Weinberg equilibrium, population stratification, or other statistical genetics metrics.
 - **Batch queries**: The `--from-file` batch mode supports variants across multiple chromosomes in a single call. Point queries (`--locus`) and region queries (`--region`) target a single position or range; for multi-position multi-chromosome lookups, use `--from-file`.
 - **Cohort size limit**: Performance at >100K samples has not been validated. Memory requirements for the build phase scale with cohort size.

@@ -20,6 +20,10 @@ See [Roaring Bitmap](#roaring-bitmap).
 
 A 1 Mbp (1,000,000 base pair) genomic interval used to partition variant data within each chromosome. Bucket 0 covers positions 0–999,999; bucket 1 covers 1,000,000–1,999,999; and so on. See [Data Model](data-model.md).
 
+## Carrier
+
+A sample that has at least one copy of the alternate allele at a given position (heterozygous or homozygous alt). Use `variant-info` to list carriers with their metadata. See [Variant Info](../guides/variant-info.md).
+
 ## Capture Index
 
 An interval tree (stored as a `.pkl` file) built from a BED file that defines the genomic regions covered by a whole-exome sequencing (WES) technology. Used to determine which WES samples are eligible at a given position. WGS samples do not require a capture index. See [Key Concepts](../getting-started/concepts.md#capture-index-wes).
