@@ -26,12 +26,7 @@ See [Performance Tuning](advanced/performance.md) for sizing guidance.
 
 **Symptom:** A query returns `AC=0, AN=0, AF=None` for a variant you know exists.
 
-**Possible causes:**
-
-1. **All samples excluded by filters** — Check your `--phenotype`, `--sex`, or `--tech` filters. AN=0 means no eligible samples.
-2. **WES position outside capture regions** — If all samples use WES and the position is not in any BED file, no samples are eligible.
-3. **Chromosome not ingested** — Check `afquery info --db ./db/` to confirm the chromosome is present.
-4. **Variant not in database** — The variant may not be present in any sample VCF. Use `--region` to check nearby positions.
+Common causes include restrictive filters, WES positions outside capture regions, or missing chromosomes. For a step-by-step diagnostic checklist, see [Debugging Results → Unexpected AN=0](advanced/debugging-results.md#1-unexpected-an0).
 
 ---
 
