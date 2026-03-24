@@ -38,18 +38,18 @@ def _write_vcf_with_filter(path: Path, sample_name: str, records: list[tuple]) -
 
 
 # ---------------------------------------------------------------------------
-# Tests: N_FAIL from test_db (v2 fixture)
+# Tests: N_FAIL from test_db
 # ---------------------------------------------------------------------------
 
 def test_fail_samples_returned(test_db):
-    """N_FAIL should be returned for v2 DBs and match conftest VARIANTS."""
+    """N_FAIL should always be present and match conftest VARIANTS."""
     db = Database(test_db)
     # chr1:1500 A>T — fail_ids=[0] from conftest
     results = db.query(chrom="chr1", pos=1500)
     assert results, "Expected at least one result"
     r = next((x for x in results if x.variant.ref == "A" and x.variant.alt == "T"), None)
     assert r is not None
-    assert r.N_FAIL >= 0, "v2 DB should return N_FAIL"
+    assert r.N_FAIL >= 0, "should return N_FAIL"
     assert r.N_FAIL == 1  # only S00 (id=0) fails
 
 
@@ -93,21 +93,21 @@ def test_fail_samples_filtered_by_eligible(test_db):
             assert r.N_FAIL == 0
 
 def test_fail_samples_in_query_region(test_db):
-    """query_region also returns N_FAIL for v2 DBs."""
+    """query_region also returns N_FAIL."""
     db = Database(test_db)
     results = db.query_region(chrom="chr1", start=1000, end=2000)
     assert results
     for r in results:
-        assert r.N_FAIL >= 0, "query_region should return N_FAIL for v2 DB"
+        assert r.N_FAIL >= 0, "query_region should return N_FAIL"
 
 
 def test_fail_samples_in_query_batch(test_db):
-    """query_batch also returns N_FAIL for v2 DBs."""
+    """query_batch also returns N_FAIL."""
     db = Database(test_db)
     results = db.query_batch(chrom="chr1", variants=[(1500, "A", "T"), (3500, "G", "C")])
     assert results
     for r in results:
-        assert r.N_FAIL >= 0, "query_batch should return N_FAIL for v2 DB"
+        assert r.N_FAIL >= 0, "query_batch should return N_FAIL"
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +153,7 @@ def test_pass_only_default_in_preprocess(tmp_path):
 
 
 def test_variant_with_only_fail_appears(tmp_path):
-    """A variant where all carriers fail FILTER (AC=0) still appears in v2 DB with FAIL>0."""
+    """A variant where all carriers fail FILTER (AC=0) still appears with FAIL>0."""
     records_by_sample = {
         "S00": [("chr1", 2000, "G", "C", "0/1", "LowQual")],  # only carrier, fails
     }
@@ -168,7 +168,7 @@ def test_variant_with_only_fail_appears(tmp_path):
     )
     db = Database(str(db_path))
     results = db.query(chrom="chr1", pos=2000)
-    assert results, "Variant with only fail carriers should still appear in v2 DB"
+    assert results, "Variant with only fail carriers should still appear"
     r = results[0]
     assert r.AC == 0, f"Expected AC=0 (carrier fails FILTER), got AC={r.AC}"
     assert r.N_FAIL == 1, f"Expected N_FAIL=1, got {r.N_FAIL}"

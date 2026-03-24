@@ -2,7 +2,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from .models import QueryParams, QueryResult, SampleFilter
+from .models import QueryParams, QueryResult, SampleCarrier, SampleFilter
 from .query import QueryEngine
 
 
@@ -85,6 +85,40 @@ class Database:
     ) -> list[QueryResult]:
         sf = self._make_filter(phenotype, sex, tech)
         return self._engine.query_region(chrom, start, end, sf)
+
+    def variant_info(
+        self,
+        chrom: str,
+        pos: int,
+        ref: str | None = None,
+        alt: str | None = None,
+        phenotype: list[str] | None = None,
+        sex: str = "both",
+        tech: list[str] | None = None,
+    ) -> list[SampleCarrier]:
+        """Return all samples carrying a variant, with their metadata.
+
+        Each element includes sample name, sex, technology, phenotype codes,
+        genotype (``"het"``, ``"hom"``, or ``"alt"`` for FILTER≠PASS samples),
+        and FILTER status.
+
+        Args:
+            chrom: Chromosome (e.g. ``"chr1"`` or ``"1"``).
+            pos: Position, 1-based.
+            ref: Reference allele filter. If omitted, all alleles at *pos* are returned.
+            alt: Alternate allele filter. If omitted, all alleles at *pos* are returned.
+            phenotype: Phenotype filter tokens. Use ``"^CODE"`` prefix to exclude.
+            sex: ``"both"`` (default), ``"male"``, or ``"female"``.
+            tech: Technology filter tokens. Use ``"^TECH"`` prefix to exclude.
+
+        Returns:
+            List of :class:`~afquery.models.SampleCarrier` sorted by
+            ``sample_id``.  Empty list if the variant is absent or no eligible
+            carrier exists.
+        """
+        sf = self._make_filter(phenotype, sex, tech)
+        params = QueryParams(chrom=chrom, pos=pos, filter=sf, ref=ref, alt=alt)
+        return self._engine.variant_info(params)
 
     def query_region_multi(
         self,

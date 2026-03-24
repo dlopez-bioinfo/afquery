@@ -281,6 +281,60 @@ Export allele frequency data to CSV. If `output` is None, writes to stdout.
 
 ---
 
+### variant_info
+
+```python
+db.variant_info(
+    chrom: str,
+    pos: int,
+    ref: str | None = None,
+    alt: str | None = None,
+    phenotype: list[str] | None = None,
+    sex: str = "both",
+    tech: list[str] | None = None,
+) -> list[SampleCarrier]
+```
+
+Return all samples carrying the variant at the given position, with their metadata.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `chrom` | str | Chromosome name (e.g., `"chr1"`, `"chrX"`) |
+| `pos` | int | 1-based genomic position |
+| `ref` | str \| None | Filter to specific reference allele |
+| `alt` | str \| None | Filter to specific alternate allele |
+| `phenotype` | list[str] \| None | Phenotype filter codes. Use `"^CODE"` prefix to exclude. |
+| `sex` | str | `"both"` (default), `"male"`, or `"female"` |
+| `tech` | list[str] \| None | Technology filter. Use `"^TECH"` prefix to exclude. |
+
+**Returns:** List of `SampleCarrier` objects sorted by `sample_id`. Empty list if no eligible carrier exists.
+
+**Example:**
+
+```python
+carriers = db.variant_info("chr1", pos=925952)
+for c in carriers:
+    print(f"{c.sample_name}  {c.genotype}  {c.tech_name}  {c.phenotypes}")
+
+# With allele and sample filters
+carriers = db.variant_info(
+    chrom="chr17", pos=41245466, ref="A", alt="T",
+    phenotype=["E11.9"], sex="female", tech=["WGS"],
+)
+```
+
+The `variant_info` function is also available at the top level for one-off use:
+
+```python
+from afquery import variant_info
+
+carriers = variant_info("./db/", "chr1", 925952, ref="G", alt="A")
+```
+
+---
+
 ### add_samples
 
 ```python
@@ -415,6 +469,34 @@ class VariantKey:
 
 ---
 
+## SampleCarrier
+
+```python
+@dataclass
+class SampleCarrier:
+    sample_id: int        # 0-based internal ID
+    sample_name: str      # Name from manifest
+    sex: str              # 'male' | 'female'
+    tech_name: str        # Sequencing technology
+    phenotypes: list[str] # Sorted phenotype codes
+    genotype: str         # 'het' | 'hom' | 'alt'
+    filter_pass: bool     # False = FILTER≠PASS
+```
+
+Returned by `Database.variant_info()`. Each instance represents one sample carrying the queried variant.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sample_id` | int | 0-based internal sample ID |
+| `sample_name` | str | Sample name from manifest |
+| `sex` | str | `"male"` or `"female"` |
+| `tech_name` | str | Sequencing technology name |
+| `phenotypes` | list[str] | Sorted list of phenotype codes |
+| `genotype` | str | `"het"` (heterozygous, PASS), `"hom"` (homozygous alt, PASS), or `"alt"` (non-ref, FILTER≠PASS) |
+| `filter_pass` | bool | `True` if FILTER=PASS, `False` otherwise |
+
+---
+
 ## SampleFilter
 
 ```python
@@ -488,4 +570,9 @@ batch_results = db.query_batch_multi(variants)
 regions = [("chr1", 900000, 1000000), ("chrX", 5000000, 6000000)]
 region_results = db.query_region_multi(regions)
 print(f"Found {len(region_results)} variants across {len(regions)} regions")
+
+# Carrier lookup
+carriers = db.variant_info("chr1", pos=925952)
+for c in carriers:
+    print(f"{c.sample_name}  {c.genotype}  {c.tech_name}  PASS={c.filter_pass}")
 ```
