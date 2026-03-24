@@ -9,6 +9,7 @@
 **Cause:** The per-worker DuckDB memory limit is too low for your cohort size or variant density.
 
 **Fix:**
+
 - Lower the number of parallel build workers: `--build-threads 4`
 - Increase per-worker memory: `--build-memory 4GB`
 - Both together keep total RAM the same with fewer concurrent workers
@@ -35,6 +36,7 @@ Common causes include restrictive filters, WES positions outside capture regions
 **Symptom:** `afquery annotate` takes much longer than expected.
 
 **Fixes:**
+
 - Increase thread count: `--threads 16`
 - Check disk I/O: annotation reads many small Parquet files; SSDs are significantly faster than spinning disks
 - For very large VCFs (1M+ variants), annotation time scales linearly with variant count

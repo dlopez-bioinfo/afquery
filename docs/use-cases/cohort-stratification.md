@@ -11,6 +11,7 @@ General population databases do not allow stratification by disease group or seq
 ## Solution with AFQuery
 
 AFQuery allows computing AF over any combination of metadata filters on the same database. You can compare:
+
 - WGS vs. WES (technology artifact detection)
 - Disease group A vs. disease group B (disease enrichment)
 - Within-technology disease comparisons (controlling for technology)

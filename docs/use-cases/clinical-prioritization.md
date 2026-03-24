@@ -30,6 +30,7 @@ afquery annotate \
 ```
 
 This adds to each variant:
+
 - `AFQUERY_AC`: allele count in cohort
 - `AFQUERY_AN`: allele number (eligible samples at this position)
 - `AFQUERY_AF`: allele frequency
@@ -105,6 +106,7 @@ print(f"Rare candidates: {len(rare_candidates)}")
 A typical clinical pipeline retains ~1,500 rare/novel candidates after cohort AF filtering, compared to 500,000 before.
 
 **AN threshold guidance:**
+
 - `AN >= 100`: minimum for any AF interpretation
 - `AN >= 500`: recommended for rare variant filtering
 - `AN >= 1000`: conservative threshold for robust AF estimates

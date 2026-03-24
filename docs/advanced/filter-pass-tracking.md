@@ -7,10 +7,12 @@ AFQuery tracks variants that are called but fail quality filters (`FILTER≠PASS
 ## Background: VCF FILTER Field
 
 In VCF format, the FILTER column indicates whether a variant call passed quality filters:
+
 - `PASS` or `.` (missing) — the variant passed all filters
 - Any other value (e.g., `LowQual`, `VQSRTrancheSNP99.90to100.00`) — the variant failed one or more filters
 
 AFQuery default behavior:
+
 - **PASS-only**: only `FILTER=PASS` variants are counted in AC/AN. This is always enforced.
 
 ---
@@ -22,6 +24,7 @@ AFQuery stores a third bitmap per variant alongside `het_bitmap` and `hom_bitmap
 - **`fail_bitmap`** — bit set for each sample that has a non-ref genotype (AC>0) AND `FILTER≠PASS`
 
 This means:
+
 - A sample in `fail_bitmap` was genotyped with the alt allele but the call failed QC
 - Such samples are **not** counted in AC/AN (they don't affect AF)
 - Their count is exposed as `N_FAIL`

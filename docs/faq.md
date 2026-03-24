@@ -135,6 +135,7 @@ print(db.get_all_phenotypes())
 ## Does filtering by technology affect WGS samples?
 
 WGS samples are always covered at every position (no BED file). Technology filters work by sample membership, not coverage:
+
 - `--tech wgs` restricts to samples with `tech=wgs` in the manifest
 - WES samples at positions outside their capture BED are excluded by coverage, not by the tech filter
 
@@ -180,6 +181,7 @@ Use `afquery info --db ./db/` to list all registered codes before running querie
 Low AN means the allele frequency estimate is unreliable.
 
 **Rules of thumb:**
+
 - **AN ≥ 100**: bare minimum for any interpretation
 - **AN ≥ 500**: necessary for rare variant filtering
 - **AN ≥ 1000**: required for clinical variant interpretation
@@ -193,6 +195,7 @@ For per-criterion thresholds see [ACMG Criteria — AN Threshold Guidance](use-c
 If your cohort is a mix of ancestries, the AF reflects a weighted average across all ancestries. A variant at AF=0.001 globally may be at AF=0.01 in a subpopulation.
 
 **Mitigation:**
+
 - Tag samples by ancestry or population in `phenotype_codes`
 - Use stratified queries: `afquery query --phenotype AFR` for African samples, `--phenotype EUR` for European samples, etc.
 - Compare AF across subgroups to detect ancestry-specific signals

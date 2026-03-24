@@ -146,6 +146,7 @@ afquery query \
 ```
 
 This selects samples that are:
+
 - Female **AND**
 - Have phenotype code E11.9 **AND**
 - Use WGS technology
@@ -155,6 +156,7 @@ This selects samples that are:
 ## Effect on AN
 
 AN is computed only over eligible samples. When filters are applied:
+
 - Samples excluded by phenotype/sex/tech do not contribute to AN
 - WES samples at positions outside their capture regions do not contribute to AN
 - A result with `AN=0` means no eligible samples at that position

@@ -117,6 +117,7 @@ This can be used to validate results. N_HOM_REF is the number of eligible sample
 - A female with GT=`1/1` contributes AC=2, AN=2
 
 N_HET and N_HOM_ALT are counted per sample (not per allele):
+
 - Males at chrX non-PAR (haploid positions) are counted in **N_HOM_ALT** when GT=1, because all alleles at that position are alternate. N_HET is reserved for diploid positions where both reference and alternate alleles are present.
 - Females at chrX with GT=`0/1` are counted in N_HET; with GT=`1/1` in N_HOM_ALT.
 
@@ -142,10 +143,12 @@ chrM is haploid for all samples (both sexes contribute AN=1):
 ## Sex Filter Interaction
 
 When `--sex female` is used on chrX (non-PAR), AN is purely diploid:
+
 - Each eligible female contributes AN=2
 - AF is computed over a fully diploid denominator
 
 When `--sex male` is used on chrX (non-PAR), AN is purely haploid:
+
 - Each eligible male contributes AN=1
 - AF reflects the observed allele frequency in haploid male calls
 
