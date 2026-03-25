@@ -1,0 +1,7 @@
+# Benchmark data directories (large, external)
+# Users create these as needed via config.py
+
+# pycache
+__pycache__/
+*.pyc
+.pytest_cache/
