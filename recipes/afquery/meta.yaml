@@ -6,7 +6,7 @@ package:
   version: {{ version }}
 
 source:
-  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  url: https://files.pythonhosted.org/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
   sha256: PLACEHOLDER
 
 build:
@@ -17,13 +17,6 @@ build:
     - afquery = afquery.cli:cli
   run_exports:
     - python >=3.10
-    - pyroaring >=0.4.8
-    - pyarrow >=14.0
-    - duckdb >=0.10
-    - click >=8.1
-    - cyvcf2 >=0.30
-    - tqdm >=4.60
-    - pyranges >=0.1.2,<0.2
 
 requirements:
   host:
@@ -50,6 +43,7 @@ test:
 about:
   home: https://github.com/dlopez-bioinfo/afquery
   license: MIT
+  license_file: LICENSE
   summary: Genomic allele frequency query engine with bitmap-encoded genotypes
 
 extra:
