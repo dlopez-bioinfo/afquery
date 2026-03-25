@@ -18,7 +18,7 @@ module load parallel
 DATA_DIR="/mnt/lustre/home/dlopez/projects/afquery_bench_data"
 ONEKG_DIR="${DATA_DIR}/1kg"
 VCF_DIR="${ONEKG_DIR}/vcfs"
-THREADS=16
+THREADS=$(nproc)
 
 FTP_BASE="https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502"
 CHR22_VCF="ALL.chr22.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz"
@@ -34,9 +34,9 @@ mkdir -p "${ONEKG_DIR}" "${VCF_DIR}"
 # ---------------------------------------------------------------------------
 echo "[1/4] Downloading 1KG chr22 VCF..."
 if [ ! -f "${ONEKG_DIR}/${CHR22_VCF}" ]; then
-    wget -q --show-progress -O "${ONEKG_DIR}/${CHR22_VCF}" \
+    wget -c -q --show-progress -O "${ONEKG_DIR}/${CHR22_VCF}" \
         "${FTP_BASE}/${CHR22_VCF}"
-    wget -q --show-progress -O "${ONEKG_DIR}/${CHR22_VCF}.tbi" \
+    wget -c -q --show-progress -O "${ONEKG_DIR}/${CHR22_VCF}.tbi" \
         "${FTP_BASE}/${CHR22_VCF}.tbi"
 else
     echo "  Already downloaded: ${CHR22_VCF}"
@@ -44,7 +44,7 @@ fi
 
 echo "[2/4] Downloading panel (sample metadata)..."
 if [ ! -f "${ONEKG_DIR}/${PANEL_FILE}" ]; then
-    wget -q --show-progress -O "${ONEKG_DIR}/${PANEL_FILE}" \
+    wget -c -q --show-progress -O "${ONEKG_DIR}/${PANEL_FILE}" \
         "${FTP_BASE}/${PANEL_FILE}"
 else
     echo "  Already downloaded: ${PANEL_FILE}"

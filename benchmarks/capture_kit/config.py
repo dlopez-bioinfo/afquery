@@ -10,6 +10,7 @@ Coverage overlap on chr22:
 """
 
 import importlib.util
+import os
 from pathlib import Path
 
 # Import shared 1KG config from performance benchmark
@@ -44,7 +45,7 @@ FIGURES_DIR = Path(__file__).resolve().parent / "figures"
 # Parameters
 # ---------------------------------------------------------------------------
 N_SAMPLES = 1000
-THREADS = 16
+THREADS = os.cpu_count() or 1
 
 SCENARIOS = {
     "balanced": {"SureSelect_v5": 334, "SureSelect_v6": 333, "SureSelect_v7": 333},
