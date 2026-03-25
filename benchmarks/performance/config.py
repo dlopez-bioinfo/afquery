@@ -60,7 +60,7 @@ BUILD_THREAD_COUNTS = [1, 4, 8, 16, 32]
 BUILD_SCALES = [1_000, 5_000, 10_000]
 
 # Annotation throughput (Experiment 3)
-ANNOTATE_THREAD_COUNTS = [1, 4, 8, 16]
+ANNOTATE_THREAD_COUNTS = [1, 4, 8, 16, 32]
 ANNOTATE_VARIANT_COUNTS = [10_000, 50_000, 100_000]
 
 # bcftools comparison (Experiment 4)

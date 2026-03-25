@@ -7,6 +7,7 @@ cd "${SCRIPT_DIR}"
 # Load HPC modules
 module load BCFtools/1.18-GCC-12.3.0
 module load BEDTools/2.31.0-GCC-12.3.0
+module load htslib/1.18-GCC-12.3.0
 module load parallel
 
 PYTHON="/mnt/lustre/home/dlopez/micromamba/envs/afquery/bin/python"
