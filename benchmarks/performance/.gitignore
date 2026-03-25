@@ -1,0 +1,17 @@
+# Benchmark data and results
+/results/
+/figures/
+*.json
+*.pdf
+*.png
+
+# Cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Download logs
+*.log
+
+# Temporary
+*.tmp
