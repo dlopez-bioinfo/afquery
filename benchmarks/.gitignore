@@ -5,3 +5,13 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# benchmarking results
+results
+.snakemake
+
+# Snakemake log directory
+logs/
+
+# Default data directory
+.results/

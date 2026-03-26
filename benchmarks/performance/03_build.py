@@ -218,9 +218,9 @@ def main():
             all_results.append(metrics)
             logger.info("  Result: %s", metrics)
 
-            if threads != BUILD_THREAD_COUNTS[-1]:
-                if db_dir.exists():
-                    shutil.rmtree(db_dir)
+            # Always clean up DB after measuring
+            if db_dir.exists():
+                shutil.rmtree(db_dir)
 
     out = RESULTS_DIR / "build_perf.json"
     out.write_text(json.dumps(all_results, indent=2))
