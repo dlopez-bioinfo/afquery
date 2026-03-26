@@ -22,6 +22,7 @@ CK_MANIFEST_DIR = Path(_ck.MANIFEST_DIR)
 CK_DIR = _bench / "capture_kit"
 
 SCENARIOS = list(_ck.SCENARIOS.keys())
+CK_SCENARIOS_ALL = ["wgs"] + SCENARIOS
 
 
 rule capture_kit_prepare:
@@ -48,29 +49,46 @@ rule capture_kit_prepare:
         """
 
 
-rule capture_kit_build:
-    """Build WGS ground truth and WES scenario databases."""
+rule capture_kit_build_one:
+    """Build one AFQuery database for a capture kit scenario."""
+    wildcard_constraints:
+        scenario=r"\w+",
     input:
-        manifests=rules.capture_kit_prepare.output.manifests,
+        manifest=str(CK_MANIFEST_DIR / "manifest_{scenario}.tsv"),
     output:
-        done=touch(str(CK_DB_DIR / ".build_done")),
+        done=touch(str(CK_DB_DIR / "db_{scenario}" / ".build_done")),
     log:
-        "logs/capture_kit/build_databases.log",
+        "logs/capture_kit/build_{scenario}.log",
     threads: 52
     resources:
         mem_mb=64_000,
-        runtime=480,
+        runtime=120,
         slurm_extra="--nodes=1",
     shell:
         """
-        cd {CK_DIR} && python 02_build_databases.py > {log} 2>&1
+        cd {CK_DIR} && python 02_build_databases.py \
+            --scenario {wildcards.scenario} \
+            > {log} 2>&1
         """
+
+
+rule capture_kit_build_all:
+    """Wait for all capture kit DBs to be built."""
+    input:
+        done=expand(
+            str(CK_DB_DIR / "db_{scenario}" / ".build_done"),
+            scenario=CK_SCENARIOS_ALL,
+        ),
+    output:
+        done=touch(str(CK_DB_DIR / ".build_done")),
+    log:
+        "logs/capture_kit/build_all.log",
 
 
 rule capture_kit_metrics:
     """Dump variants, compute NADI and AF error metrics."""
     input:
-        rules.capture_kit_build.output.done,
+        rules.capture_kit_build_all.output.done,
     output:
         parquet=str(CK_RESULTS / "merged.parquet"),
         summary=str(CK_RESULTS / "nadi_summary.json"),

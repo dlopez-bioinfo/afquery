@@ -29,90 +29,310 @@ PERF_FIGURES = Path(_pc.FIGURES_DIR)
 # ---------------------------------------------------------------------------
 PERF_DIR = _bench / "performance"
 
+# ---------------------------------------------------------------------------
+# Experiment parameters (read from config, overridable via smoke_test)
+# ---------------------------------------------------------------------------
+ONEKG_SUBSETS         = list(_pc.ONEKG_SUBSETS)
+SYNTH_SCALES          = list(_pc.SYNTH_SCALES)
+BUILD_SCALES          = list(_pc.BUILD_SCALES)
+BUILD_THREAD_COUNTS   = list(_pc.BUILD_THREAD_COUNTS)
+ANNOTATE_VARIANT_COUNTS = list(_pc.ANNOTATE_VARIANT_COUNTS)
+ANNOTATE_THREAD_COUNTS  = list(_pc.ANNOTATE_THREAD_COUNTS)
 
-rule performance_prepare:
-    """Build 1KG and synthetic databases."""
+# Smoke test: shrink parameter space for quick validation
+if config.get("smoke_test"):
+    ONEKG_SUBSETS           = [500]
+    SYNTH_SCALES            = [1_000]
+    BUILD_SCALES            = [1_000]
+    BUILD_THREAD_COUNTS     = [1, 4]
+    ANNOTATE_VARIANT_COUNTS = [10_000]
+    ANNOTATE_THREAD_COUNTS  = [1, 4]
+
+# Intermediate per-run outputs live under results/raw/ (or results/raw_smoke/)
+PERF_RAW = PERF_RESULTS / ("raw_smoke" if config.get("smoke_test") else "raw")
+
+# ---------------------------------------------------------------------------
+# Group A: Data preparation — 8 parallel DB builds
+# ---------------------------------------------------------------------------
+
+
+rule performance_prepare_1kg:
+    """Build one 1KG database at a given subset size."""
+    wildcard_constraints:
+        n=r"\d+",
     input:
         manifest=str(ONEKG_MANIFEST),
     output:
-        inventory=str(PERF_RESULTS / "data_inventory.json"),
+        done=str(PERF_RAW / "prepare" / "1kg_{n}.json"),
     log:
-        "logs/performance/prepare_data.log",
+        "logs/performance/prepare_1kg_{n}.log",
     threads: 52
     resources:
         mem_mb=32_000,
-        runtime=240,
+        runtime=120,
     shell:
         """
-        cd {PERF_DIR} && python 01_prepare_data.py > {log} 2>&1
+        cd {PERF_DIR} && python 01_prepare_data.py \
+            --mode 1kg --n-samples {wildcards.n} \
+            --output {output.done} \
+            > {log} 2>&1
         """
 
 
-rule performance_query_scaling:
-    """Experiment 1: query latency vs. sample count."""
-    input:
-        inventory=str(PERF_RESULTS / "data_inventory.json"),
+rule performance_prepare_synth:
+    """Build one synthetic database at a given sample count."""
+    wildcard_constraints:
+        n=r"\d+",
     output:
-        results=str(PERF_RESULTS / "query_scaling.json"),
+        done=str(PERF_RAW / "prepare" / "synth_{n}.json"),
     log:
-        "logs/performance/query_scaling.log",
+        "logs/performance/prepare_synth_{n}.log",
+    threads: 52
+    resources:
+        mem_mb=32_000,
+        runtime=120,
+    shell:
+        """
+        cd {PERF_DIR} && python 01_prepare_data.py \
+            --mode synth --n-samples {wildcards.n} \
+            --output {output.done} \
+            > {log} 2>&1
+        """
+
+
+rule performance_data_inventory:
+    """Collect all per-DB build results into data_inventory.json."""
+    input:
+        onekg=expand(
+            str(PERF_RAW / "prepare" / "1kg_{n}.json"),
+            n=ONEKG_SUBSETS,
+        ),
+        synth=expand(
+            str(PERF_RAW / "prepare" / "synth_{n}.json"),
+            n=SYNTH_SCALES,
+        ),
+    output:
+        inventory=str(PERF_RESULTS / "data_inventory.json"),
+    log:
+        "logs/performance/data_inventory.log",
+    threads: 1
+    resources:
+        mem_mb=4_000,
+        runtime=5,
+    shell:
+        """
+        cd {PERF_DIR} && python collect_prepare.py \
+            --onekg-jsons {input.onekg} \
+            --synth-jsons {input.synth} \
+            --output {output.inventory} \
+            > {log} 2>&1
+        """
+
+
+# ---------------------------------------------------------------------------
+# Group B: Query scaling — 5 parallel per-scale runs
+# ---------------------------------------------------------------------------
+
+
+rule performance_query_scaling_one:
+    """Query scaling benchmark for one synthetic DB scale."""
+    wildcard_constraints:
+        n=r"\d+",
+    input:
+        done=str(PERF_RAW / "prepare" / "synth_{n}.json"),
+    output:
+        result=str(PERF_RAW / "query" / "query_{n}.json"),
+    log:
+        "logs/performance/query_{n}.log",
     threads: 1
     resources:
         mem_mb=16_000,
-        runtime=120,
+        runtime=30,
     shell:
         """
-        cd {PERF_DIR} && python 02_query_scaling.py > {log} 2>&1
+        cd {PERF_DIR} && python 02_query_scaling.py \
+            --scale {wildcards.n} \
+            --output {output.result} \
+            > {log} 2>&1
         """
 
 
-rule performance_build_perf:
-    """Experiment 2: build time vs. threads."""
+rule performance_query_scaling_collect:
+    """Merge per-scale query results into query_scaling.json."""
     input:
-        inventory=str(PERF_RESULTS / "data_inventory.json"),
+        results=expand(
+            str(PERF_RAW / "query" / "query_{n}.json"),
+            n=SYNTH_SCALES,
+        ),
+    output:
+        results=str(PERF_RESULTS / "query_scaling.json"),
+    log:
+        "logs/performance/query_scaling_collect.log",
+    threads: 1
+    resources:
+        mem_mb=4_000,
+        runtime=5,
+    shell:
+        """
+        cd {PERF_DIR} && python collect_query_scaling.py \
+            --inputs {input.results} \
+            --output {output.results} \
+            > {log} 2>&1
+        """
+
+
+# ---------------------------------------------------------------------------
+# Group C: Build performance — 3 synth gen + 15 parallel builds
+# ---------------------------------------------------------------------------
+
+
+rule performance_build_synth_gen:
+    """Generate synthetic VCFs for one build-bench scale."""
+    wildcard_constraints:
+        n=r"\d+",
+    output:
+        done=str(PERF_RAW / "build" / "gen_{n}.json"),
+    log:
+        "logs/performance/build_gen_{n}.log",
+    threads: 1
+    resources:
+        mem_mb=8_000,
+        runtime=30,
+    shell:
+        """
+        cd {PERF_DIR} && python 03_build.py \
+            --phase gen \
+            --n-samples {wildcards.n} \
+            --output {output.done} \
+            > {log} 2>&1
+        """
+
+
+rule performance_build_one:
+    """Run one (n_samples, threads) build benchmark combination."""
+    wildcard_constraints:
+        n=r"\d+",
+        t=r"\d+",
+    input:
+        gen=str(PERF_RAW / "build" / "gen_{n}.json"),
+    output:
+        result=str(PERF_RAW / "build" / "build_{n}_{t}t.json"),
+    log:
+        "logs/performance/build_{n}_{t}t.log",
+    threads: lambda wc: int(wc.t)
+    resources:
+        mem_mb=lambda wc, threads: threads * 4_000,
+        runtime=120,
+        slurm_extra="--nodes=1",
+    shell:
+        """
+        cd {PERF_DIR} && python 03_build.py \
+            --phase build \
+            --n-samples {wildcards.n} \
+            --threads {wildcards.t} \
+            --output {output.result} \
+            > {log} 2>&1
+        """
+
+
+rule performance_build_collect:
+    """Merge all build results into build_perf.json."""
+    input:
+        results=expand(
+            str(PERF_RAW / "build" / "build_{n}_{t}t.json"),
+            n=BUILD_SCALES,
+            t=BUILD_THREAD_COUNTS,
+        ),
     output:
         results=str(PERF_RESULTS / "build_perf.json"),
     log:
-        "logs/performance/build_perf.log",
-    threads: 52
+        "logs/performance/build_collect.log",
+    threads: 1
     resources:
-        mem_mb=64_000,
-        runtime=480,
+        mem_mb=4_000,
+        runtime=5,
+    shell:
+        """
+        cd {PERF_DIR} && python collect_build_perf.py \
+            --inputs {input.results} \
+            --output {output.results} \
+            > {log} 2>&1
+        """
+
+
+# ---------------------------------------------------------------------------
+# Group D: Annotation throughput — 15 parallel runs
+# ---------------------------------------------------------------------------
+
+
+rule performance_annotate_one:
+    """Run one (n_variants, threads) annotation benchmark."""
+    wildcard_constraints:
+        n=r"\d+",
+        t=r"\d+",
+    input:
+        done=str(PERF_RAW / "prepare" / "1kg_{max_subset}.json".format(
+            max_subset=max(ONEKG_SUBSETS)
+        )),
+    output:
+        result=str(PERF_RAW / "annotate" / "annotate_{n}_{t}t.json"),
+    log:
+        "logs/performance/annotate_{n}_{t}t.log",
+    threads: lambda wc: int(wc.t)
+    resources:
+        mem_mb=lambda wc, threads: max(8_000, threads * 2_000),
+        runtime=30,
         slurm_extra="--nodes=1",
     shell:
         """
-        cd {PERF_DIR} && python 03_build.py > {log} 2>&1
+        cd {PERF_DIR} && python 04_annotate.py \
+            --n-variants {wildcards.n} \
+            --threads {wildcards.t} \
+            --output {output.result} \
+            > {log} 2>&1
         """
 
 
-rule performance_annotate:
-    """Experiment 3: annotation throughput vs. threads."""
+rule performance_annotate_collect:
+    """Merge all annotation results and compute speedup ratios."""
     input:
-        inventory=str(PERF_RESULTS / "data_inventory.json"),
+        results=expand(
+            str(PERF_RAW / "annotate" / "annotate_{n}_{t}t.json"),
+            n=ANNOTATE_VARIANT_COUNTS,
+            t=ANNOTATE_THREAD_COUNTS,
+        ),
     output:
         results=str(PERF_RESULTS / "annotate_throughput.json"),
     log:
-        "logs/performance/annotate_throughput.log",
-    threads: 52
+        "logs/performance/annotate_collect.log",
+    threads: 1
     resources:
-        mem_mb=32_000,
-        runtime=120,
-        slurm_extra="--nodes=1",
+        mem_mb=4_000,
+        runtime=5,
     shell:
         """
-        cd {PERF_DIR} && python 04_annotate.py > {log} 2>&1
+        cd {PERF_DIR} && python collect_annotate.py \
+            --inputs {input.results} \
+            --output {output.results} \
+            > {log} 2>&1
         """
 
 
-rule performance_bcftools:
-    """Experiment 4: AFQuery vs. bcftools."""
+# ---------------------------------------------------------------------------
+# Group E: bcftools comparison — 3 parallel + 1 concordance
+# ---------------------------------------------------------------------------
+
+
+rule performance_bcftools_one:
+    """Run bcftools comparison for one 1KG subset size."""
+    wildcard_constraints:
+        n=r"\d+",
     input:
-        inventory=str(PERF_RESULTS / "data_inventory.json"),
+        done=str(PERF_RAW / "prepare" / "1kg_{n}.json"),
     output:
-        comparison=str(PERF_RESULTS / "bcftools_comparison.json"),
-        concordance=str(PERF_RESULTS / "concordance.json"),
+        result=str(PERF_RAW / "bcftools" / "bcftools_{n}.json"),
     log:
-        "logs/performance/bcftools_comparison.log",
+        "logs/performance/bcftools_{n}.log",
     threads: 1
     resources:
         mem_mb=16_000,
@@ -120,8 +340,67 @@ rule performance_bcftools:
     shell:
         """
         module load BCFtools/1.18-GCC-12.3.0 2>/dev/null || true
-        cd {PERF_DIR} && python 05_vs_bcftools.py > {log} 2>&1
+        cd {PERF_DIR} && python 05_vs_bcftools.py \
+            --n-samples {wildcards.n} \
+            --output {output.result} \
+            > {log} 2>&1
         """
+
+
+rule performance_bcftools_concordance:
+    """Compute AF concordance on the largest 1KG subset."""
+    input:
+        done=str(PERF_RAW / "prepare" / "1kg_{n}.json".format(
+            n=max(ONEKG_SUBSETS)
+        )),
+    output:
+        concordance=str(PERF_RESULTS / "concordance.json"),
+    log:
+        "logs/performance/bcftools_concordance.log",
+    params:
+        max_subset=max(ONEKG_SUBSETS),
+    threads: 1
+    resources:
+        mem_mb=16_000,
+        runtime=30,
+    shell:
+        """
+        module load BCFtools/1.18-GCC-12.3.0 2>/dev/null || true
+        cd {PERF_DIR} && python 05_vs_bcftools.py \
+            --n-samples {params.max_subset} \
+            --concordance-only \
+            --output {output.concordance} \
+            > {log} 2>&1
+        """
+
+
+rule performance_bcftools_collect:
+    """Merge per-subset bcftools results into bcftools_comparison.json."""
+    input:
+        results=expand(
+            str(PERF_RAW / "bcftools" / "bcftools_{n}.json"),
+            n=ONEKG_SUBSETS,
+        ),
+    output:
+        comparison=str(PERF_RESULTS / "bcftools_comparison.json"),
+    log:
+        "logs/performance/bcftools_collect.log",
+    threads: 1
+    resources:
+        mem_mb=4_000,
+        runtime=5,
+    shell:
+        """
+        cd {PERF_DIR} && python collect_bcftools.py \
+            --inputs {input.results} \
+            --output {output.comparison} \
+            > {log} 2>&1
+        """
+
+
+# ---------------------------------------------------------------------------
+# Plotting (unchanged)
+# ---------------------------------------------------------------------------
 
 
 rule performance_plot:
