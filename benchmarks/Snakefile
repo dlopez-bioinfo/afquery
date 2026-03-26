@@ -52,6 +52,16 @@ if config.get("data_dir"):
 workflow._globals = {}  # not needed; sub-files access via import
 
 # ---------------------------------------------------------------------------
+# Create log directories before any rule runs (Snakemake does not auto-create
+# log dirs, unlike output dirs).
+# ---------------------------------------------------------------------------
+onstart:
+    import os
+    for subdir in ["performance", "capture_kit"]:
+        os.makedirs(f"logs/{subdir}", exist_ok=True)
+
+
+# ---------------------------------------------------------------------------
 # Include sub-pipelines
 # ---------------------------------------------------------------------------
 include: "shared/rules/download_1kg.smk"
