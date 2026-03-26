@@ -39,6 +39,15 @@ from shared.config import (  # noqa: E402
 # ---------------------------------------------------------------------------
 configfile: "config.yaml"
 
+# Normalize conda env path once at root so included Snakefiles resolve the
+# environment file consistently (independent of include location).
+if config.get("conda_env_file"):
+    _conda_env = Path(config["conda_env_file"])
+    if not _conda_env.is_absolute():
+        config["conda_env_file"] = str((_bench / _conda_env).resolve())
+
+
+
 # Guard: data_dir must be set
 if not config.get("data_dir", "").strip():
     raise WorkflowError(
