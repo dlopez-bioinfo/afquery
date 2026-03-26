@@ -30,7 +30,7 @@ rule download_1kg:
         slurm_extra="--nodes=1",
     shell:
         """
-        module load BCFtools/1.18-GCC-12.3.0 parallel 2>/dev/null || true
+        mkdir -p $(dirname {log}) && module load BCFtools/1.18-GCC-12.3.0 parallel 2>/dev/null || true
         export ONEKG_DIR="{ONEKG_DIR}"
         export THREADS={threads}
         bash {workflow.basedir}/shared/scripts/download_1kg.sh \
