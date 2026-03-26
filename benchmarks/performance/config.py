@@ -35,7 +35,7 @@ SYNTH_DIR = DATA_DIR / "synth"
 SYNTH_DB_DIR = DATA_DIR / "synth_dbs"
 
 # Results and figures
-RESULTS_DIR = DATA_DIR / "results"
+RESULTS_DIR = DATA_DIR
 FIGURES_DIR = BENCHMARKS_DIR / "figures"
 
 # ---------------------------------------------------------------------------
