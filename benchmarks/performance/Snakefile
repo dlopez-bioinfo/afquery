@@ -77,10 +77,10 @@ rule performance_prepare_1kg:
         runtime=120,
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python 01_prepare_data.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 01_prepare_data.py \
             --mode 1kg --n-samples {wildcards.n} \
             --output {output.done} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -98,10 +98,10 @@ rule performance_prepare_synth:
         runtime=120,
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python 01_prepare_data.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 01_prepare_data.py \
             --mode synth --n-samples {wildcards.n} \
             --output {output.done} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -126,11 +126,11 @@ rule performance_data_inventory:
         runtime=5,
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python collect_prepare.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python collect_prepare.py \
             --onekg-jsons {input.onekg} \
             --synth-jsons {input.synth} \
             --output {output.inventory} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -155,10 +155,10 @@ rule performance_query_scaling_one:
         runtime=30,
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python 02_query_scaling.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 02_query_scaling.py \
             --scale {wildcards.n} \
             --output {output.result} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -179,10 +179,10 @@ rule performance_query_scaling_collect:
         runtime=5,
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python collect_query_scaling.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python collect_query_scaling.py \
             --inputs {input.results} \
             --output {output.results} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -205,11 +205,11 @@ rule performance_build_synth_gen:
         runtime=30,
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python 03_build.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 03_build.py \
             --phase gen \
             --n-samples {wildcards.n} \
             --output {output.done} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -231,12 +231,12 @@ rule performance_build_one:
         slurm_extra="--nodes=1",
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python 03_build.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 03_build.py \
             --phase build \
             --n-samples {wildcards.n} \
             --threads {wildcards.t} \
             --output {output.result} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -258,10 +258,10 @@ rule performance_build_collect:
         runtime=5,
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python collect_build_perf.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python collect_build_perf.py \
             --inputs {input.results} \
             --output {output.results} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -290,11 +290,11 @@ rule performance_annotate_one:
         slurm_extra="--nodes=1",
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python 04_annotate.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 04_annotate.py \
             --n-variants {wildcards.n} \
             --threads {wildcards.t} \
             --output {output.result} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -316,10 +316,10 @@ rule performance_annotate_collect:
         runtime=5,
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python collect_annotate.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python collect_annotate.py \
             --inputs {input.results} \
             --output {output.results} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -345,10 +345,10 @@ rule performance_bcftools_one:
     shell:
         """
         module load BCFtools/1.18-GCC-12.3.0 2>/dev/null || true
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python 05_vs_bcftools.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 05_vs_bcftools.py \
             --n-samples {wildcards.n} \
             --output {output.result} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -371,11 +371,11 @@ rule performance_bcftools_concordance:
     shell:
         """
         module load BCFtools/1.18-GCC-12.3.0 2>/dev/null || true
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python 05_vs_bcftools.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 05_vs_bcftools.py \
             --n-samples {params.max_subset} \
             --concordance-only \
             --output {output.concordance} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -396,10 +396,10 @@ rule performance_bcftools_collect:
         runtime=5,
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python collect_bcftools.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python collect_bcftools.py \
             --inputs {input.results} \
             --output {output.comparison} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -411,6 +411,7 @@ rule performance_bcftools_collect:
 rule performance_plot:
     """Generate publication figures from all result JSON files."""
     input:
+        str(PERF_RESULTS / "data_inventory.json"),
         str(PERF_RESULTS / "query_scaling.json"),
         str(PERF_RESULTS / "build_perf.json"),
         str(PERF_RESULTS / "annotate_throughput.json"),
@@ -426,7 +427,7 @@ rule performance_plot:
         runtime=15,
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {PERF_DIR} && python 06_plot.py > {log} 2>&1
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 06_plot.py > "$LOG" 2>&1
         """
 
 
@@ -434,3 +435,5 @@ rule performance_all:
     """Run the complete performance benchmark."""
     input:
         rules.performance_plot.output,
+    output:
+        touch(str(PERF_RESULTS / ".performance_done")),

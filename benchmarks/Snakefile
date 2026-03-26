@@ -75,7 +75,6 @@ include: "capture_kit/Snakefile"
 
 rule all:
     """Run both benchmarks end-to-end."""
-    default_target: True
     input:
-        rules.performance_all.input,
-        rules.capture_kit_all.input,
+        rules.performance_all.output,
+        rules.capture_kit_all.output,
