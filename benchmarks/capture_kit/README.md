@@ -9,63 +9,52 @@ When datasets combine multiple capture kits (e.g., SureSelect v5, v6, v7), per-k
 ## Overview
 
 1. **Sample generation** — Mix 1000 Genomes samples using three Agilent SureSelect kits in three scenarios
-2. **Database builds** — One AFQuery database per scenario
-3. **ACMG classification** — Test ACMG criteria thresholds across kits
-4. **Metrics** — Coverage overlap, discordance rates, impact on interpretation
+2. **Database builds** — One AFQuery database per scenario (+ WGS ground truth)
+3. **Metrics** — NADI (Normalized AN Deviation Index) and AF error vs. WGS truth
+4. **ACMG classification** — Misclassification rates per scenario and disease model
+5. **Figures** — Publication-quality plots
 
-## Configuration
+## Running
 
-Edit `config.py`:
-
-```python
-SCENARIOS = {
-    "balanced": {...},   # Even distribution (334/333/333)
-    "skewed":   {...},   # Realistic (600/300/100)
-    "extreme":  {...},   # Worst case (800/150/50)
-}
-
-ACMG_THRESHOLDS = {
-    "cardiomyopathy": {...},
-    "metabolic": {...},
-}
-```
-
-Uses 1000 Genomes Phase 3 data (chr22) — shared with performance benchmarks.
-
-## Quick Start
+All steps are orchestrated by Snakemake from the `benchmarks/` root.
 
 ```bash
-# 1. Download BED files (manual—see 01_prepare_samples.py for instructions)
+# Run the full capture kit benchmark (HPC)
+snakemake --profile benchmarks/profiles/slurm capture_kit_all
 
-# 2. Prepare masked VCFs per kit
+# Run locally
+snakemake --cores 52 capture_kit_all
+
+# Dry run
+snakemake --profile benchmarks/profiles/slurm --dry-run capture_kit_all
+```
+
+The scripts can also be run directly when working from this directory
+(1KG data must already exist — run `snakemake download_1kg` first):
+
+```bash
 python 01_prepare_samples.py
-
-# 3. Build AFQuery databases
 python 02_build_databases.py
-
-# 4. Compute coverage metrics
 python 03_compute_metrics.py
-
-# 5. Classify variants by ACMG criteria
 python 04_classify_acmg.py
-
-# 6. Generate plots
 python 05_plot_figures.py
 ```
 
-## Data Files
+## BED Files (manual prerequisite)
 
-BED files are downloaded manually from Agilent SureDesign (chr22 pre-filtered versions):
+BED files must be downloaded manually from Agilent SureDesign before running
+the benchmark. Two sets are needed, placed in `{DATA_DIR}/capture_kit/beds/`:
 
-- `SureSelect_v5.bed`
-- `SureSelect_v6.bed`
-- `SureSelect_v7.bed`
+- `masking/SureSelect_v5.bed` — bare chromosome names (e.g. `22`), for `bedtools intersect`
+- `masking/SureSelect_v6.bed`
+- `masking/SureSelect_v7.bed`
+- `afquery/SureSelect_v5.bed` — `chr`-prefixed names (e.g. `chr22`), for AFQuery's CaptureIndex
+- `afquery/SureSelect_v6.bed`
+- `afquery/SureSelect_v7.bed`
 
-Place in `{DATA_DIR}/capture_kit/beds/` before running.
+Pre-filter BED files to chr22 before placing them.
 
 ## Coverage Metrics (chr22)
-
-From Agilent SureDesign:
 
 | Metric | Value |
 |--------|-------|
@@ -73,10 +62,31 @@ From Agilent SureDesign:
 | Union (any kit) | 1,506,718 bp |
 | Discordant (1–2 kits) | 643,232 bp (42.7%) |
 
+## Configuration
+
+Scenarios and ACMG thresholds are in `config.py`:
+
+```python
+SCENARIOS = {
+    "balanced": {"SureSelect_v5": 334, "SureSelect_v6": 333, "SureSelect_v7": 333},
+    "skewed":   {"SureSelect_v5": 600, "SureSelect_v6": 300, "SureSelect_v7": 100},
+    "extreme":  {"SureSelect_v5": 800, "SureSelect_v6": 150, "SureSelect_v7":  50},
+}
+
+ACMG_THRESHOLDS = {
+    "cardiomyopathy": {"BA1": 0.05, "BS1": 0.001,  "PM2": 0.0001},
+    "metabolic":      {"BA1": 0.05, "BS1": 0.0001, "PM2": 0.0},
+}
+```
+
+Shared constants (DATA_DIR, 1KG paths, SEED) come from `../shared/config.py`.
+
 ## Output
 
-- `results/*.csv` — classification discordance, metrics
-- `figures/*.pdf` — publication-quality plots
+- `results/merged.parquet` — merged AF comparison table (all scenarios, gitignored)
+- `results/nadi_summary.json` — summary statistics per scenario (gitignored)
+- `results/acmg_results.json` — misclassification counts per disease/scenario (gitignored)
+- `figures/fig_capkit_*.{pdf,png}` — publication-quality plots (gitignored)
 
 ## References
 
