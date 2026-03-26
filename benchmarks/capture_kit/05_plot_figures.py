@@ -20,50 +20,25 @@ import json
 import sys
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+_BENCH_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_BENCH_DIR))
+sys.path.insert(0, str(_BENCH_DIR.parent / "src"))
 
-from capture_kit_bench.config import RESULTS_DIR, SCENARIOS, ensure_dirs
+from shared.utils import (  # noqa: E402
+    WONG_COLORS as COLORS,
+    FIG_W_SINGLE as SINGLE_COL_WIDTH,
+    FIG_W_DOUBLE as DOUBLE_COL_WIDTH,
+    apply_style,
+    save_figure,
+)
+from config import FIGURES_DIR, RESULTS_DIR, SCENARIOS, ensure_dirs  # noqa: E402
 
-# ---------------------------------------------------------------------------
-# Style (matching parent 06_plot_figures.py — Wong 2011 colorblind-safe)
-# ---------------------------------------------------------------------------
-plt.rcParams.update({
-    "font.size": 10,
-    "font.family": "sans-serif",
-    "axes.titlesize": 11,
-    "axes.labelsize": 10,
-    "xtick.labelsize": 9,
-    "ytick.labelsize": 9,
-    "legend.fontsize": 8,
-    "figure.dpi": 300,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-    "axes.spines.top": False,
-    "axes.spines.right": False,
-})
-
-COLORS = {
-    "blue": "#0072B2",
-    "orange": "#E69F00",
-    "green": "#009E73",
-    "red": "#D55E00",
-    "purple": "#CC79A7",
-    "cyan": "#56B4E9",
-    "yellow": "#F0E442",
-    "black": "#000000",
-}
-
-SINGLE_COL_WIDTH = 3.5
-DOUBLE_COL_WIDTH = 7.0
-
-FIGURES_DIR = Path(__file__).resolve().parent.parent / "figures"
+apply_style()
 
 SCENARIO_ORDER = ["balanced", "skewed", "extreme"]
 SCENARIO_LABELS = {
@@ -74,11 +49,7 @@ SCENARIO_LABELS = {
 
 
 def _save(fig, name: str):
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(FIGURES_DIR / f"{name}.pdf", format="pdf")
-    fig.savefig(FIGURES_DIR / f"{name}.png", format="png")
-    plt.close(fig)
-    print(f"  Saved {name}.pdf + {name}.png")
+    save_figure(fig, name, FIGURES_DIR)
 
 
 def _color_violin(parts, color):

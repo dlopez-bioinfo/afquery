@@ -1,0 +1,129 @@
+"""Snakemake rules for the capture kit mixing benchmark.
+
+Included by the root benchmarks/Snakefile.
+"""
+
+import sys
+import importlib.util as _ilu
+from pathlib import Path
+
+_bench = Path(workflow.basedir)
+sys.path.insert(0, str(_bench))
+
+_spec = _ilu.spec_from_file_location("capkit_config", _bench / "capture_kit" / "config.py")
+_ck = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_ck)
+
+CK_RESULTS = Path(_ck.RESULTS_DIR)
+CK_FIGURES = Path(_ck.FIGURES_DIR)
+CK_DB_DIR  = Path(_ck.DB_DIR)
+CK_MANIFEST_DIR = Path(_ck.MANIFEST_DIR)
+
+CK_DIR = _bench / "capture_kit"
+
+SCENARIOS = list(_ck.SCENARIOS.keys())
+
+
+rule capture_kit_prepare:
+    """Subsample 1KG, mask with BEDs, write manifests."""
+    input:
+        manifest=str(ONEKG_MANIFEST),
+    output:
+        manifests=expand(
+            str(CK_MANIFEST_DIR / "manifest_{scenario}.tsv"),
+            scenario=["wgs"] + SCENARIOS,
+        ),
+        done=touch(str(CK_MANIFEST_DIR / ".prepare_done")),
+    log:
+        "logs/capture_kit/prepare_samples.log",
+    threads: workflow.cores
+    resources:
+        mem_mb=16_000,
+        runtime=120,
+    shell:
+        """
+        module load BCFtools/1.18-GCC-12.3.0 BEDTools/2.31.0-GCC-12.3.0 \
+            parallel 2>/dev/null || true
+        cd {CK_DIR} && python 01_prepare_samples.py > {log} 2>&1
+        """
+
+
+rule capture_kit_build:
+    """Build WGS ground truth and WES scenario databases."""
+    input:
+        manifests=rules.capture_kit_prepare.output.manifests,
+    output:
+        done=touch(str(CK_DB_DIR / ".build_done")),
+    log:
+        "logs/capture_kit/build_databases.log",
+    threads: workflow.cores
+    resources:
+        mem_mb=64_000,
+        runtime=480,
+        slurm_extra="--nodes=1",
+    shell:
+        """
+        cd {CK_DIR} && python 02_build_databases.py > {log} 2>&1
+        """
+
+
+rule capture_kit_metrics:
+    """Dump variants, compute NADI and AF error metrics."""
+    input:
+        rules.capture_kit_build.output.done,
+    output:
+        parquet=str(CK_RESULTS / "merged.parquet"),
+        summary=str(CK_RESULTS / "nadi_summary.json"),
+    log:
+        "logs/capture_kit/compute_metrics.log",
+    threads: 4
+    resources:
+        mem_mb=32_000,
+        runtime=60,
+    shell:
+        """
+        cd {CK_DIR} && python 03_compute_metrics.py > {log} 2>&1
+        """
+
+
+rule capture_kit_acmg:
+    """Apply ACMG thresholds and compute misclassification rates."""
+    input:
+        parquet=rules.capture_kit_metrics.output.parquet,
+    output:
+        results=str(CK_RESULTS / "acmg_results.json"),
+    log:
+        "logs/capture_kit/classify_acmg.log",
+    threads: 1
+    resources:
+        mem_mb=8_000,
+        runtime=15,
+    shell:
+        """
+        cd {CK_DIR} && python 04_classify_acmg.py > {log} 2>&1
+        """
+
+
+rule capture_kit_plot:
+    """Generate publication figures."""
+    input:
+        parquet=rules.capture_kit_metrics.output.parquet,
+        acmg=rules.capture_kit_acmg.output.results,
+    output:
+        directory(str(CK_FIGURES)),
+    log:
+        "logs/capture_kit/plot_figures.log",
+    threads: 1
+    resources:
+        mem_mb=4_000,
+        runtime=15,
+    shell:
+        """
+        cd {CK_DIR} && python 05_plot_figures.py > {log} 2>&1
+        """
+
+
+rule capture_kit_all:
+    """Run the complete capture kit mixing benchmark."""
+    input:
+        rules.capture_kit_plot.output,
