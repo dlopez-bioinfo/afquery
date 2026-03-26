@@ -24,7 +24,7 @@ latency-wait: 60
 # Default resources applied to every rule unless overridden
 # ---------------------------------------------------------------------------
 default-resources:
-  slurm_partition: normal
+  # slurm_partition: normal   # uncomment and set for your cluster
   cpus_per_task: 4
   mem_mb: 16000
   runtime: 60          # minutes
@@ -122,12 +122,26 @@ set-resources:
     mem_mb: 4000
     runtime: 15
 
-  # --- Capture kit: prepare (split + mask per-sample VCFs) ---
-  capture_kit_prepare:
-    cpus_per_task: 52
-    mem_mb: 16000
-    runtime: 180
-    nodes: 1
+  # --- Capture kit: prepare (Snakemake-native parallelism, no GNU parallel) ---
+  capture_kit_assign:
+    cpus_per_task: 1
+    mem_mb: 4000
+    runtime: 5
+
+  capture_kit_split_vcf:
+    cpus_per_task: 1
+    mem_mb: 4000
+    runtime: 10
+
+  capture_kit_mask_vcf:
+    cpus_per_task: 1
+    mem_mb: 4000
+    runtime: 10
+
+  capture_kit_write_manifests:
+    cpus_per_task: 1
+    mem_mb: 1000
+    runtime: 2
 
   # --- Capture kit: build (one job per scenario, all parallel) ---
   capture_kit_build_one:
@@ -156,3 +170,9 @@ set-resources:
     cpus_per_task: 1
     mem_mb: 4000
     runtime: 15
+
+# ---------------------------------------------------------------------------
+# Conda/micromamba environment management
+# ---------------------------------------------------------------------------
+software-deployment-method: conda
+conda-frontend: micromamba
