@@ -179,6 +179,5 @@ set-resources:
 
 # ---------------------------------------------------------------------------
 # Conda/micromamba environment management
+# Environments will be used directly (no software deployment)
 # ---------------------------------------------------------------------------
-software-deployment-method: conda
-conda-frontend: conda
