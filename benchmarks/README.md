@@ -1,6 +1,6 @@
 # AFQuery Benchmarking Suite
 
-This directory contains benchmarking experiments for the AFQuery publication.
+This directory contains benchmarking experiments for AFQuery.
 
 ## Benchmark Categories
 
@@ -28,7 +28,7 @@ Capture kit mixing impact on allele frequency classification:
 
 - AFQuery installed in development mode: `pip install -e ".[dev]"`
 - `bcftools` ≥ 1.17 and `bedtools` ≥ 2.31 available in `$PATH`
-- `snakemake` ≥ 8 with SLURM executor plugin (HPC):
+- Snakemake ≥ 8 with SLURM executor plugin:
   ```bash
   pip install snakemake snakemake-executor-plugin-slurm
   ```
@@ -54,8 +54,8 @@ snakemake --profile benchmarks/profiles/slurm download_1kg
 ### Locally (without SLURM)
 
 ```bash
-snakemake --cores 52 all
-snakemake --cores 52 performance_all
+snakemake --cores all all
+snakemake --cores all performance_all
 ```
 
 ### Dry run (preview what will execute)
@@ -96,8 +96,8 @@ benchmarks/
 │   ├── 04_annotate.py
 │   ├── 05_vs_bcftools.py
 │   ├── 06_plot.py
-│   ├── results/           # JSON timing data (gitignored)
-│   └── figures/           # Publication-quality PDFs (gitignored)
+│   ├── results/           # JSON timing data
+│   └── figures/           # High-resolution PDFs/PNGs
 └── capture_kit/
     ├── Snakefile          # Capture kit-specific rules
     ├── config.py          # Capture kit parameters (scenarios, ACMG thresholds)
@@ -106,8 +106,8 @@ benchmarks/
     ├── 03_compute_metrics.py
     ├── 04_classify_acmg.py
     ├── 05_plot_figures.py
-    ├── results/           # Analysis parquet/JSON (gitignored)
-    └── figures/           # Plots (gitignored)
+    ├── results/           # Analysis parquet/JSON
+    └── figures/           # Plots
 ```
 
 ## Configuration

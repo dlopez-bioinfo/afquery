@@ -12,7 +12,7 @@ When datasets combine multiple capture kits (e.g., SureSelect v5, v6, v7), per-k
 2. **Database builds** — One AFQuery database per scenario (+ WGS ground truth)
 3. **Metrics** — NADI (Normalized AN Deviation Index) and AF error vs. WGS truth
 4. **ACMG classification** — Misclassification rates per scenario and disease model
-5. **Figures** — Publication-quality plots
+5. **Figures** — High-resolution plots
 
 ## Running
 
@@ -23,7 +23,7 @@ All steps are orchestrated by Snakemake from the `benchmarks/` root.
 snakemake --profile benchmarks/profiles/slurm capture_kit_all
 
 # Run locally
-snakemake --cores 52 capture_kit_all
+snakemake --cores all capture_kit_all
 
 # Dry run
 snakemake --profile benchmarks/profiles/slurm --dry-run capture_kit_all
@@ -83,10 +83,10 @@ Shared constants (DATA_DIR, 1KG paths, SEED) come from `../shared/config.py`.
 
 ## Output
 
-- `results/merged.parquet` — merged AF comparison table (all scenarios, gitignored)
-- `results/nadi_summary.json` — summary statistics per scenario (gitignored)
-- `results/acmg_results.json` — misclassification counts per disease/scenario (gitignored)
-- `figures/fig_capkit_*.{pdf,png}` — publication-quality plots (gitignored)
+- `results/merged.parquet` — merged AF comparison table (all scenarios)
+- `results/nadi_summary.json` — summary statistics per scenario
+- `results/acmg_results.json` — misclassification counts per disease/scenario
+- `figures/fig_capkit_*.{pdf,png}` — high-resolution plots
 
 ## References
 

@@ -20,7 +20,7 @@ All experiments are orchestrated by Snakemake from the `benchmarks/` root.
 snakemake --profile benchmarks/profiles/slurm performance_all
 
 # Run locally
-snakemake --cores 52 performance_all
+snakemake --cores all performance_all
 
 # Run a single experiment (e.g. query scaling only)
 snakemake --cores 4 benchmarks/performance/results/query_scaling.json
@@ -59,12 +59,6 @@ ANNOTATE_THREAD_COUNTS = [1, 4, 8, 16, 32]
 BCFTOOLS_REPS = 10
 ```
 
-For a quick smoke test (tiny scales, few reps):
-
-```bash
-# From the performance/ directory
-PYTHONPATH=.. python -c "import config_smoke"
-```
 
 ## Data
 
@@ -75,17 +69,12 @@ Not included in the repository. Downloaded and generated automatically by the pi
 
 ## Output
 
-- `results/*.json` — raw timing data (gitignored)
-- `figures/*.{pdf,png}` — publication-quality figures (gitignored)
+- `results/*.json` — raw timing data
+- `figures/*.{pdf,png}` — high-resolution figures
 
 ## Hardware
 
-Document hardware when reporting results:
-
-- **CPU:** (e.g., 2× Intel Xeon Gold 6230R, 52 cores total)
-- **RAM:** (e.g., 370 GB DDR4)
-- **Storage:** (e.g., Lustre parallel filesystem)
-- **OS:** (e.g., RHEL 8.5, kernel 4.18)
+Document the hardware used when reporting results (CPU model, core count, RAM, storage type, OS).
 
 ## References
 
