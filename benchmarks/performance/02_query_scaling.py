@@ -144,7 +144,28 @@ def bench_one_db(db_path: str, n_samples: int) -> dict:
 
 
 def main():
+    import argparse
+
+    from config import SYNTH_DB_DIR  # noqa: E402
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--scale", type=int)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+
     ensure_dirs()
+
+    if args.scale is not None and args.output:
+        # Single-scale CLI mode — DB path is deterministic, no inventory needed
+        db_path = str(SYNTH_DB_DIR / f"synth_{args.scale}")
+        logger.info("=== Benchmarking synth DB: %d samples ===", args.scale)
+        result = bench_one_db(db_path, args.scale)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(result, indent=2))
+        logger.info("Result saved to %s", args.output)
+        return
+
+    # Full-sweep mode (backward compatible)
     inventory = _load_inventory()
 
     all_results = []

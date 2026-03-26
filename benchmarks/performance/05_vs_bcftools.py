@@ -270,17 +270,120 @@ def _compute_concordance(db_path: Path, vcf_path: str, chrom: str) -> dict:
         }
 
 
+def _bench_one_subset(n_samples: int, output_path: Path):
+    """Run bcftools comparison for one subset and write a per-run JSON."""
+    if not _check_bcftools():
+        raise RuntimeError("bcftools not found")
+    if not ONEKG_MERGED_VCF.exists():
+        raise FileNotFoundError(f"1KG merged VCF not found: {ONEKG_MERGED_VCF}")
+
+    db_path = ONEKG_DB_DIR / f"1kg_{n_samples}"
+    if not (db_path / "manifest.json").exists():
+        raise FileNotFoundError(f"No 1KG DB for {n_samples} samples")
+
+    logger.info("=== bcftools comparison: %d samples ===", n_samples)
+
+    with tempfile.TemporaryDirectory(prefix="bcftools_bench_") as tmpdir:
+        tmpdir = Path(tmpdir)
+
+        sample_list = _get_sample_list(db_path)
+        subset_vcf = tmpdir / f"subset_{n_samples}.vcf.gz"
+        logger.info("  Creating subset VCF (%d samples)...", len(sample_list))
+        _create_subset_vcf(ONEKG_MERGED_VCF, sample_list, subset_vcf)
+
+        chrom, pos = _find_test_locus(db_path)
+        logger.info("  Test locus: %s:%d", chrom, pos)
+
+        female_samples = _get_sample_list(db_path, sex="female")
+        females_file = tmpdir / f"females_{n_samples}.txt"
+        females_file.write_text("\n".join(female_samples) + "\n")
+
+        result = {"n_samples": n_samples, "chrom": chrom}
+
+        logger.info("  Point query benchmark...")
+        bcf_times = [_time_bcftools_point(str(subset_vcf), chrom, pos) for _ in range(BCFTOOLS_REPS)]
+        afq_times = [_time_afquery_point(str(db_path), chrom, pos) for _ in range(BCFTOOLS_REPS)]
+        result["point_query"] = {"bcftools": _stats(bcf_times), "afquery": _stats(afq_times)}
+
+        logger.info("  Subset query benchmark (females)...")
+        bcf_sub_times = [
+            _time_bcftools_subset_point(str(subset_vcf), chrom, pos, str(females_file))
+            for _ in range(BCFTOOLS_REPS)
+        ]
+        afq_sub_times = [
+            _time_afquery_subset_point(str(db_path), chrom, pos, "female")
+            for _ in range(BCFTOOLS_REPS)
+        ]
+        result["subset_query"] = {"bcftools": _stats(bcf_sub_times), "afquery": _stats(afq_sub_times)}
+
+        logger.info("  Full dump benchmark...")
+        bcf_dump_out = str(tmpdir / f"bcf_dump_{n_samples}.tsv")
+        afq_dump_out = str(tmpdir / f"afq_dump_{n_samples}.csv")
+        bcf_dump_times = [
+            _time_bcftools_dump(str(subset_vcf), bcf_dump_out)
+            for _ in range(min(3, BCFTOOLS_REPS))
+        ]
+        afq_dump_times = [
+            _time_afquery_dump(str(db_path), chrom, afq_dump_out)
+            for _ in range(min(3, BCFTOOLS_REPS))
+        ]
+        result["dump"] = {"bcftools": _stats(bcf_dump_times), "afquery": _stats(afq_dump_times)}
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(result, indent=2))
+    logger.info("Result saved to %s", output_path)
+
+
+def _bench_concordance(n_samples: int, output_path: Path):
+    """Compute AF concordance for one subset and write concordance JSON."""
+    if not _check_bcftools():
+        raise RuntimeError("bcftools not found")
+    if not ONEKG_MERGED_VCF.exists():
+        raise FileNotFoundError(f"1KG merged VCF not found: {ONEKG_MERGED_VCF}")
+
+    db_path = ONEKG_DB_DIR / f"1kg_{n_samples}"
+    if not (db_path / "manifest.json").exists():
+        raise FileNotFoundError(f"No 1KG DB for {n_samples} samples")
+
+    logger.info("=== Computing AF concordance (%d samples) ===", n_samples)
+
+    with tempfile.TemporaryDirectory(prefix="bcftools_conc_") as tmpdir:
+        tmpdir = Path(tmpdir)
+        sample_list = _get_sample_list(db_path)
+        subset_vcf = tmpdir / f"subset_{n_samples}.vcf.gz"
+        _create_subset_vcf(ONEKG_MERGED_VCF, sample_list, subset_vcf)
+        chrom, _ = _find_test_locus(db_path)
+        concordance = _compute_concordance(db_path, str(subset_vcf), chrom)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(concordance, indent=2))
+    logger.info("Concordance: R² = %s", concordance.get("r_squared"))
+    logger.info("Result saved to %s", output_path)
+
+
 def main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n-samples", type=int)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--concordance-only", action="store_true")
+    args = parser.parse_args()
+
     ensure_dirs()
 
-    if not _check_bcftools():
+    if args.n_samples is not None and args.output:
+        if args.concordance_only:
+            _bench_concordance(args.n_samples, args.output)
+        else:
+            _bench_one_subset(args.n_samples, args.output)
         return
 
+    # Full-sweep mode (backward compatible)
+    if not _check_bcftools():
+        return
     if not ONEKG_MERGED_VCF.exists():
-        logger.error(
-            "1KG merged VCF not found at %s. Run 00_download_1kg.sh first.",
-            ONEKG_MERGED_VCF,
-        )
+        logger.error("1KG merged VCF not found at %s.", ONEKG_MERGED_VCF)
         return
 
     all_results = []
@@ -296,76 +399,52 @@ def main():
 
             logger.info("=== bcftools comparison: %d samples ===", n_samples)
 
-            # Get sample list and create subset VCF for bcftools
             sample_list = _get_sample_list(db_path)
             subset_vcf = tmpdir / f"subset_{n_samples}.vcf.gz"
-
             logger.info("  Creating subset VCF (%d samples)...", len(sample_list))
             _create_subset_vcf(ONEKG_MERGED_VCF, sample_list, subset_vcf)
 
-            # Find a test locus
             chrom, pos = _find_test_locus(db_path)
             logger.info("  Test locus: %s:%d", chrom, pos)
 
-            # Create females sample list file for subset queries
             female_samples = _get_sample_list(db_path, sex="female")
             females_file = tmpdir / f"females_{n_samples}.txt"
             females_file.write_text("\n".join(female_samples) + "\n")
 
             result = {"n_samples": n_samples, "chrom": chrom}
 
-            # --- Point query ---
             logger.info("  Point query benchmark...")
-            bcf_times = [
-                _time_bcftools_point(str(subset_vcf), chrom, pos)
-                for _ in range(BCFTOOLS_REPS)
-            ]
-            afq_times = [
-                _time_afquery_point(str(db_path), chrom, pos)
-                for _ in range(BCFTOOLS_REPS)
-            ]
-            result["point_query"] = {
-                "bcftools": _stats(bcf_times),
-                "afquery": _stats(afq_times),
-            }
+            bcf_times = [_time_bcftools_point(str(subset_vcf), chrom, pos) for _ in range(BCFTOOLS_REPS)]
+            afq_times = [_time_afquery_point(str(db_path), chrom, pos) for _ in range(BCFTOOLS_REPS)]
+            result["point_query"] = {"bcftools": _stats(bcf_times), "afquery": _stats(afq_times)}
 
-            # --- Subset query (by sex) ---
             logger.info("  Subset query benchmark (females)...")
             bcf_sub_times = [
-                _time_bcftools_subset_point(
-                    str(subset_vcf), chrom, pos, str(females_file)
-                )
+                _time_bcftools_subset_point(str(subset_vcf), chrom, pos, str(females_file))
                 for _ in range(BCFTOOLS_REPS)
             ]
             afq_sub_times = [
                 _time_afquery_subset_point(str(db_path), chrom, pos, "female")
                 for _ in range(BCFTOOLS_REPS)
             ]
-            result["subset_query"] = {
-                "bcftools": _stats(bcf_sub_times),
-                "afquery": _stats(afq_sub_times),
-            }
+            result["subset_query"] = {"bcftools": _stats(bcf_sub_times), "afquery": _stats(afq_sub_times)}
 
-            # --- Full dump ---
             logger.info("  Full dump benchmark...")
             bcf_dump_out = str(tmpdir / f"bcf_dump_{n_samples}.tsv")
             afq_dump_out = str(tmpdir / f"afq_dump_{n_samples}.csv")
             bcf_dump_times = [
                 _time_bcftools_dump(str(subset_vcf), bcf_dump_out)
-                for _ in range(min(3, BCFTOOLS_REPS))  # fewer reps for dump (slow)
+                for _ in range(min(3, BCFTOOLS_REPS))
             ]
             afq_dump_times = [
                 _time_afquery_dump(str(db_path), chrom, afq_dump_out)
                 for _ in range(min(3, BCFTOOLS_REPS))
             ]
-            result["dump"] = {
-                "bcftools": _stats(bcf_dump_times),
-                "afquery": _stats(afq_dump_times),
-            }
+            result["dump"] = {"bcftools": _stats(bcf_dump_times), "afquery": _stats(afq_dump_times)}
 
             all_results.append(result)
 
-        # --- Concordance (on largest subset) ---
+        # Concordance on largest subset
         max_subset = max(ONEKG_SUBSETS)
         db_path = ONEKG_DB_DIR / f"1kg_{max_subset}"
         if (db_path / "manifest.json").exists():
@@ -374,10 +453,8 @@ def main():
             subset_vcf = tmpdir / f"subset_{max_subset}.vcf.gz"
             if not subset_vcf.exists():
                 _create_subset_vcf(ONEKG_MERGED_VCF, sample_list, subset_vcf)
-
             chrom, _ = _find_test_locus(db_path)
             concordance = _compute_concordance(db_path, str(subset_vcf), chrom)
-
             conc_out = RESULTS_DIR / "concordance.json"
             conc_out.write_text(json.dumps(concordance, indent=2))
             logger.info("Concordance: R² = %s", concordance.get("r_squared"))
