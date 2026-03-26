@@ -449,7 +449,18 @@ rule performance_plot:
         str(PERF_RESULTS / "bcftools_comparison.json"),
         str(PERF_RESULTS / "concordance.json"),
     output:
-        directory(str(PERF_FIGURES)),
+        expand(
+            str(PERF_FIGURES / "{name}.{ext}"),
+            name=[
+                "fig1_query_scaling",
+                "fig2_build_perf",
+                "fig3_annotate_throughput",
+                "fig4_bcftools_comparison",
+                "fig5_concordance",
+                "fig6_disk_footprint",
+            ],
+            ext=["pdf", "png"],
+        ),
     log:
         "logs/performance/plot.log",
     threads: 1
