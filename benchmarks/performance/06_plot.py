@@ -302,8 +302,8 @@ def plot_disk_footprint():
             (r for r in data if r["n_samples"] == scale and r["threads"] == max_threads),
             None,
         )
-        raw_sizes.append(entry["raw_vcf_size_mb"] if entry else 0)
-        db_sizes.append(entry["db_size_mb"] if entry else 0)
+        raw_sizes.append(entry.get("raw_vcf_size_mb", 0) if entry else 0)
+        db_sizes.append(entry.get("db_size_mb", 0) if entry else 0)
 
     ax.bar(
         [x - bar_width / 2 for x in x_pos], raw_sizes, bar_width,

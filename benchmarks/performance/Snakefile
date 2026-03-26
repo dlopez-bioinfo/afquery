@@ -288,11 +288,14 @@ rule performance_annotate_one:
         mem_mb=lambda wc, threads: max(8_000, threads * 2_000),
         runtime=30,
         slurm_extra="--nodes=1",
+    params:
+        max_subset=max(ONEKG_SUBSETS),
     shell:
         """
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 04_annotate.py \
             --n-variants {wildcards.n} \
             --threads {wildcards.t} \
+            --max-subset {params.max_subset} \
             --output {output.result} \
             > "$LOG" 2>&1
         """
