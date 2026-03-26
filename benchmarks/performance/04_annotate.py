@@ -113,11 +113,12 @@ def main():
     parser.add_argument("--n-variants", type=int)
     parser.add_argument("--threads", type=int)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--max-subset", type=int, default=None, help="Override max subset size (for smoke_test)")
     args = parser.parse_args()
 
     ensure_dirs()
 
-    max_subset = max(ONEKG_SUBSETS)
+    max_subset = args.max_subset if args.max_subset is not None else max(ONEKG_SUBSETS)
     db_path = ONEKG_DB_DIR / f"1kg_{max_subset}"
     if not (db_path / "manifest.json").exists():
         logger.error("1KG DB not found at %s. Run 01_prepare_data.py first.", db_path)
