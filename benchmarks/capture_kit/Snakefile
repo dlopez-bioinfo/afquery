@@ -3,6 +3,7 @@
 Included by the root benchmarks/Snakefile.
 """
 
+import json as _json
 import os
 import sys
 import importlib.util as _ilu
@@ -30,10 +31,93 @@ SCENARIOS = list(_ck.SCENARIOS.keys())
 CK_SCENARIOS_ALL = ["wgs"] + SCENARIOS
 
 
-rule capture_kit_prepare:
-    """Subsample 1KG, mask with BEDs, write manifests."""
+checkpoint capture_kit_assign:
+    """Read 1KG panel, subsample N samples, write assignments.json."""
     input:
         manifest=str(ONEKG_MANIFEST),
+    output:
+        assignments=str(CK_MANIFEST_DIR / "assignments.json"),
+    log:
+        "logs/capture_kit/assign_samples.log",
+    threads: 1
+    resources:
+        mem_mb=4_000,
+        runtime=5,
+    conda: config["conda_env_file"]
+    shell:
+        """
+        set -euo pipefail
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {CK_DIR} && python 01a_assign_samples.py > "$LOG" 2>&1
+        """
+
+
+rule capture_kit_split_vcf:
+    """Extract one per-sample VCF from the merged 1KG VCF."""
+    input:
+        merged=str(_ck.ONEKG_MERGED_VCF),
+        download_done=rules.download_1kg.output.done,
+    output:
+        vcf=str(_ck.ONEKG_VCF_DIR / "{sample}.vcf.gz"),
+    log:
+        "logs/capture_kit/split/{sample}.log",
+    threads: 1
+    resources:
+        mem_mb=4_000,
+        runtime=10,
+    conda: config["conda_env_file"]
+    shell:
+        """
+        set -euo pipefail
+        mkdir -p $(dirname {log})
+        bcftools view -s {wildcards.sample} --min-ac 1:nref {input.merged} -Oz -o {output.vcf} 2>{log}
+        """
+
+
+rule capture_kit_mask_vcf:
+    """Mask one per-sample VCF to keep only variants within a kit's BED regions."""
+    input:
+        vcf=str(_ck.ONEKG_VCF_DIR / "{sample}.vcf.gz"),
+        bed=lambda wc: str(_ck.MASKING_BED_DIR / f"{wc.tech}.bed"),
+    output:
+        vcf=str(_ck.MASKED_DIR / "{tech}" / "{sample}.vcf.gz"),
+    log:
+        "logs/capture_kit/mask/{tech}/{sample}.log",
+    threads: 1
+    resources:
+        mem_mb=4_000,
+        runtime=10,
+    conda: config["conda_env_file"]
+    shell:
+        """
+        set -euo pipefail
+        mkdir -p $(dirname {log}) $(dirname {output.vcf})
+        bedtools intersect -a {input.vcf} -b {input.bed} -header -wa | bgzip > {output.vcf} 2>{log}
+        """
+
+
+def _ck_all_split_vcfs(wildcards):
+    asgn = checkpoints.capture_kit_assign.get(**wildcards).output.assignments
+    data = _json.loads(Path(asgn).read_text())
+    return [str(_ck.ONEKG_VCF_DIR / f"{s}.vcf.gz") for s, _ in data["samples"]]
+
+
+def _ck_all_masked_vcfs(wildcards):
+    asgn = checkpoints.capture_kit_assign.get(**wildcards).output.assignments
+    data = _json.loads(Path(asgn).read_text())
+    pairs = {
+        (tech, sample)
+        for sc in data["scenarios"].values()
+        for sample, tech in sc.items()
+    }
+    return [str(_ck.MASKED_DIR / tech / f"{sample}.vcf.gz") for tech, sample in pairs]
+
+
+rule capture_kit_write_manifests:
+    """Write 4 manifest TSVs (wgs + 3 WES scenarios) after all masking is done."""
+    input:
+        assignments=str(CK_MANIFEST_DIR / "assignments.json"),
+        split_vcfs=_ck_all_split_vcfs,
+        masked_vcfs=_ck_all_masked_vcfs,
     output:
         manifests=expand(
             str(CK_MANIFEST_DIR / "manifest_{scenario}.tsv"),
@@ -41,18 +125,16 @@ rule capture_kit_prepare:
         ),
         done=touch(str(CK_MANIFEST_DIR / ".prepare_done")),
     log:
-        "logs/capture_kit/prepare_samples.log",
-    threads: 52
+        "logs/capture_kit/write_manifests.log",
+    threads: 1
     resources:
-        mem_mb=16_000,
-        runtime=120,
+        mem_mb=1_000,
+        runtime=2,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        module load BCFtools/1.18-GCC-12.3.0 BEDTools/2.31.0-GCC-12.3.0 \
-            parallel 2>/dev/null || true
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
-        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {CK_DIR} && python 01_prepare_samples.py > "$LOG" 2>&1
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {CK_DIR} && python 01b_write_manifests.py > "$LOG" 2>&1
         """
 
 
@@ -71,10 +153,10 @@ rule capture_kit_build_one:
         mem_mb=64_000,
         runtime=120,
         slurm_extra="--nodes=1",
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {CK_DIR} && python 02_build_databases.py \
             --scenario {wildcards.scenario} \
             > "$LOG" 2>&1
@@ -107,10 +189,10 @@ rule capture_kit_metrics:
     resources:
         mem_mb=32_000,
         runtime=60,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {CK_DIR} && python 03_compute_metrics.py > "$LOG" 2>&1
         """
 
@@ -127,10 +209,10 @@ rule capture_kit_acmg:
     resources:
         mem_mb=8_000,
         runtime=15,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {CK_DIR} && python 04_classify_acmg.py > "$LOG" 2>&1
         """
 
@@ -148,10 +230,10 @@ rule capture_kit_plot:
     resources:
         mem_mb=4_000,
         runtime=15,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {CK_DIR} && python 05_plot_figures.py > "$LOG" 2>&1
         """
 
