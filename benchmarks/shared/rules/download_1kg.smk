@@ -1,6 +1,11 @@
 """Shared Snakemake rule: download and split 1000 Genomes Phase 3 chr22."""
 
+import os
 from pathlib import Path
+
+# Create log directory before any rule runs
+onstart:
+    os.makedirs("logs", exist_ok=True)
 
 # ONEKG_DIR and ONEKG_MANIFEST are imported from the root Snakefile via
 # shared.config (already set in the root namespace when this file is included).
