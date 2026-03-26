@@ -28,11 +28,10 @@ rule download_1kg:
         mem_mb=8_000,
         runtime=180,  # minutes
         slurm_extra="--nodes=1",
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
-        module load BCFtools/1.18-GCC-12.3.0 parallel 2>/dev/null || true
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")"
         export ONEKG_DIR="{ONEKG_DIR}"
         export THREADS={threads}

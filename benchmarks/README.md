@@ -26,14 +26,36 @@ Capture kit mixing impact on allele frequency classification:
 
 ## Prerequisites
 
-- AFQuery installed in development mode: `pip install -e ".[dev]"`
-- `bcftools` ≥ 1.17 and `bedtools` ≥ 2.31 available in `$PATH`
-- Snakemake ≥ 8 with SLURM executor plugin:
+- micromamba (or conda) to create the benchmark environment
+- Snakemake ≥ 8 with SLURM executor plugin installed in your base environment:
   ```bash
   pip install snakemake snakemake-executor-plugin-slurm
   ```
 - `/usr/bin/time` (GNU time) for memory profiling
 - ~200 GB disk space for all 1KG data and databases
+
+## Environment Setup
+
+All benchmark tools and Python dependencies are declared in `envs/benchmark.yaml`.
+afquery is installed from PyPI and covers most Python dependencies; the file adds
+the external bioinformatics tools (bcftools ≥ 1.18, bedtools, bgzip/tabix, GNU parallel)
+and plotting libraries (pandas, numpy, matplotlib).
+
+### Create the environment
+
+```bash
+micromamba env create -f envs/benchmark.yaml
+```
+
+### Verify
+
+```bash
+micromamba run -n afquery_bench bcftools --version
+micromamba run -n afquery_bench python -c "import afquery; print('OK')"
+```
+
+Snakemake activates `afquery_bench` automatically for each job.
+To use a different environment spec, change `conda_env_file` in `config.yaml`.
 
 ## Running the Benchmarks
 
@@ -43,6 +65,7 @@ All commands below are run from the `benchmarks/` directory.
 
 ```bash
 # Run everything (both benchmarks) across as many nodes as needed
+# conda/micromamba support is already configured in profiles/slurm/config.yaml
 snakemake --profile profiles/slurm all
 
 # Run only one benchmark
@@ -56,8 +79,8 @@ snakemake --profile profiles/slurm download_1kg
 ### Locally (without SLURM)
 
 ```bash
-snakemake --cores all all
-snakemake --cores all performance_all
+snakemake --cores all --software-deployment-method conda --conda-frontend micromamba all
+snakemake --cores all --software-deployment-method conda --conda-frontend micromamba performance_all
 ```
 
 ### Dry run (preview what will execute)
@@ -77,7 +100,9 @@ and resume from the first incomplete step.
 ```
 benchmarks/
 ├── Snakefile              # Root pipeline (includes both benchmarks)
-├── config.yaml            # Global parameters (data_dir, threads, etc.)
+├── config.yaml            # Global parameters (data_dir, threads, conda_env_file, etc.)
+├── envs/
+│   └── benchmark.yaml     # conda/micromamba environment spec
 ├── profiles/
 │   └── slurm/
 │       └── config.yaml    # SLURM executor settings (resources per rule)
