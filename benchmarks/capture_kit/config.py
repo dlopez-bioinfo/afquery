@@ -1,7 +1,8 @@
 """Configuration for the capture kit mixing benchmark.
 
 BED files downloaded from Agilent SureDesign
-(https://earray.chem.agilent.com/suredesign/) and pre-filtered to chr22.
+(https://earray.chem.agilent.com/suredesign/), pre-filtered to chr22,
+and committed to the repository under benchmarks/capture_kit/beds/.
 
 Coverage overlap on chr22:
   All 3 kits intersection: 863,486 bases
@@ -19,6 +20,7 @@ sys.path.insert(0, str(_BENCH_DIR))
 from shared.config import (  # noqa: E402
     DATA_DIR,
     GENOME_BUILD,
+    ONEKG_CHROM,
     ONEKG_DIR,
     ONEKG_MERGED_VCF,
     ONEKG_PANEL,
@@ -30,9 +32,10 @@ from shared.config import (  # noqa: E402
 # Capture kit paths
 # ---------------------------------------------------------------------------
 CAPTURE_DIR = DATA_DIR / "capture_kit"
-BED_DIR = CAPTURE_DIR / "beds"
-MASKING_BED_DIR = BED_DIR / "masking"
-AFQUERY_BED_DIR = BED_DIR / "afquery"
+# BED files live in the repository (benchmarks/capture_kit/beds/)
+BED_DIR = Path(__file__).resolve().parent / "beds"
+MASKING_BED_DIR = BED_DIR
+AFQUERY_BED_DIR = BED_DIR
 PER_SAMPLE_DIR = CAPTURE_DIR / "per_sample"
 MASKED_DIR = CAPTURE_DIR / "masked"
 MANIFEST_DIR = CAPTURE_DIR / "manifests"
@@ -69,7 +72,7 @@ def ensure_dirs():
     """Create all output directories if they don't exist."""
     from shared.utils import ensure_dirs as _ensure
     _ensure(
-        CAPTURE_DIR, BED_DIR, MASKING_BED_DIR, AFQUERY_BED_DIR,
+        CAPTURE_DIR,
         PER_SAMPLE_DIR, MASKED_DIR, MANIFEST_DIR, DB_DIR,
         RESULTS_DIR, FIGURES_DIR,
     )
