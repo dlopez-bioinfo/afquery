@@ -10,7 +10,11 @@
 
 set -euo pipefail
 
-ONEKG_DIR="${ONEKG_DIR:-/mnt/lustre/home/dlopez/projects/afquery_bench_data/1kg}"
+if [ -z "${ONEKG_DIR:-}" ]; then
+    echo "ERROR: ONEKG_DIR is not set. Set it before calling this script." >&2
+    exit 1
+fi
+
 VCF_DIR="${ONEKG_DIR}/vcfs"
 THREADS="${THREADS:-$(nproc)}"
 
