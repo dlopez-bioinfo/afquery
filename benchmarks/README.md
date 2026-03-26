@@ -38,7 +38,7 @@ Capture kit mixing impact on allele frequency classification:
 
 All benchmark tools and Python dependencies are declared in `envs/benchmark.yaml`.
 afquery is installed from PyPI and covers most Python dependencies; the file adds
-the external bioinformatics tools (bcftools ≥ 1.18, bedtools, bgzip/tabix, GNU parallel)
+the external bioinformatics tools (bcftools ≥ 1.18, bedtools, bgzip/tabix)
 and plotting libraries (pandas, numpy, matplotlib).
 
 ### Create the environment
@@ -110,9 +110,8 @@ benchmarks/
 │   ├── config.py          # Common constants: DATA_DIR, 1KG paths, SEED
 │   ├── utils.py           # Common helpers: stats, time_ms, save_figure, WONG_COLORS
 │   ├── rules/
-│   │   └── download_1kg.smk   # Shared Snakemake rule: download + split 1KG
+│   │   └── download_1kg.smk   # Shared Snakemake rules: download + split 1KG
 │   └── scripts/
-│       └── download_1kg.sh    # Bash script called by download_1kg rule
 ├── performance/
 │   ├── Snakefile          # Performance-specific rules
 │   ├── config.py          # Performance parameters (scales, reps, thread counts)

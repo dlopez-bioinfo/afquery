@@ -51,28 +51,6 @@ checkpoint capture_kit_assign:
         """
 
 
-rule capture_kit_split_vcf:
-    """Extract one per-sample VCF from the merged 1KG VCF."""
-    input:
-        merged=str(_ck.ONEKG_MERGED_VCF),
-        download_done=rules.download_1kg.output.done,
-    output:
-        vcf=str(_ck.ONEKG_VCF_DIR / "{sample}.vcf.gz"),
-    log:
-        "logs/capture_kit/split/{sample}.log",
-    threads: 1
-    resources:
-        mem_mb=4_000,
-        runtime=10,
-    conda: config["conda_env_file"]
-    shell:
-        """
-        set -euo pipefail
-        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")"
-        bcftools view -s {wildcards.sample} --min-ac 1:nref {input.merged} -Oz -o {output.vcf} 2>"$LOG"
-        """
-
-
 rule capture_kit_mask_vcf:
     """Mask one per-sample VCF to keep only variants within a kit's BED regions."""
     input:
@@ -223,7 +201,17 @@ rule capture_kit_plot:
         parquet=rules.capture_kit_metrics.output.parquet,
         acmg=rules.capture_kit_acmg.output.results,
     output:
-        directory(str(CK_FIGURES)),
+        expand(
+            str(CK_FIGURES / "{name}.{ext}"),
+            name=[
+                "fig_capkit_af_error_violin",
+                "fig_capkit_error_by_coverage",
+                "fig_capkit_scatter",
+                "fig_capkit_acmg",
+                "fig_capkit_an_ratio",
+            ],
+            ext=["pdf", "png"],
+        ),    
     log:
         "logs/capture_kit/plot_figures.log",
     threads: 1
@@ -242,5 +230,3 @@ rule capture_kit_all:
     """Run the complete capture kit mixing benchmark."""
     input:
         rules.capture_kit_plot.output,
-    output:
-        touch(str(CK_RESULTS / ".capture_kit_done")),
