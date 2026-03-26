@@ -174,6 +174,19 @@ Use `afquery info --db ./db/` to list all registered codes before running querie
 
 ---
 
+## Is heteroplasmy taken into account when calculating allele frequency in mitochondrial variants? 
+
+Not explicitly. Proper quantification of heteroplasmy requires a specialized approach, similar to somatic variant analysis (e.g., in cancer), where a genomic position may contain multiple subpopulations of variants with different allele fractions. This type of modeling is not part of standard germline variant calling.
+
+In tools such as GATK operating in germline mode, genotypes are assigned based on the ploidy defined for the region, without representing a continuous spectrum of allele frequencies:
+
+- If the region is treated as haploid (as is typical for mitochondrial DNA), the caller reports the majority allele. If the signal is ambiguous, the position may be marked as uncertain.
+- If modeled as diploid, the caller fits genotypes into discrete states (e.g., 0/1 or 1/1). Allele fractions near 50% are typically classified as heterozygous.
+
+As a result, intermediate heteroplasmy levels (such as 20%) are not explicitly represented. Instead, they are forced into one of these discrete genotype states or lost as uncertainty.
+
+Therefore, this limitation arises from the variant calling step. The application operates on already discretized genotypes according to ploidy and does not model heteroplasmy as a continuous variable.
+
 ## Common Pitfalls
 
 ### What if AN is very low?
