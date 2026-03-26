@@ -1,4 +1,4 @@
-from config import *
+from config import *  # noqa: F401, F403
 
 # Override scales for smoke test (tiny)
 SYNTH_SCALES = [100]  # 1 scale only

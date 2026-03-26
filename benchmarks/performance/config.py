@@ -1,26 +1,31 @@
-"""Centralized configuration for all benchmark scripts.
+"""Configuration for the performance benchmark.
 
-Edit DATA_DIR to point to a directory with enough space for VCFs and databases.
-All other constants control experiment parameters and should be kept fixed for
-reproducibility.
+Shared constants (DATA_DIR, 1KG paths, SEED, GENOME_BUILD) come from
+benchmarks/shared/config.py and are re-exported here for convenience.
 """
 
+import sys
 from pathlib import Path
 
+_BENCH_DIR = Path(__file__).resolve().parent.parent  # benchmarks/
+sys.path.insert(0, str(_BENCH_DIR))
+
+from shared.config import (  # noqa: E402
+    DATA_DIR,
+    GENOME_BUILD,
+    ONEKG_DIR,
+    ONEKG_MANIFEST,
+    ONEKG_MERGED_VCF,
+    ONEKG_PANEL,
+    ONEKG_VCF_DIR,
+    ONEKG_CHROM,
+    SEED,
+)
+
 # ---------------------------------------------------------------------------
-# Paths — adjust DATA_DIR to your environment
+# Performance-specific paths
 # ---------------------------------------------------------------------------
 BENCHMARKS_DIR = Path(__file__).resolve().parent
-DATA_DIR = Path("/mnt/lustre/home/dlopez/projects/afquery_bench_data")
-
-# 1000 Genomes data
-ONEKG_DIR = DATA_DIR / "1kg"
-ONEKG_VCF_DIR = ONEKG_DIR / "vcfs"
-ONEKG_MERGED_VCF = (
-    ONEKG_DIR
-    / "ALL.chr22.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz"
-)
-ONEKG_PANEL = ONEKG_DIR / "integrated_call_samples_v3.20130502.ALL.panel"
 
 # Databases built from 1KG data
 ONEKG_DB_DIR = DATA_DIR / "1kg_dbs"
@@ -36,9 +41,6 @@ FIGURES_DIR = BENCHMARKS_DIR / "figures"
 # ---------------------------------------------------------------------------
 # Experiment parameters
 # ---------------------------------------------------------------------------
-SEED = 42
-GENOME_BUILD = "GRCh37"
-ONEKG_CHROM = "22"  # 1KG Phase 3 uses "22", not "chr22"
 
 # Sample subsets for 1KG experiments
 ONEKG_SUBSETS = [500, 1_000, 2_504]
@@ -73,7 +75,8 @@ BCFTOOLS_REPS = 10
 
 def ensure_dirs() -> None:
     """Create all output directories if they don't exist."""
-    for d in [
+    from shared.utils import ensure_dirs as _ensure
+    _ensure(
         DATA_DIR,
         ONEKG_DIR,
         ONEKG_VCF_DIR,
@@ -82,5 +85,4 @@ def ensure_dirs() -> None:
         SYNTH_DB_DIR,
         RESULTS_DIR,
         FIGURES_DIR,
-    ]:
-        d.mkdir(parents=True, exist_ok=True)
+    )
