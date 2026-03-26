@@ -16,7 +16,9 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+_BENCH_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_BENCH_DIR))
+sys.path.insert(0, str(_BENCH_DIR.parent / "src"))
 
 from config import (
     BUILD_SCALES,

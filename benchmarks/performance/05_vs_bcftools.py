@@ -22,8 +22,11 @@ import tempfile
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+_BENCH_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_BENCH_DIR))
+sys.path.insert(0, str(_BENCH_DIR.parent / "src"))
 
+from shared.utils import stats as _stats  # noqa: E402
 from config import (
     BCFTOOLS_REPS,
     ONEKG_DB_DIR,
@@ -265,21 +268,6 @@ def _compute_concordance(db_path: Path, vcf_path: str, chrom: str) -> dict:
             "r_squared": round(r_squared, 6) if r_squared is not None else None,
             "af_pairs_sample": af_pairs[:100],  # first 100 for plotting
         }
-
-
-def _stats(times: list[float]) -> dict:
-    import statistics
-
-    s = sorted(times)
-    n = len(s)
-    return {
-        "median_ms": round(statistics.median(s), 3),
-        "q1_ms": round(s[n // 4], 3) if n >= 4 else round(s[0], 3),
-        "q3_ms": round(s[3 * n // 4], 3) if n >= 4 else round(s[-1], 3),
-        "min_ms": round(s[0], 3),
-        "max_ms": round(s[-1], 3),
-        "n": n,
-    }
 
 
 def main():

@@ -9,14 +9,15 @@ Output: results/query_scaling.json
 
 import json
 import logging
-import statistics
 import sys
-import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+_BENCH_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_BENCH_DIR))
+sys.path.insert(0, str(_BENCH_DIR.parent / "src"))
 
-from config import (
+from shared.utils import stats as _stats, time_ms as _time_ms  # noqa: E402
+from config import (  # noqa: E402
     QUERY_BATCH_REPS,
     QUERY_COLD_REPS,
     QUERY_REGION_REPS,
@@ -45,28 +46,6 @@ def _find_variants(db_path: Path, n: int = 1100):
     from afquery.benchmark import _find_test_variants
 
     return _find_test_variants(db_path, n=n)
-
-
-def _time_ms(func, *args, **kwargs):
-    """Run func and return (result, elapsed_ms)."""
-    t0 = time.perf_counter()
-    result = func(*args, **kwargs)
-    elapsed = (time.perf_counter() - t0) * 1000
-    return result, elapsed
-
-
-def _stats(times: list[float]) -> dict:
-    """Compute summary statistics for a list of times."""
-    s = sorted(times)
-    n = len(s)
-    return {
-        "median_ms": round(statistics.median(s), 3),
-        "q1_ms": round(s[n // 4], 3) if n >= 4 else round(s[0], 3),
-        "q3_ms": round(s[3 * n // 4], 3) if n >= 4 else round(s[-1], 3),
-        "min_ms": round(s[0], 3),
-        "max_ms": round(s[-1], 3),
-        "n": n,
-    }
 
 
 # Filter configurations to test

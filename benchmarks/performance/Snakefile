@@ -1,0 +1,152 @@
+"""Snakemake rules for the performance benchmark.
+
+Included by the root benchmarks/Snakefile.
+All paths are relative to the root Snakefile (benchmarks/).
+"""
+
+import sys
+from pathlib import Path
+
+# Make shared/ importable so we can read config constants here
+_bench = Path(workflow.basedir)
+sys.path.insert(0, str(_bench))
+
+from shared.config import SEED  # noqa: E402
+
+# Local config (performance-specific paths and parameters)
+sys.path.insert(0, str(_bench / "performance"))
+import importlib.util as _ilu
+
+_spec = _ilu.spec_from_file_location("perf_config", _bench / "performance" / "config.py")
+_pc = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_pc)
+
+PERF_RESULTS = Path(_pc.RESULTS_DIR)
+PERF_FIGURES = Path(_pc.FIGURES_DIR)
+
+# ---------------------------------------------------------------------------
+# Helper: script path relative to this Snakefile
+# ---------------------------------------------------------------------------
+PERF_DIR = _bench / "performance"
+
+
+rule performance_prepare:
+    """Build 1KG and synthetic databases."""
+    input:
+        manifest=str(ONEKG_MANIFEST),
+    output:
+        inventory=str(PERF_RESULTS / "data_inventory.json"),
+    log:
+        "logs/performance/prepare_data.log",
+    threads: workflow.cores
+    resources:
+        mem_mb=32_000,
+        runtime=240,
+    shell:
+        """
+        cd {PERF_DIR} && python 01_prepare_data.py > {log} 2>&1
+        """
+
+
+rule performance_query_scaling:
+    """Experiment 1: query latency vs. sample count."""
+    input:
+        inventory=str(PERF_RESULTS / "data_inventory.json"),
+    output:
+        results=str(PERF_RESULTS / "query_scaling.json"),
+    log:
+        "logs/performance/query_scaling.log",
+    threads: 1
+    resources:
+        mem_mb=16_000,
+        runtime=120,
+    shell:
+        """
+        cd {PERF_DIR} && python 02_query_scaling.py > {log} 2>&1
+        """
+
+
+rule performance_build_perf:
+    """Experiment 2: build time vs. threads."""
+    input:
+        inventory=str(PERF_RESULTS / "data_inventory.json"),
+    output:
+        results=str(PERF_RESULTS / "build_perf.json"),
+    log:
+        "logs/performance/build_perf.log",
+    threads: workflow.cores
+    resources:
+        mem_mb=64_000,
+        runtime=480,
+        slurm_extra="--nodes=1",
+    shell:
+        """
+        cd {PERF_DIR} && python 03_build.py > {log} 2>&1
+        """
+
+
+rule performance_annotate:
+    """Experiment 3: annotation throughput vs. threads."""
+    input:
+        inventory=str(PERF_RESULTS / "data_inventory.json"),
+    output:
+        results=str(PERF_RESULTS / "annotate_throughput.json"),
+    log:
+        "logs/performance/annotate_throughput.log",
+    threads: workflow.cores
+    resources:
+        mem_mb=32_000,
+        runtime=120,
+        slurm_extra="--nodes=1",
+    shell:
+        """
+        cd {PERF_DIR} && python 04_annotate.py > {log} 2>&1
+        """
+
+
+rule performance_bcftools:
+    """Experiment 4: AFQuery vs. bcftools."""
+    input:
+        inventory=str(PERF_RESULTS / "data_inventory.json"),
+    output:
+        comparison=str(PERF_RESULTS / "bcftools_comparison.json"),
+        concordance=str(PERF_RESULTS / "concordance.json"),
+    log:
+        "logs/performance/bcftools_comparison.log",
+    threads: 1
+    resources:
+        mem_mb=16_000,
+        runtime=60,
+    shell:
+        """
+        module load BCFtools/1.18-GCC-12.3.0 2>/dev/null || true
+        cd {PERF_DIR} && python 05_vs_bcftools.py > {log} 2>&1
+        """
+
+
+rule performance_plot:
+    """Generate publication figures from all result JSON files."""
+    input:
+        str(PERF_RESULTS / "query_scaling.json"),
+        str(PERF_RESULTS / "build_perf.json"),
+        str(PERF_RESULTS / "annotate_throughput.json"),
+        str(PERF_RESULTS / "bcftools_comparison.json"),
+        str(PERF_RESULTS / "concordance.json"),
+    output:
+        directory(str(PERF_FIGURES)),
+    log:
+        "logs/performance/plot.log",
+    threads: 1
+    resources:
+        mem_mb=4_000,
+        runtime=15,
+    shell:
+        """
+        cd {PERF_DIR} && python 06_plot.py > {log} 2>&1
+        """
+
+
+rule performance_all:
+    """Run the complete performance benchmark."""
+    input:
+        rules.performance_plot.output,

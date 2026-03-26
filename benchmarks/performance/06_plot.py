@@ -16,53 +16,26 @@ import json
 import sys
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")  # non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
-from config import FIGURES_DIR, RESULTS_DIR, ensure_dirs
+_BENCH_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_BENCH_DIR))
 
-# ---------------------------------------------------------------------------
-# Style configuration
-# ---------------------------------------------------------------------------
-plt.rcParams.update({
-    "font.size": 10,
-    "font.family": "sans-serif",
-    "axes.titlesize": 11,
-    "axes.labelsize": 10,
-    "xtick.labelsize": 9,
-    "ytick.labelsize": 9,
-    "legend.fontsize": 8,
-    "figure.dpi": 300,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-    "axes.spines.top": False,
-    "axes.spines.right": False,
-})
+from shared.utils import (  # noqa: E402
+    WONG_COLORS as COLORS,
+    FIG_W_SINGLE as SINGLE_COL_WIDTH,
+    FIG_W_DOUBLE as DOUBLE_COL_WIDTH,
+    apply_style,
+    save_figure,
+)
+from config import FIGURES_DIR, RESULTS_DIR, ensure_dirs  # noqa: E402
 
-# Colorblind-safe palette (Wong, 2011 — Nature Methods 8:441)
-COLORS = {
-    "blue": "#0072B2",
-    "orange": "#E69F00",
-    "green": "#009E73",
-    "red": "#D55E00",
-    "purple": "#CC79A7",
-    "cyan": "#56B4E9",
-    "yellow": "#F0E442",
-    "black": "#000000",
-}
-
-SINGLE_COL_WIDTH = 3.5  # inches (journal single column)
-DOUBLE_COL_WIDTH = 7.0  # inches (journal double column)
+apply_style()
 
 
 def _save(fig, name: str):
-    """Save figure as PDF and PNG."""
-    fig.savefig(FIGURES_DIR / f"{name}.pdf", format="pdf")
-    fig.savefig(FIGURES_DIR / f"{name}.png", format="png")
-    plt.close(fig)
-    print(f"  Saved {name}.pdf + {name}.png")
+    save_figure(fig, name, FIGURES_DIR)
 
 
 # ---------------------------------------------------------------------------
