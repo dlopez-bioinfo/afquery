@@ -68,8 +68,8 @@ rule capture_kit_split_vcf:
     shell:
         """
         set -euo pipefail
-        mkdir -p $(dirname {log})
-        bcftools view -s {wildcards.sample} --min-ac 1:nref {input.merged} -Oz -o {output.vcf} 2>{log}
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")"
+        bcftools view -s {wildcards.sample} --min-ac 1:nref {input.merged} -Oz -o {output.vcf} 2>"$LOG"
         """
 
 
@@ -90,8 +90,8 @@ rule capture_kit_mask_vcf:
     shell:
         """
         set -euo pipefail
-        mkdir -p $(dirname {log}) $(dirname {output.vcf})
-        bedtools intersect -a {input.vcf} -b {input.bed} -header -wa | bgzip > {output.vcf} 2>{log}
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" "$(dirname {output.vcf})"
+        bedtools intersect -a {input.vcf} -b {input.bed} -header -wa | bgzip > {output.vcf} 2>"$LOG"
         """
 
 
