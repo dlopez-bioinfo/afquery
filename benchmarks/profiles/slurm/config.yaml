@@ -40,69 +40,116 @@ set-resources:
     runtime: 180
     slurm_extra: "--nodes=1"
 
-  # Database prepare — builds multiple DBs sequentially per benchmark
-  performance_prepare:
-    cpus_per_task: 52
-    mem_mb: 64000
-    runtime: 480
-    slurm_extra: "--nodes=1"
-
-  # Query scaling — light single-threaded measurement
-  performance_query_scaling:
-    cpus_per_task: 1
-    mem_mb: 16000
-    runtime: 120
-
-  # Build performance experiment — sweeps over thread counts
-  performance_build_perf:
-    cpus_per_task: 52
-    mem_mb: 128000
-    runtime: 600
-    slurm_extra: "--nodes=1"
-
-  # Annotation throughput — sweeps over thread counts
-  performance_annotate:
+  # --- Performance: prepare (one job per DB, all parallel) ---
+  performance_prepare_1kg:
     cpus_per_task: 52
     mem_mb: 32000
     runtime: 120
     slurm_extra: "--nodes=1"
 
-  # bcftools comparison — light single-threaded
-  performance_bcftools:
+  performance_prepare_synth:
+    cpus_per_task: 52
+    mem_mb: 32000
+    runtime: 120
+    slurm_extra: "--nodes=1"
+
+  performance_data_inventory:
+    cpus_per_task: 1
+    mem_mb: 4000
+    runtime: 5
+
+  # --- Performance: query scaling (one job per scale) ---
+  performance_query_scaling_one:
+    cpus_per_task: 1
+    mem_mb: 16000
+    runtime: 30
+
+  performance_query_scaling_collect:
+    cpus_per_task: 1
+    mem_mb: 4000
+    runtime: 5
+
+  # --- Performance: build experiment (gen + 15 parallel builds) ---
+  performance_build_synth_gen:
+    cpus_per_task: 1
+    mem_mb: 8000
+    runtime: 30
+
+  performance_build_one:
+    # cpus_per_task is set dynamically via threads: lambda wc: int(wc.t)
+    # mem_mb is set dynamically via lambda: threads * 4000
+    # SLURM floor values used when lambda is not overriding:
+    mem_mb: 8000
+    runtime: 120
+    slurm_extra: "--nodes=1"
+
+  performance_build_collect:
+    cpus_per_task: 1
+    mem_mb: 4000
+    runtime: 5
+
+  # --- Performance: annotate (15 parallel runs) ---
+  performance_annotate_one:
+    # cpus_per_task set dynamically via threads: lambda wc: int(wc.t)
+    mem_mb: 8000
+    runtime: 30
+    slurm_extra: "--nodes=1"
+
+  performance_annotate_collect:
+    cpus_per_task: 1
+    mem_mb: 4000
+    runtime: 5
+
+  # --- Performance: bcftools comparison (3 parallel + 1 concordance) ---
+  performance_bcftools_one:
     cpus_per_task: 1
     mem_mb: 16000
     runtime: 60
 
-  # Capture kit: prepare (split + mask per-sample VCFs)
+  performance_bcftools_concordance:
+    cpus_per_task: 1
+    mem_mb: 16000
+    runtime: 30
+
+  performance_bcftools_collect:
+    cpus_per_task: 1
+    mem_mb: 4000
+    runtime: 5
+
+  # --- Performance: plot ---
+  performance_plot:
+    cpus_per_task: 1
+    mem_mb: 4000
+    runtime: 15
+
+  # --- Capture kit: prepare (split + mask per-sample VCFs) ---
   capture_kit_prepare:
     cpus_per_task: 52
     mem_mb: 16000
     runtime: 180
     slurm_extra: "--nodes=1"
 
-  # Capture kit: build 4 databases
-  capture_kit_build:
+  # --- Capture kit: build (one job per scenario, all parallel) ---
+  capture_kit_build_one:
     cpus_per_task: 52
-    mem_mb: 128000
-    runtime: 480
+    mem_mb: 64000
+    runtime: 120
     slurm_extra: "--nodes=1"
 
-  # Capture kit: compute NADI / AF error metrics (pandas, pyranges)
+  capture_kit_build_all:
+    cpus_per_task: 1
+    mem_mb: 1000
+    runtime: 1
+
+  # --- Capture kit: downstream (unchanged) ---
   capture_kit_metrics:
     cpus_per_task: 4
     mem_mb: 64000
     runtime: 60
 
-  # Capture kit: ACMG classification
   capture_kit_acmg:
     cpus_per_task: 1
     mem_mb: 8000
-    runtime: 15
-
-  # Plotting rules — lightweight
-  performance_plot:
-    cpus_per_task: 1
-    mem_mb: 4000
     runtime: 15
 
   capture_kit_plot:
