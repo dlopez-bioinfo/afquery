@@ -20,13 +20,13 @@ All steps are orchestrated by Snakemake from the `benchmarks/` root.
 
 ```bash
 # Run the full capture kit benchmark (HPC)
-snakemake --profile benchmarks/profiles/slurm capture_kit_all
+snakemake --profile profiles/slurm capture_kit_all
 
 # Run locally
 snakemake --cores all capture_kit_all
 
 # Dry run
-snakemake --profile benchmarks/profiles/slurm --dry-run capture_kit_all
+snakemake --profile profiles/slurm --dry-run capture_kit_all
 ```
 
 The scripts can also be run directly when working from this directory

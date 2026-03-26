@@ -37,18 +37,20 @@ Capture kit mixing impact on allele frequency classification:
 
 ## Running the Benchmarks
 
+All commands below are run from the `benchmarks/` directory.
+
 ### On an HPC with SLURM (recommended)
 
 ```bash
 # Run everything (both benchmarks) across as many nodes as needed
-snakemake --profile benchmarks/profiles/slurm all
+snakemake --profile profiles/slurm all
 
 # Run only one benchmark
-snakemake --profile benchmarks/profiles/slurm performance_all
-snakemake --profile benchmarks/profiles/slurm capture_kit_all
+snakemake --profile profiles/slurm performance_all
+snakemake --profile profiles/slurm capture_kit_all
 
 # Download 1KG data only (prerequisite for both)
-snakemake --profile benchmarks/profiles/slurm download_1kg
+snakemake --profile profiles/slurm download_1kg
 ```
 
 ### Locally (without SLURM)
@@ -61,7 +63,7 @@ snakemake --cores all performance_all
 ### Dry run (preview what will execute)
 
 ```bash
-snakemake --profile benchmarks/profiles/slurm --dry-run all
+snakemake --profile profiles/slurm --dry-run all
 ```
 
 ### Resuming after a failure

@@ -17,7 +17,7 @@ All experiments are orchestrated by Snakemake from the `benchmarks/` root.
 
 ```bash
 # Run the full performance benchmark (HPC)
-snakemake --profile benchmarks/profiles/slurm performance_all
+snakemake --profile profiles/slurm performance_all
 
 # Run locally
 snakemake --cores all performance_all
@@ -26,7 +26,7 @@ snakemake --cores all performance_all
 snakemake --cores 4 benchmarks/performance/results/query_scaling.json
 
 # Dry run
-snakemake --profile benchmarks/profiles/slurm --dry-run performance_all
+snakemake --profile profiles/slurm --dry-run performance_all
 ```
 
 The scripts can also be run directly when working from this directory:
