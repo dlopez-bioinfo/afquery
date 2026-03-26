@@ -26,8 +26,8 @@ _spec = _ilu.spec_from_file_location("perf_config", _bench / "performance" / "co
 _pc = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(_pc)
 
-PERF_RESULTS = Path(_pc.RESULTS_DIR)
-PERF_FIGURES = Path(_pc.FIGURES_DIR)
+PERF_RESULTS = Path(_pc.RESULTS_DIR).resolve()
+PERF_FIGURES = Path(_pc.FIGURES_DIR).resolve()
 
 # ---------------------------------------------------------------------------
 # Helper: script path relative to this Snakefile
