@@ -30,9 +30,12 @@ rule download_1kg:
         slurm_extra="--nodes=1",
     shell:
         """
-        mkdir -p $(dirname {log}) && module load BCFtools/1.18-GCC-12.3.0 parallel 2>/dev/null || true
+        set -euo pipefail
+        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
+        module load BCFtools/1.18-GCC-12.3.0 parallel 2>/dev/null || true
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")"
         export ONEKG_DIR="{ONEKG_DIR}"
         export THREADS={threads}
         bash {workflow.basedir}/shared/scripts/download_1kg.sh \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
