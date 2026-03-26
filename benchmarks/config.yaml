@@ -1,0 +1,16 @@
+# Snakemake configuration for AFQuery benchmarks.
+# Override any value on the command line: --config key=value
+
+# Path to benchmark data directory (must have ~200 GB free for 1KG + databases)
+# Can also be set via the AFQUERY_BENCH_DATA environment variable.
+data_dir: "/mnt/lustre/home/dlopez/projects/afquery_bench_data"
+
+# DuckDB memory limit per build worker
+build_memory: "8GB"
+
+# Thread count cap for build / annotate experiments
+# Set to null to use all available cores (workflow.cores)
+threads: null
+
+# Set to true to run a minimal smoke test (tiny scales, few reps)
+smoke_test: false
