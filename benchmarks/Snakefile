@@ -1,0 +1,71 @@
+"""Unified benchmark pipeline for AFQuery.
+
+Usage:
+    # All benchmarks
+    snakemake --profile benchmarks/profiles/slurm all
+
+    # Only performance benchmark
+    snakemake --profile benchmarks/profiles/slurm performance_all
+
+    # Only capture kit benchmark
+    snakemake --profile benchmarks/profiles/slurm capture_kit_all
+
+    # Only download 1KG data
+    snakemake --profile benchmarks/profiles/slurm download_1kg
+
+    # Dry run (preview rules to execute)
+    snakemake --profile benchmarks/profiles/slurm --dry-run all
+
+    # Run locally without SLURM
+    snakemake --cores 52 all
+"""
+
+import sys
+from pathlib import Path
+
+# Make shared/ importable from within Snakemake rules
+_bench = Path(workflow.basedir)
+sys.path.insert(0, str(_bench))
+
+from shared.config import (  # noqa: E402
+    DATA_DIR,
+    ONEKG_DIR,
+    ONEKG_MANIFEST,
+    SEED,
+)
+
+# ---------------------------------------------------------------------------
+# Global settings
+# ---------------------------------------------------------------------------
+configfile: "config.yaml"
+
+# Override DATA_DIR from config if provided
+if config.get("data_dir"):
+    from pathlib import Path as _P
+    import shared.config as _sc
+    _sc.DATA_DIR = _P(config["data_dir"])
+    DATA_DIR = _sc.DATA_DIR
+    ONEKG_DIR = _sc.DATA_DIR / "1kg"
+    ONEKG_MANIFEST = ONEKG_DIR / "manifest.tsv"
+
+# Export constants to sub-Snakefiles via globals
+workflow._globals = {}  # not needed; sub-files access via import
+
+# ---------------------------------------------------------------------------
+# Include sub-pipelines
+# ---------------------------------------------------------------------------
+include: "shared/rules/download_1kg.smk"
+include: "performance/Snakefile"
+include: "capture_kit/Snakefile"
+
+# ---------------------------------------------------------------------------
+# Top-level targets
+# ---------------------------------------------------------------------------
+
+
+rule all:
+    """Run both benchmarks end-to-end."""
+    default_target: True
+    input:
+        rules.performance_all.input,
+        rules.capture_kit_all.input,
