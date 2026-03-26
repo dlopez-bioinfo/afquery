@@ -39,6 +39,13 @@ from shared.config import (  # noqa: E402
 # ---------------------------------------------------------------------------
 configfile: "config.yaml"
 
+# Guard: data_dir must be set
+if not config.get("data_dir", "").strip():
+    raise WorkflowError(
+        "config.yaml: 'data_dir' is not set. "
+        "Edit config.yaml or pass --config data_dir=/path/to/data"
+    )
+
 # Override DATA_DIR from config if provided
 if config.get("data_dir"):
     import shared.config as _sc

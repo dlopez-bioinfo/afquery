@@ -1,15 +1,22 @@
 # Snakemake configuration for AFQuery benchmarks.
 # Override any value on the command line: --config key=value
 
-# Path to benchmark data directory (must have ~200 GB free for 1KG + databases)
-# Can also be set via the AFQUERY_BENCH_DATA environment variable.
-data_dir: "/mnt/lustre/home/dlopez/projects/afquery_bench_data"
+# Path to benchmark data directory (must have ~200 GB free for 1KG + databases).
+# REQUIRED: set to a directory with ~200 GB free space.
+# Example: data_dir: "/scratch/myuser/afquery_bench_data"
+# Or override at runtime: snakemake --config data_dir=/path/to/data ...
+data_dir: ""
 
 # DuckDB memory limit per build worker
 build_memory: "8GB"
 
-# Thread count cap for build / annotate experiments (passed to Python scripts)
-threads: 52
+# Thread count for local runs. For SLURM, per-rule threads are in profiles/slurm/config.yaml.
+threads: 4
 
 # Set to true to run a minimal smoke test (tiny scales, few reps)
 smoke_test: false
+
+# Path to the conda/micromamba environment spec, relative to benchmarks/.
+# Snakemake creates and manages this environment automatically when run with
+# --software-deployment-method conda --conda-frontend micromamba
+conda_env_file: "envs/benchmark.yaml"
