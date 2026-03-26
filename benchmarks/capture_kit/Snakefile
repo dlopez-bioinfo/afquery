@@ -3,9 +3,14 @@
 Included by the root benchmarks/Snakefile.
 """
 
+import os
 import sys
 import importlib.util as _ilu
 from pathlib import Path
+
+# Create log directory before any rule runs
+onstart:
+    os.makedirs("logs/capture_kit", exist_ok=True)
 
 _bench = Path(workflow.basedir)
 sys.path.insert(0, str(_bench))
