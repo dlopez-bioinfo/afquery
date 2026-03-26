@@ -38,20 +38,20 @@ set-resources:
     cpus_per_task: 32
     mem_mb: 8000
     runtime: 180
-    slurm_extra: "--nodes=1"
+    nodes: 1
 
   # --- Performance: prepare (one job per DB, all parallel) ---
   performance_prepare_1kg:
     cpus_per_task: 52
     mem_mb: 32000
     runtime: 120
-    slurm_extra: "--nodes=1"
+    nodes: 1
 
   performance_prepare_synth:
     cpus_per_task: 52
     mem_mb: 32000
     runtime: 120
-    slurm_extra: "--nodes=1"
+    nodes: 1
 
   performance_data_inventory:
     cpus_per_task: 1
@@ -81,7 +81,7 @@ set-resources:
     # SLURM floor values used when lambda is not overriding:
     mem_mb: 8000
     runtime: 120
-    slurm_extra: "--nodes=1"
+    nodes: 1
 
   performance_build_collect:
     cpus_per_task: 1
@@ -93,7 +93,7 @@ set-resources:
     # cpus_per_task set dynamically via threads: lambda wc: int(wc.t)
     mem_mb: 8000
     runtime: 30
-    slurm_extra: "--nodes=1"
+    nodes: 1
 
   performance_annotate_collect:
     cpus_per_task: 1
@@ -127,14 +127,14 @@ set-resources:
     cpus_per_task: 52
     mem_mb: 16000
     runtime: 180
-    slurm_extra: "--nodes=1"
+    nodes: 1
 
   # --- Capture kit: build (one job per scenario, all parallel) ---
   capture_kit_build_one:
     cpus_per_task: 52
     mem_mb: 64000
     runtime: 120
-    slurm_extra: "--nodes=1"
+    nodes: 1
 
   capture_kit_build_all:
     cpus_per_task: 1
