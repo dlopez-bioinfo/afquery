@@ -1,4 +1,4 @@
-"""Configuration for capture kit mixing benchmark.
+"""Configuration for the capture kit mixing benchmark.
 
 BED files downloaded from Agilent SureDesign
 (https://earray.chem.agilent.com/suredesign/) and pre-filtered to chr22.
@@ -9,26 +9,25 @@ Coverage overlap on chr22:
   Discordant (1-2 kits):   643,232 bases (42.7%)
 """
 
-import importlib.util
 import os
+import sys
 from pathlib import Path
 
-# Import shared 1KG config from performance benchmark
-perf_config_path = Path(__file__).resolve().parent.parent / "performance" / "config.py"
-spec = importlib.util.spec_from_file_location("perf_config", perf_config_path)
-perf_config = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(perf_config)
+_BENCH_DIR = Path(__file__).resolve().parent.parent  # benchmarks/
+sys.path.insert(0, str(_BENCH_DIR))
 
-DATA_DIR = perf_config.DATA_DIR
-GENOME_BUILD = perf_config.GENOME_BUILD
-ONEKG_DIR = perf_config.ONEKG_DIR
-ONEKG_MERGED_VCF = perf_config.ONEKG_MERGED_VCF
-ONEKG_PANEL = perf_config.ONEKG_PANEL
-ONEKG_VCF_DIR = perf_config.ONEKG_VCF_DIR
-SEED = perf_config.SEED
+from shared.config import (  # noqa: E402
+    DATA_DIR,
+    GENOME_BUILD,
+    ONEKG_DIR,
+    ONEKG_MERGED_VCF,
+    ONEKG_PANEL,
+    ONEKG_VCF_DIR,
+    SEED,
+)
 
 # ---------------------------------------------------------------------------
-# Paths
+# Capture kit paths
 # ---------------------------------------------------------------------------
 CAPTURE_DIR = DATA_DIR / "capture_kit"
 BED_DIR = CAPTURE_DIR / "beds"
@@ -61,15 +60,18 @@ ACMG_THRESHOLDS = {
     "metabolic":      {"BA1": 0.05, "BS1": 0.0001, "PM2": 0.0},
 }
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
 def ensure_dirs():
     """Create all output directories if they don't exist."""
-    for d in [CAPTURE_DIR, BED_DIR, MASKING_BED_DIR, AFQUERY_BED_DIR,
-              PER_SAMPLE_DIR, MASKED_DIR, MANIFEST_DIR, DB_DIR,
-              RESULTS_DIR, FIGURES_DIR]:
-        d.mkdir(parents=True, exist_ok=True)
+    from shared.utils import ensure_dirs as _ensure
+    _ensure(
+        CAPTURE_DIR, BED_DIR, MASKING_BED_DIR, AFQUERY_BED_DIR,
+        PER_SAMPLE_DIR, MASKED_DIR, MANIFEST_DIR, DB_DIR,
+        RESULTS_DIR, FIGURES_DIR,
+    )
     for tech in SCENARIOS["balanced"]:
         (MASKED_DIR / tech).mkdir(parents=True, exist_ok=True)

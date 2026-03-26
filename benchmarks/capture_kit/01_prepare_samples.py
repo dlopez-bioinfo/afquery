@@ -18,10 +18,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
+_BENCH_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_BENCH_DIR))
+sys.path.insert(0, str(_BENCH_DIR.parent / "src"))
 
-from capture_kit_bench.config import (
+from config import (
     CAPTURE_DIR,
     MASKING_BED_DIR,
     MASKED_DIR,
