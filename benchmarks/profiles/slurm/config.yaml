@@ -9,9 +9,6 @@
 
 executor: slurm
 
-# Job name format: include rule name for better job tracking
-job-name-format: "{rule}"
-
 # No cap on concurrent jobs — use as many nodes as the scheduler allows.
 # The scheduler will queue and allocate naturally.
 jobs: 500
