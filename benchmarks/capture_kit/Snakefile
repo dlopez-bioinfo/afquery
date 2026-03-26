@@ -36,7 +36,7 @@ rule capture_kit_prepare:
         done=touch(str(CK_MANIFEST_DIR / ".prepare_done")),
     log:
         "logs/capture_kit/prepare_samples.log",
-    threads: workflow.cores
+    threads: 52
     resources:
         mem_mb=16_000,
         runtime=120,
@@ -56,7 +56,7 @@ rule capture_kit_build:
         done=touch(str(CK_DB_DIR / ".build_done")),
     log:
         "logs/capture_kit/build_databases.log",
-    threads: workflow.cores
+    threads: 52
     resources:
         mem_mb=64_000,
         runtime=480,

@@ -8,9 +8,8 @@ data_dir: "/mnt/lustre/home/dlopez/projects/afquery_bench_data"
 # DuckDB memory limit per build worker
 build_memory: "8GB"
 
-# Thread count cap for build / annotate experiments
-# Set to null to use all available cores (workflow.cores)
-threads: null
+# Thread count cap for build / annotate experiments (passed to Python scripts)
+threads: 52
 
 # Set to true to run a minimal smoke test (tiny scales, few reps)
 smoke_test: false

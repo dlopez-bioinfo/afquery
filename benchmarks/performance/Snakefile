@@ -38,7 +38,7 @@ rule performance_prepare:
         inventory=str(PERF_RESULTS / "data_inventory.json"),
     log:
         "logs/performance/prepare_data.log",
-    threads: workflow.cores
+    threads: 52
     resources:
         mem_mb=32_000,
         runtime=240,
@@ -74,7 +74,7 @@ rule performance_build_perf:
         results=str(PERF_RESULTS / "build_perf.json"),
     log:
         "logs/performance/build_perf.log",
-    threads: workflow.cores
+    threads: 52
     resources:
         mem_mb=64_000,
         runtime=480,
@@ -93,7 +93,7 @@ rule performance_annotate:
         results=str(PERF_RESULTS / "annotate_throughput.json"),
     log:
         "logs/performance/annotate_throughput.log",
-    threads: workflow.cores
+    threads: 52
     resources:
         mem_mb=32_000,
         runtime=120,
