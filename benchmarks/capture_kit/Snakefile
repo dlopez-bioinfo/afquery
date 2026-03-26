@@ -50,7 +50,7 @@ rule capture_kit_prepare:
         """
         module load BCFtools/1.18-GCC-12.3.0 BEDTools/2.31.0-GCC-12.3.0 \
             parallel 2>/dev/null || true
-        mkdir -p $(dirname {log}) && cd {CK_DIR} && python 01_prepare_samples.py > {log} 2>&1
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {CK_DIR} && python 01_prepare_samples.py > "$LOG" 2>&1
         """
 
 
@@ -71,9 +71,9 @@ rule capture_kit_build_one:
         slurm_extra="--nodes=1",
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {CK_DIR} && python 02_build_databases.py \
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {CK_DIR} && python 02_build_databases.py \
             --scenario {wildcards.scenario} \
-            > {log} 2>&1
+            > "$LOG" 2>&1
         """
 
 
@@ -105,7 +105,7 @@ rule capture_kit_metrics:
         runtime=60,
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {CK_DIR} && python 03_compute_metrics.py > {log} 2>&1
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {CK_DIR} && python 03_compute_metrics.py > "$LOG" 2>&1
         """
 
 
@@ -123,7 +123,7 @@ rule capture_kit_acmg:
         runtime=15,
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {CK_DIR} && python 04_classify_acmg.py > {log} 2>&1
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {CK_DIR} && python 04_classify_acmg.py > "$LOG" 2>&1
         """
 
 
@@ -142,7 +142,7 @@ rule capture_kit_plot:
         runtime=15,
     shell:
         """
-        mkdir -p $(dirname {log}) && cd {CK_DIR} && python 05_plot_figures.py > {log} 2>&1
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {CK_DIR} && python 05_plot_figures.py > "$LOG" 2>&1
         """
 
 
@@ -150,3 +150,5 @@ rule capture_kit_all:
     """Run the complete capture kit mixing benchmark."""
     input:
         rules.capture_kit_plot.output,
+    output:
+        touch(str(CK_RESULTS / ".capture_kit_done")),
