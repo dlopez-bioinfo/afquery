@@ -71,14 +71,16 @@ rule performance_prepare_1kg:
         done=str(PERF_RAW / "prepare" / "1kg_{n}.json"),
     log:
         "logs/performance/prepare_1kg_{n}.log",
+    # Independent jobs per DB size run in parallel on SLURM;
+    # threads is per-job maximum for a single node
     threads: 52
     resources:
         mem_mb=32_000,
         runtime=120,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 01_prepare_data.py \
             --mode 1kg --n-samples {wildcards.n} \
             --output {output.done} \
@@ -94,14 +96,16 @@ rule performance_prepare_synth:
         done=str(PERF_RAW / "prepare" / "synth_{n}.json"),
     log:
         "logs/performance/prepare_synth_{n}.log",
+    # Independent jobs per DB size run in parallel on SLURM;
+    # threads is per-job maximum for a single node
     threads: 52
     resources:
         mem_mb=32_000,
         runtime=120,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 01_prepare_data.py \
             --mode synth --n-samples {wildcards.n} \
             --output {output.done} \
@@ -128,10 +132,10 @@ rule performance_data_inventory:
     resources:
         mem_mb=4_000,
         runtime=5,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python collect_prepare.py \
             --onekg-jsons {input.onekg} \
             --synth-jsons {input.synth} \
@@ -159,10 +163,10 @@ rule performance_query_scaling_one:
     resources:
         mem_mb=16_000,
         runtime=30,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 02_query_scaling.py \
             --scale {wildcards.n} \
             --output {output.result} \
@@ -185,10 +189,10 @@ rule performance_query_scaling_collect:
     resources:
         mem_mb=4_000,
         runtime=5,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python collect_query_scaling.py \
             --inputs {input.results} \
             --output {output.results} \
@@ -213,10 +217,10 @@ rule performance_build_synth_gen:
     resources:
         mem_mb=8_000,
         runtime=30,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 03_build.py \
             --phase gen \
             --n-samples {wildcards.n} \
@@ -241,10 +245,10 @@ rule performance_build_one:
         mem_mb=lambda wc, threads: threads * 4_000,
         runtime=120,
         slurm_extra="--nodes=1",
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 03_build.py \
             --phase build \
             --n-samples {wildcards.n} \
@@ -270,10 +274,10 @@ rule performance_build_collect:
     resources:
         mem_mb=4_000,
         runtime=5,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python collect_build_perf.py \
             --inputs {input.results} \
             --output {output.results} \
@@ -306,10 +310,10 @@ rule performance_annotate_one:
         slurm_extra="--nodes=1",
     params:
         max_subset=max(ONEKG_SUBSETS),
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 04_annotate.py \
             --n-variants {wildcards.n} \
             --threads {wildcards.t} \
@@ -335,10 +339,10 @@ rule performance_annotate_collect:
     resources:
         mem_mb=4_000,
         runtime=5,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python collect_annotate.py \
             --inputs {input.results} \
             --output {output.results} \
@@ -365,9 +369,10 @@ rule performance_bcftools_one:
     resources:
         mem_mb=16_000,
         runtime=60,
+    conda: config["conda_env_file"]
     shell:
         """
-        module load BCFtools/1.18-GCC-12.3.0 2>/dev/null || true
+        set -euo pipefail
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 05_vs_bcftools.py \
             --n-samples {wildcards.n} \
             --output {output.result} \
@@ -391,9 +396,10 @@ rule performance_bcftools_concordance:
     resources:
         mem_mb=16_000,
         runtime=30,
+    conda: config["conda_env_file"]
     shell:
         """
-        module load BCFtools/1.18-GCC-12.3.0 2>/dev/null || true
+        set -euo pipefail
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 05_vs_bcftools.py \
             --n-samples {params.max_subset} \
             --concordance-only \
@@ -417,10 +423,10 @@ rule performance_bcftools_collect:
     resources:
         mem_mb=4_000,
         runtime=5,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python collect_bcftools.py \
             --inputs {input.results} \
             --output {output.comparison} \
@@ -450,10 +456,10 @@ rule performance_plot:
     resources:
         mem_mb=4_000,
         runtime=15,
+    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
-        export PATH="/mnt/lustre/home/dlopez/micromamba/envs/snakemake/bin:$PATH"
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" && cd {PERF_DIR} && python 06_plot.py > "$LOG" 2>&1
         """
 
