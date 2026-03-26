@@ -33,12 +33,23 @@ default-resources:
 # Per-rule resource overrides
 # ---------------------------------------------------------------------------
 set-resources:
-  # 1KG download — network + parallel split (single node)
+  # 1KG: download merged VCF + panel (network-bound, 1 CPU)
+  download_1kg_data:
+    cpus_per_task: 1
+    mem_mb: 4000
+    runtime: 120
+
+  # 1KG: one independent SLURM job per sample (2504 jobs)
+  split_1kg_sample:
+    cpus_per_task: 1
+    mem_mb: 4000
+    runtime: 10
+
+  # 1KG: write manifest.tsv once all splits are done
   download_1kg:
-    cpus_per_task: 32
-    mem_mb: 8000
-    runtime: 180
-    nodes: 1
+    cpus_per_task: 1
+    mem_mb: 2000
+    runtime: 10
 
   # --- Performance: prepare (one job per DB, all parallel) ---
   performance_prepare_1kg:
@@ -122,16 +133,11 @@ set-resources:
     mem_mb: 4000
     runtime: 15
 
-  # --- Capture kit: prepare (Snakemake-native parallelism, no GNU parallel) ---
+  # --- Capture kit: prepare (Snakemake-native parallelism) ---
   capture_kit_assign:
     cpus_per_task: 1
     mem_mb: 4000
     runtime: 5
-
-  capture_kit_split_vcf:
-    cpus_per_task: 1
-    mem_mb: 4000
-    runtime: 10
 
   capture_kit_mask_vcf:
     cpus_per_task: 1

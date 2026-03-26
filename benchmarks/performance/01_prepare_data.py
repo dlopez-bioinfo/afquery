@@ -5,7 +5,7 @@ Creates:
   - 1KG databases at subset sizes (500, 1000, 2504 samples)
   - Synthetic databases at scales (1K, 5K, 10K, 25K, 50K samples)
 
-Reads the 1KG manifest from 00_download_1kg.sh output and subsamples it.
+Reads the 1KG manifest from the download_1kg Snakemake rule output and subsamples it.
 """
 
 import json
@@ -65,7 +65,7 @@ def build_1kg_databases() -> dict:
 
     manifest_path = ONEKG_DIR / "manifest.tsv"
     if not manifest_path.exists():
-        logger.error("1KG manifest not found. Run 00_download_1kg.sh first.")
+        logger.error("1KG manifest not found. Run the download_1kg Snakemake rule first.")
         return {}
 
     results = {}
