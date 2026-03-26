@@ -2,10 +2,10 @@
 #
 # Requires: snakemake-executor-plugin-slurm (pip install snakemake-executor-plugin-slurm)
 #
-# Usage:
-#   snakemake --profile benchmarks/profiles/slurm all
-#   snakemake --profile benchmarks/profiles/slurm performance_all
-#   snakemake --profile benchmarks/profiles/slurm capture_kit_all
+# Usage (run from the benchmarks/ directory):
+#   snakemake --profile profiles/slurm all
+#   snakemake --profile profiles/slurm performance_all
+#   snakemake --profile profiles/slurm capture_kit_all
 
 executor: slurm
 
