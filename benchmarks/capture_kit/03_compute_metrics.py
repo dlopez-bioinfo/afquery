@@ -27,6 +27,7 @@ sys.path.insert(0, str(_BENCH_DIR.parent / "src"))
 from config import (
     AFQUERY_BED_DIR,
     DB_DIR,
+    ONEKG_CHROM,
     RESULTS_DIR,
     SCENARIOS,
     ensure_dirs,
@@ -36,6 +37,12 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# AFQuery should have near-zero bias; allow ±1% mean error.
+_AFQUERY_BIAS_THRESHOLD = 0.01
+# AF_naive is expected to be biased LOW (masking shrinks AN); any positive
+# bias would indicate a data error — use a tighter upper threshold.
+_NAIVE_POSITIVE_BIAS_THRESHOLD = 0.001
 
 
 def dump_db(
@@ -68,7 +75,9 @@ def dump_db(
     return pd.read_csv(buf)
 
 
-def compute_kit_coverage(positions: pd.Series, bed_dir: Path) -> pd.DataFrame:
+def compute_kit_coverage(
+    positions: pd.Series, bed_dir: Path, chrom: str = ONEKG_CHROM,
+) -> pd.DataFrame:
     """For each unique position, count how many kits cover it.
 
     Returns DataFrame with columns: pos, n_kits, kit_pattern.
@@ -84,7 +93,7 @@ def compute_kit_coverage(positions: pd.Series, bed_dir: Path) -> pd.DataFrame:
     rows = []
     for pos in unique_positions:
         covering = [
-            name for name, idx in kits.items() if idx.covers("chr22", int(pos))
+            name for name, idx in kits.items() if idx.covers(chrom, int(pos))
         ]
         rows.append({
             "pos": pos,
@@ -225,12 +234,12 @@ def run_sanity_checks(merged: pd.DataFrame, scenario: str):
 
     # AF_AFQuery should be unbiased (mean error centered near 0)
     bias = (df["AF_afquery"] - df["AF_wgs"]).mean()
-    if abs(bias) > 0.01:
+    if abs(bias) > _AFQUERY_BIAS_THRESHOLD:
         errors.append(f"AFQuery bias = {bias:.4f} (expected ~0)")
 
     # AF_naive should be biased low
     naive_bias = (df["AF_naive"] - df["AF_wgs"]).mean()
-    if naive_bias > 0.001:
+    if naive_bias > _NAIVE_POSITIVE_BIAS_THRESHOLD:
         errors.append(f"Naive bias = {naive_bias:.4f} (expected < 0)")
 
     if errors:
@@ -256,7 +265,7 @@ def main():
         "Computing kit coverage for %d unique positions...",
         wgs_df["pos"].nunique(),
     )
-    coverage_df = compute_kit_coverage(wgs_df["pos"], AFQUERY_BED_DIR)
+    coverage_df = compute_kit_coverage(wgs_df["pos"], AFQUERY_BED_DIR, chrom=ONEKG_CHROM)
     kit_dist = coverage_df["n_kits"].value_counts().sort_index()
     logger.info("Kit coverage distribution:\n%s", kit_dist.to_string())
 
