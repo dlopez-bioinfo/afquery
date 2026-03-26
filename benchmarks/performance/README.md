@@ -2,44 +2,6 @@
 
 Characterize AFQuery query latency, build scalability, annotation throughput, and competitive performance.
 
-## Prerequisites
-
-- AFQuery installed in development mode: `pip install -e ".[dev,docs]"`
-- `bcftools` available in `$PATH` (tested with v1.17+)
-- `/usr/bin/time` (GNU time, not shell builtin)
-- Sufficient disk space (~50 GB for all experiments)
-
-## Hardware
-
-Document the hardware when reporting results:
-
-- **CPU:** (e.g., 2× Intel Xeon Gold 6230R, 52 cores total)
-- **RAM:** (e.g., 384 GB DDR4)
-- **Storage:** (e.g., Lustre parallel filesystem)
-- **OS:** (e.g., RHEL 8.5, kernel 4.18)
-
-## Quick Start
-
-```bash
-# 1. Edit config.py to set DATA_DIR to a directory with enough space
-#    Default: /mnt/lustre/home/dlopez/projects/afquery_bench_data
-
-# 2. Download and prepare 1000 Genomes chr22 data
-bash 00_download_1kg.sh
-
-# 3. Build AFQuery databases (1KG subsets + synthetic at all scales)
-python 01_prepare_data.py
-
-# 4. Run experiments (each is independent, can run in any order)
-python 02_query_scaling.py     # Exp 1: query latency vs. samples
-python 03_build.py             # Exp 2: build time vs. threads
-python 04_annotate.py          # Exp 3: annotation throughput
-python 05_vs_bcftools.py       # Exp 4: AFQuery vs. bcftools
-
-# 5. Generate all figures
-python 06_plot.py
-```
-
 ## Experiments
 
 | # | Script | Question |
@@ -49,9 +11,64 @@ python 06_plot.py
 | 3 | `04_annotate.py` | What is the VCF annotation throughput? |
 | 4 | `05_vs_bcftools.py` | How does AFQuery compare to bcftools? |
 
+## Running
+
+All experiments are orchestrated by Snakemake from the `benchmarks/` root.
+
+```bash
+# Run the full performance benchmark (HPC)
+snakemake --profile benchmarks/profiles/slurm performance_all
+
+# Run locally
+snakemake --cores 52 performance_all
+
+# Run a single experiment (e.g. query scaling only)
+snakemake --cores 4 benchmarks/performance/results/query_scaling.json
+
+# Dry run
+snakemake --profile benchmarks/profiles/slurm --dry-run performance_all
+```
+
+The scripts can also be run directly when working from this directory:
+
+```bash
+# 1KG data must already be downloaded (snakemake download_1kg, or run from benchmarks/)
+python 01_prepare_data.py
+python 02_query_scaling.py
+python 03_build.py
+python 04_annotate.py
+python 05_vs_bcftools.py
+python 06_plot.py
+```
+
+## Configuration
+
+Experiment parameters are in `config.py` (imports shared constants from `../shared/config.py`):
+
+```python
+# Synthetic scaling experiment
+SYNTH_SCALES = [1_000, 5_000, 10_000, 25_000, 50_000]
+
+# 1KG subsets
+ONEKG_SUBSETS = [500, 1_000, 2_504]
+
+# Experiment repetitions
+QUERY_WARM_REPS = 50
+BUILD_THREAD_COUNTS = [1, 4, 8, 16, 32]
+ANNOTATE_THREAD_COUNTS = [1, 4, 8, 16, 32]
+BCFTOOLS_REPS = 10
+```
+
+For a quick smoke test (tiny scales, few reps):
+
+```bash
+# From the performance/ directory
+PYTHONPATH=.. python -c "import config_smoke"
+```
+
 ## Data
 
-Data files are **not** included in the repository. Scripts download and generate everything:
+Not included in the repository. Downloaded and generated automatically by the pipeline:
 
 - **1000 Genomes Phase 3 chr22:** Downloaded from EBI FTP (~200 MB compressed)
 - **Synthetic data:** Generated via `afquery.preprocess.synth` at scales 1K–50K
@@ -61,29 +78,14 @@ Data files are **not** included in the repository. Scripts download and generate
 - `results/*.json` — raw timing data (gitignored)
 - `figures/*.{pdf,png}` — publication-quality figures (gitignored)
 
-## Reproducibility
+## Hardware
 
-All random seeds are fixed in `config.py` (default: 42). Re-running with the same configuration should produce identical results within timing noise.
+Document hardware when reporting results:
 
-## Configuration
-
-Edit `config.py` to customize:
-
-```python
-DATA_DIR = Path("/mnt/lustre/home/dlopez/projects/afquery_bench_data")
-
-# 1000 Genomes subsets
-ONEKG_SUBSETS = [500, 1_000, 2_504]
-
-# Synthetic scaling
-SYNTH_SCALES = [1_000, 5_000, 10_000, 25_000, 50_000]
-
-# Experiment parameters
-QUERY_WARM_REPS = 50
-BUILD_THREAD_COUNTS = [1, 4, 8, 16, 32]
-ANNOTATE_THREAD_COUNTS = [1, 4, 8, 16]
-BCFTOOLS_REPS = 10
-```
+- **CPU:** (e.g., 2× Intel Xeon Gold 6230R, 52 cores total)
+- **RAM:** (e.g., 370 GB DDR4)
+- **Storage:** (e.g., Lustre parallel filesystem)
+- **OS:** (e.g., RHEL 8.5, kernel 4.18)
 
 ## References
 
