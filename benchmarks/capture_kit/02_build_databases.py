@@ -63,13 +63,33 @@ def build_db(manifest_path: Path, db_dir: Path, bed_dir: Path | None = None):
 
 
 def main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--scenario", choices=["wgs"] + list(SCENARIOS.keys()))
+    args = parser.parse_args()
+
     ensure_dirs()
 
-    # DB1: WGS ground truth (no BED files)
+    if args.scenario:
+        # Single-scenario CLI mode
+        scenario = args.scenario
+        if scenario == "wgs":
+            logger.info("=== Building WGS ground truth database ===")
+            build_db(MANIFEST_DIR / "manifest_wgs.tsv", DB_DIR / "db_wgs")
+        else:
+            logger.info("=== Building WES database: %s ===", scenario)
+            build_db(
+                MANIFEST_DIR / f"manifest_{scenario}.tsv",
+                DB_DIR / f"db_{scenario}",
+                bed_dir=AFQUERY_BED_DIR,
+            )
+        return
+
+    # Full-sweep mode (backward compatible)
     logger.info("=== Building WGS ground truth database ===")
     build_db(MANIFEST_DIR / "manifest_wgs.tsv", DB_DIR / "db_wgs")
 
-    # DB2: WES databases for each scenario (with BED files)
     for scenario_name in SCENARIOS:
         logger.info("=== Building WES database: %s ===", scenario_name)
         build_db(

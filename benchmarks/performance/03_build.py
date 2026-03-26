@@ -92,16 +92,101 @@ def _run_build_timed(manifest_path: str, db_dir: str, threads: int) -> dict:
     }
 
 
+def _gen_synth(n_samples: int, output_path: Path):
+    """Generate synthetic VCFs for one scale and write a sentinel JSON."""
+    from afquery.preprocess.synth import generate_synthetic_manifest
+
+    build_dir = DATA_DIR / "build_bench"
+    synth_out = build_dir / f"synth_{n_samples}"
+    manifest_path = synth_out / "manifest.tsv"
+
+    if not manifest_path.exists():
+        logger.info("Generating synthetic data for %d samples...", n_samples)
+        if synth_out.exists():
+            shutil.rmtree(synth_out)
+        generate_synthetic_manifest(
+            output_dir=synth_out,
+            n_samples=n_samples,
+            n_variants_per_chrom=SYNTH_VARIANTS_PER_CHROM,
+            chroms=SYNTH_CHROMS,
+            seed=SEED,
+        )
+
+    vcf_dir = synth_out / "vcfs"
+    raw_vcf_size_mb = round(_dir_size_bytes(vcf_dir) / (1024 * 1024), 1)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(
+            {
+                "phase": "gen",
+                "n_samples": n_samples,
+                "manifest_path": str(manifest_path),
+                "raw_vcf_size_mb": raw_vcf_size_mb,
+            },
+            indent=2,
+        )
+    )
+    logger.info("Gen sentinel saved to %s", output_path)
+
+
+def _build_one(n_samples: int, threads: int, output_path: Path):
+    """Run one (n_samples, threads) build benchmark and write a per-run JSON."""
+    build_dir = DATA_DIR / "build_bench"
+    manifest_path = build_dir / f"synth_{n_samples}" / "manifest.tsv"
+    if not manifest_path.exists():
+        raise FileNotFoundError(
+            f"Synth manifest not found: {manifest_path}. Run --phase gen first."
+        )
+
+    vcf_dir = build_dir / f"synth_{n_samples}" / "vcfs"
+    raw_vcf_size_mb = round(_dir_size_bytes(vcf_dir) / (1024 * 1024), 1)
+
+    db_dir = build_dir / f"db_{n_samples}_{threads}t"
+    logger.info("=== Build: %d samples, %d threads ===", n_samples, threads)
+
+    metrics = _run_build_timed(str(manifest_path), str(db_dir), threads)
+    metrics["n_samples"] = n_samples
+    metrics["threads"] = threads
+    metrics["raw_vcf_size_mb"] = raw_vcf_size_mb
+    logger.info("  Result: %s", metrics)
+
+    # Always clean up DB after measuring (no "last threads" to keep in parallel mode)
+    if db_dir.exists():
+        shutil.rmtree(db_dir)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(metrics, indent=2))
+    logger.info("Result saved to %s", output_path)
+
+
 def main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--phase", choices=["gen", "build"])
+    parser.add_argument("--n-samples", type=int)
+    parser.add_argument("--threads", type=int)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+
     ensure_dirs()
 
+    if args.phase == "gen" and args.n_samples is not None and args.output:
+        _gen_synth(args.n_samples, args.output)
+        return
+
+    if args.phase == "build" and args.n_samples is not None and args.threads is not None and args.output:
+        _build_one(args.n_samples, args.threads, args.output)
+        return
+
+    # Full-sweep mode (backward compatible)
     from afquery.preprocess.synth import generate_synthetic_manifest
 
     build_dir = DATA_DIR / "build_bench"
     all_results = []
 
     for n_samples in BUILD_SCALES:
-        # Generate synthetic data once per scale
         synth_out = build_dir / f"synth_{n_samples}"
         manifest_path = synth_out / "manifest.tsv"
 
@@ -117,16 +202,13 @@ def main():
                 seed=SEED,
             )
 
-        # Compute raw VCF size
         vcf_dir = synth_out / "vcfs"
         raw_vcf_size_mb = round(_dir_size_bytes(vcf_dir) / (1024 * 1024), 1)
 
         for threads in BUILD_THREAD_COUNTS:
             db_dir = build_dir / f"db_{n_samples}_{threads}t"
 
-            logger.info(
-                "=== Build: %d samples, %d threads ===", n_samples, threads
-            )
+            logger.info("=== Build: %d samples, %d threads ===", n_samples, threads)
 
             metrics = _run_build_timed(str(manifest_path), str(db_dir), threads)
             metrics["n_samples"] = n_samples
@@ -136,7 +218,6 @@ def main():
             all_results.append(metrics)
             logger.info("  Result: %s", metrics)
 
-            # Clean up DB to save disk space (keep only the last one per scale)
             if threads != BUILD_THREAD_COUNTS[-1]:
                 if db_dir.exists():
                     shutil.rmtree(db_dir)

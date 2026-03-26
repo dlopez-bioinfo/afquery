@@ -71,42 +71,81 @@ def _create_input_vcf(db_path: Path, n_variants: int, seed: int, output_path: Pa
     return len(selected)
 
 
+def _run_one_annotate(db_path: Path, n_variants: int, threads: int, output_path: Path):
+    """Run one (n_variants, threads) annotation benchmark and write a per-run JSON."""
+    from afquery.database import Database
+
+    with tempfile.TemporaryDirectory(prefix="afquery_annot_bench_") as tmpdir:
+        tmpdir = Path(tmpdir)
+        input_vcf = tmpdir / f"input_{n_variants}.vcf"
+        actual_n = _create_input_vcf(db_path, n_variants, SEED, input_vcf)
+        logger.info("Created input VCF with %d variants", actual_n)
+
+        output_vcf = tmpdir / f"output_{n_variants}_{threads}t.vcf"
+        logger.info("=== Annotate: %d variants, %d threads ===", actual_n, threads)
+
+        db = Database(str(db_path))
+        t0 = time.perf_counter()
+        db.annotate_vcf(
+            input_vcf=str(input_vcf),
+            output_vcf=str(output_vcf),
+            n_workers=threads,
+        )
+        elapsed_s = time.perf_counter() - t0
+
+    throughput = actual_n / elapsed_s if elapsed_s > 0 else 0
+    result = {
+        "n_variants": actual_n,
+        "threads": threads,
+        "wall_s": round(elapsed_s, 3),
+        "throughput_vars_per_s": round(throughput, 1),
+    }
+    logger.info("  Result: %s", result)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(result, indent=2))
+    logger.info("Result saved to %s", output_path)
+
+
 def main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n-variants", type=int)
+    parser.add_argument("--threads", type=int)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+
     ensure_dirs()
 
-    # Use the largest 1KG database
     max_subset = max(ONEKG_SUBSETS)
     db_path = ONEKG_DB_DIR / f"1kg_{max_subset}"
     if not (db_path / "manifest.json").exists():
-        logger.error(
-            "1KG DB not found at %s. Run 01_prepare_data.py first.", db_path
-        )
+        logger.error("1KG DB not found at %s. Run 01_prepare_data.py first.", db_path)
         return
 
+    if args.n_variants is not None and args.threads is not None and args.output:
+        # Single-run CLI mode — no speedup computation (done in collect_annotate.py)
+        _run_one_annotate(db_path, args.n_variants, args.threads, args.output)
+        return
+
+    # Full-sweep mode (backward compatible)
     all_results = []
 
     with tempfile.TemporaryDirectory(prefix="afquery_annot_bench_") as tmpdir:
         tmpdir = Path(tmpdir)
 
         for n_variants in ANNOTATE_VARIANT_COUNTS:
-            # Create input VCF
             input_vcf = tmpdir / f"input_{n_variants}.vcf"
             actual_n = _create_input_vcf(db_path, n_variants, SEED, input_vcf)
             logger.info("Created input VCF with %d variants", actual_n)
 
             for threads in ANNOTATE_THREAD_COUNTS:
                 output_vcf = tmpdir / f"output_{n_variants}_{threads}t.vcf"
-
-                logger.info(
-                    "=== Annotate: %d variants, %d threads ===",
-                    actual_n,
-                    threads,
-                )
+                logger.info("=== Annotate: %d variants, %d threads ===", actual_n, threads)
 
                 from afquery.database import Database
 
                 db = Database(str(db_path))
-
                 t0 = time.perf_counter()
                 db.annotate_vcf(
                     input_vcf=str(input_vcf),
@@ -116,7 +155,6 @@ def main():
                 elapsed_s = time.perf_counter() - t0
 
                 throughput = actual_n / elapsed_s if elapsed_s > 0 else 0
-
                 result = {
                     "n_variants": actual_n,
                     "threads": threads,
@@ -126,7 +164,6 @@ def main():
                 all_results.append(result)
                 logger.info("  Result: %s", result)
 
-                # Clean up output
                 if output_vcf.exists():
                     output_vcf.unlink()
 
@@ -139,9 +176,9 @@ def main():
         if baseline:
             for r in all_results:
                 if r["n_variants"] == n_variants:
-                    r["speedup"] = round(
-                        baseline["wall_s"] / r["wall_s"], 2
-                    ) if r["wall_s"] > 0 else 0
+                    r["speedup"] = (
+                        round(baseline["wall_s"] / r["wall_s"], 2) if r["wall_s"] > 0 else 0
+                    )
 
     out = RESULTS_DIR / "annotate_throughput.json"
     out.write_text(json.dumps(all_results, indent=2))
