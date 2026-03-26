@@ -76,7 +76,7 @@ def dump_db(
 
 
 def compute_kit_coverage(
-    positions: pd.Series, bed_dir: Path, chrom: str = ONEKG_CHROM,
+    positions: pd.Series, bed_dir: Path, chrom: str = "chr" + ONEKG_CHROM,
 ) -> pd.DataFrame:
     """For each unique position, count how many kits cover it.
 

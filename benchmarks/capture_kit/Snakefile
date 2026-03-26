@@ -90,7 +90,7 @@ rule capture_kit_mask_vcf:
     shell:
         """
         set -euo pipefail
-        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" "$(dirname {output.vcf})"
+        LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" "$(dirname "{output.vcf}")"
         bedtools intersect -a {input.vcf} -b {input.bed} -header -wa | bgzip > {output.vcf} 2>"$LOG"
         """
 
