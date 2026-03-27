@@ -45,8 +45,6 @@ checkpoint download_1kg_data:
     threads: 1
     resources:
         mem_mb=4_000,
-        runtime=120,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -61,7 +59,7 @@ checkpoint download_1kg_data:
 
 
 # ---------------------------------------------------------------------------
-# Step 2: split per-sample VCFs — one independent SLURM job per sample
+# Step 2: split per-sample VCFs — one job per sample (run in parallel via --cores)
 # ---------------------------------------------------------------------------
 
 rule split_1kg_sample:
@@ -76,8 +74,6 @@ rule split_1kg_sample:
     threads: 1
     resources:
         mem_mb=4_000,
-        runtime=10,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -124,8 +120,6 @@ rule download_1kg:
     threads: 1
     resources:
         mem_mb=2_000,
-        runtime=10,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail

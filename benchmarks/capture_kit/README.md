@@ -19,14 +19,11 @@ When datasets combine multiple capture kits (e.g., SureSelect v5, v6, v7), per-k
 All steps are orchestrated by Snakemake from the `benchmarks/` root.
 
 ```bash
-# Run the full capture kit benchmark (HPC)
-snakemake --profile profiles/slurm capture_kit_all
-
-# Run locally
-snakemake --cores all capture_kit_all
+# Run the full capture kit benchmark
+snakemake --cores 52 capture_kit_all
 
 # Dry run
-snakemake --profile profiles/slurm --dry-run capture_kit_all
+snakemake --cores 52 --dry-run capture_kit_all
 ```
 
 The scripts can also be run directly when working from this directory

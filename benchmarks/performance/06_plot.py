@@ -247,6 +247,14 @@ def plot_concordance():
 
     if not pairs:
         print("  Skipping: no AF pairs in concordance data")
+        # Create a placeholder figure to satisfy Snakemake's output contract
+        fig, ax = plt.subplots(figsize=(SINGLE_COL_WIDTH, 3.2))
+        ax.text(
+            0.5, 0.5, "No concordance data available",
+            ha="center", va="center", transform=ax.transAxes, fontsize=10
+        )
+        ax.set_axis_off()
+        _save(fig, "fig5_concordance")
         return
 
     fig, ax = plt.subplots(figsize=(SINGLE_COL_WIDTH, 3.2))

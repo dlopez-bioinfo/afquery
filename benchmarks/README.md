@@ -26,74 +26,78 @@ Capture kit mixing impact on allele frequency classification:
 
 ## Prerequisites
 
-- micromamba (or conda) to create the benchmark environment
-- Snakemake ≥ 8 with SLURM executor plugin installed in your base environment:
-  ```bash
-  pip install snakemake snakemake-executor-plugin-slurm
-  ```
-- `/usr/bin/time` (GNU time) for memory profiling
+- micromamba with `snakemake` environment already set up (with Snakemake ≥ 8 and SLURM executor plugin)
+- Benchmark dependencies installed in the `snakemake` environment (see Environment Setup section)
+- `/usr/bin/time` (GNU time) for memory profiling — should be available on most Linux systems
 - ~200 GB disk space for all 1KG data and databases
 
 ## Environment Setup
 
-All benchmark tools and Python dependencies are declared in `envs/benchmark.yaml`.
-afquery is installed from PyPI and covers most Python dependencies; the file adds
-the external bioinformatics tools (bcftools ≥ 1.18, bedtools, bgzip/tabix)
-and plotting libraries (pandas, numpy, matplotlib).
+All benchmark dependencies are installed in the `snakemake` micromamba environment.
 
-### Create the environment
+### Install dependencies
+
+The benchmark requires:
+- External bioinformatics tools: bcftools ≥ 1.18, bedtools, bgzip/tabix
+- Python packages: pandas, numpy, scipy, matplotlib
+- AFQuery and its dependencies: pyroaring, pyarrow, duckdb, cyvcf2, pyranges, click, tqdm
+
+Install them in your `snakemake` environment:
 
 ```bash
-micromamba env create -f envs/benchmark.yaml
+/mnt/lustre/home/dlopez/.local/bin/micromamba run -n snakemake mamba install \
+  -c bioconda -c conda-forge \
+  bcftools bedtools matplotlib numpy pandas scipy wget \
+  && /mnt/lustre/home/dlopez/.local/bin/micromamba run -n snakemake \
+  pip install -e /mnt/lustre/home/dlopez/projects/afquery
+```
+
+Or with a simpler approach, activate and install directly:
+
+```bash
+/mnt/lustre/home/dlopez/.local/bin/micromamba activate snakemake
+mamba install -c bioconda -c conda-forge bcftools bedtools matplotlib numpy pandas scipy wget
+pip install -e /mnt/lustre/home/dlopez/projects/afquery
 ```
 
 ### Verify
 
 ```bash
-micromamba run -n afquery_bench bcftools --version
-micromamba run -n afquery_bench python -c "import afquery; print('OK')"
+/mnt/lustre/home/dlopez/.local/bin/micromamba run -n snakemake bcftools --version
+/mnt/lustre/home/dlopez/.local/bin/micromamba run -n snakemake python -c "import afquery; print('OK')"
 ```
-
-Snakemake activates `afquery_bench` automatically for each job.
-To use a different environment spec, change `conda_env_file` in `config.yaml`.
 
 ## Running the Benchmarks
 
-All commands below are run from the `benchmarks/` directory.
-
-### On an HPC with SLURM (recommended)
+All commands below are run from the `benchmarks/` directory. Activate the `snakemake` environment first:
 
 ```bash
-# Run everything (both benchmarks) across as many nodes as needed
-# conda/micromamba support is already configured in profiles/slurm/config.yaml
-snakemake --profile profiles/slurm all
+/mnt/lustre/home/dlopez/.local/bin/micromamba activate snakemake
+```
 
-# Run only one benchmark
-snakemake --profile profiles/slurm performance_all
-snakemake --profile profiles/slurm capture_kit_all
+Then use Snakemake with `--cores 52` to utilize all local CPU cores:
+
+```bash
+# Run everything (both benchmarks)
+snakemake --cores 52 all
+
+# Run individual benchmarks
+snakemake --cores 52 performance_all
+snakemake --cores 52 capture_kit_all
 
 # Download 1KG data only (prerequisite for both)
-snakemake --profile profiles/slurm download_1kg
-```
+snakemake --cores 52 download_1kg
 
-### Locally (without SLURM)
+# Dry run (preview what will execute)
+snakemake --cores 52 --dry-run all
 
-```bash
-snakemake --cores all --software-deployment-method conda --conda-frontend micromamba all
-snakemake --cores all --software-deployment-method conda --conda-frontend micromamba performance_all
-```
-
-### Dry run (preview what will execute)
-
-```bash
-snakemake --profile profiles/slurm --dry-run all
+# Smoke test (fast validation with small parameter scales)
+snakemake --cores 52 --config smoke_test=true all
 ```
 
 ### Resuming after a failure
 
-Snakemake uses output files to track completed steps. Re-running any
-command above will automatically skip steps whose outputs already exist
-and resume from the first incomplete step.
+Snakemake uses output files to track completed steps. Re-running any command above will automatically skip steps whose outputs already exist and resume from the first incomplete step.
 
 ## Directory Structure
 
@@ -103,9 +107,6 @@ benchmarks/
 ├── config.yaml            # Global parameters (data_dir, threads, conda_env_file, etc.)
 ├── envs/
 │   └── benchmark.yaml     # conda/micromamba environment spec
-├── profiles/
-│   └── slurm/
-│       └── config.yaml    # SLURM executor settings (resources per rule)
 ├── shared/
 │   ├── config.py          # Common constants: DATA_DIR, 1KG paths, SEED
 │   ├── utils.py           # Common helpers: stats, time_ms, save_figure, WONG_COLORS

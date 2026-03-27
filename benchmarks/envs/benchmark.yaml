@@ -2,18 +2,15 @@ name: afquery_bench
 channels:
   - bioconda
   - conda-forge
-  - defaults
 dependencies:
-  - python=3.13
-  - bcftools=1.3
-  - bedtools=2.31
-  - htslib=1.21       # provides bgzip and tabix
-  - wget
-  - parallel          # GNU parallel (used by download_1kg.sh when available)
-  - pandas=2.3
-  - numpy=2.4
-  - matplotlib=3.10
-  - scipy=1.17
+  - bcftools>=1.17
+  - bedtools
+  - matplotlib
+  - numpy
+  - pandas
   - pip
+  - python>=3.10
+  - scipy
+  - wget
   - pip:
     - afquery

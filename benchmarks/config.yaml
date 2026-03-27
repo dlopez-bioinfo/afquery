@@ -10,13 +10,12 @@ data_dir: "./results"
 # DuckDB memory limit per build worker
 build_memory: "8GB"
 
-# Thread count for local runs. For SLURM, per-rule threads are in profiles/slurm/config.yaml.
-threads: 4
+# Thread count for CPU-intensive rules (build, annotate).
+threads: 52
 
 # Set to true to run a minimal smoke test (tiny scales, few reps)
 smoke_test: false
 
-# Path to the conda/micromamba environment spec, relative to benchmarks/.
-# Snakemake creates and manages this environment automatically when run with
-# --software-deployment-method conda --conda-frontend micromamba
-conda_env_file: "envs/benchmark.yaml"
+# Path to the conda/micromamba environment spec (DEPRECATED).
+# Dependencies are now installed manually in the snakemake environment.
+# conda_env_file: "envs/benchmark.yaml"

@@ -29,6 +29,7 @@ sys.path.insert(0, str(_BENCH_DIR.parent / "src"))
 from shared.utils import stats as _stats  # noqa: E402
 from config import (
     BCFTOOLS_REPS,
+    ONEKG_CHROM,
     ONEKG_DB_DIR,
     ONEKG_DIR,
     ONEKG_MERGED_VCF,
@@ -45,13 +46,27 @@ logger = logging.getLogger(__name__)
 
 
 def _check_bcftools():
-    """Verify bcftools is available."""
+    """Verify bcftools is available and supports +fill-tags plugin."""
     try:
         result = subprocess.run(
             ["bcftools", "--version"], capture_output=True, text=True
         )
         version = result.stdout.split("\n")[0]
         logger.info("Using %s", version)
+
+        # Verify +fill-tags plugin is available (requires bcftools >= 1.7)
+        probe = subprocess.run(
+            "bcftools +fill-tags --version",
+            shell=True, capture_output=True
+        )
+        if probe.returncode == 255:
+            logger.error(
+                "bcftools +fill-tags plugin not available. "
+                "bcftools >= 1.7 required (got: %s). "
+                "Run: micromamba install -n snakemake -c bioconda 'bcftools>=1.17'",
+                version
+            )
+            return False
         return True
     except FileNotFoundError:
         logger.error("bcftools not found in PATH")
@@ -217,6 +232,9 @@ def _compute_concordance(db_path: Path, vcf_path: str, chrom: str) -> dict:
                 if len(parts) < 7:
                     continue
                 chrom_val, pos, ref, alt, ac, an, af = parts[:7]
+                # Normalize chrom to match AFQuery's chr-prefixed format
+                if not chrom_val.startswith("chr"):
+                    chrom_val = "chr" + chrom_val
                 # Handle multi-allelic (comma-separated AC/AF)
                 acs = ac.split(",")
                 afs = af.split(",")
@@ -292,6 +310,7 @@ def _bench_one_subset(n_samples: int, output_path: Path):
         _create_subset_vcf(ONEKG_MERGED_VCF, sample_list, subset_vcf)
 
         chrom, pos = _find_test_locus(db_path)
+        bcf_chrom = ONEKG_CHROM  # Use bare chrom for bcftools queries
         logger.info("  Test locus: %s:%d", chrom, pos)
 
         female_samples = _get_sample_list(db_path, sex="female")
@@ -301,13 +320,13 @@ def _bench_one_subset(n_samples: int, output_path: Path):
         result = {"n_samples": n_samples, "chrom": chrom}
 
         logger.info("  Point query benchmark...")
-        bcf_times = [_time_bcftools_point(str(subset_vcf), chrom, pos) for _ in range(BCFTOOLS_REPS)]
+        bcf_times = [_time_bcftools_point(str(subset_vcf), bcf_chrom, pos) for _ in range(BCFTOOLS_REPS)]
         afq_times = [_time_afquery_point(str(db_path), chrom, pos) for _ in range(BCFTOOLS_REPS)]
         result["point_query"] = {"bcftools": _stats(bcf_times), "afquery": _stats(afq_times)}
 
         logger.info("  Subset query benchmark (females)...")
         bcf_sub_times = [
-            _time_bcftools_subset_point(str(subset_vcf), chrom, pos, str(females_file))
+            _time_bcftools_subset_point(str(subset_vcf), bcf_chrom, pos, str(females_file))
             for _ in range(BCFTOOLS_REPS)
         ]
         afq_sub_times = [
@@ -353,6 +372,7 @@ def _bench_concordance(n_samples: int, output_path: Path):
         subset_vcf = tmpdir / f"subset_{n_samples}.vcf.gz"
         _create_subset_vcf(ONEKG_MERGED_VCF, sample_list, subset_vcf)
         chrom, _ = _find_test_locus(db_path)
+        # Use AFQuery chrom (chr-prefixed) for concordance; bcftools chrom normalization happens inside _compute_concordance
         concordance = _compute_concordance(db_path, str(subset_vcf), chrom)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

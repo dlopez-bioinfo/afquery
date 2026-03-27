@@ -16,17 +16,14 @@ Characterize AFQuery query latency, build scalability, annotation throughput, an
 All experiments are orchestrated by Snakemake from the `benchmarks/` root.
 
 ```bash
-# Run the full performance benchmark (HPC)
-snakemake --profile profiles/slurm performance_all
-
-# Run locally
-snakemake --cores all performance_all
+# Run the full performance benchmark
+snakemake --cores 52 performance_all
 
 # Run a single experiment (e.g. query scaling only)
-snakemake --cores 4 benchmarks/performance/results/query_scaling.json
+snakemake --cores 52 benchmarks/performance/results/query_scaling.json
 
 # Dry run
-snakemake --profile profiles/slurm --dry-run performance_all
+snakemake --cores 52 --dry-run performance_all
 ```
 
 The scripts can also be run directly when working from this directory:

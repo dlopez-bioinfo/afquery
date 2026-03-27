@@ -42,8 +42,6 @@ checkpoint capture_kit_assign:
     threads: 1
     resources:
         mem_mb=4_000,
-        runtime=5,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -63,8 +61,6 @@ rule capture_kit_mask_vcf:
     threads: 1
     resources:
         mem_mb=4_000,
-        runtime=10,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -107,8 +103,6 @@ rule capture_kit_write_manifests:
     threads: 1
     resources:
         mem_mb=1_000,
-        runtime=2,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -129,9 +123,6 @@ rule capture_kit_build_one:
     threads: 52
     resources:
         mem_mb=64_000,
-        runtime=120,
-        slurm_extra="--nodes=1",
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -166,8 +157,6 @@ rule capture_kit_metrics:
     threads: 4
     resources:
         mem_mb=32_000,
-        runtime=60,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -186,8 +175,6 @@ rule capture_kit_acmg:
     threads: 1
     resources:
         mem_mb=8_000,
-        runtime=15,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -217,8 +204,6 @@ rule capture_kit_plot:
     threads: 1
     resources:
         mem_mb=4_000,
-        runtime=15,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
