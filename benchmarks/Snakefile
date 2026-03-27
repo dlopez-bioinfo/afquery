@@ -63,6 +63,12 @@ if config.get("data_dir"):
     ONEKG_DIR    = _sc.ONEKG_DIR
     ONEKG_MANIFEST = _sc.ONEKG_MANIFEST
 
+# Propagate the resolved DATA_DIR to all child processes via environment.
+# Python scripts import shared.config fresh in each subprocess; without this
+# they fall back to the default Path(".results") and cannot find pipeline outputs.
+import os as _os
+_os.environ["AFQUERY_BENCH_DATA"] = str(DATA_DIR.resolve())
+
 # Export constants to sub-Snakefiles via globals
 workflow._globals = {}  # not needed; sub-files access via import
 
