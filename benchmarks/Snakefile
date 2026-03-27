@@ -1,23 +1,23 @@
 """Unified benchmark pipeline for AFQuery.
 
-Usage:
+Usage (run from benchmarks/ directory):
     # All benchmarks
-    snakemake --profile benchmarks/profiles/slurm all
+    snakemake --cores 52 all
 
     # Only performance benchmark
-    snakemake --profile benchmarks/profiles/slurm performance_all
+    snakemake --cores 52 performance_all
 
     # Only capture kit benchmark
-    snakemake --profile benchmarks/profiles/slurm capture_kit_all
+    snakemake --cores 52 capture_kit_all
 
     # Only download 1KG data
-    snakemake --profile benchmarks/profiles/slurm download_1kg
+    snakemake --cores 52 download_1kg
 
     # Dry run (preview rules to execute)
-    snakemake --profile benchmarks/profiles/slurm --dry-run all
+    snakemake --cores 52 --dry-run all
 
-    # Run locally without SLURM
-    snakemake --cores 52 all
+    # Smoke test (fast validation with small scales)
+    snakemake --cores 52 --config smoke_test=true all
 """
 
 import sys
@@ -39,12 +39,12 @@ from shared.config import (  # noqa: E402
 # ---------------------------------------------------------------------------
 configfile: "config.yaml"
 
-# Normalize conda env path once at root so included Snakefiles resolve the
-# environment file consistently (independent of include location).
-if config.get("conda_env_file"):
-    _conda_env = Path(config["conda_env_file"])
-    if not _conda_env.is_absolute():
-        config["conda_env_file"] = str((_bench / _conda_env).resolve())
+# NOTE: conda env management is DISABLED. Dependencies are installed manually
+# in the snakemake environment. Conda path normalization is no longer needed.
+# if config.get("conda_env_file"):
+#     _conda_env = Path(config["conda_env_file"])
+#     if not _conda_env.is_absolute():
+#         config["conda_env_file"] = str((_bench / _conda_env).resolve())
 
 
 

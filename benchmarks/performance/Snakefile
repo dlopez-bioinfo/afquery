@@ -76,8 +76,6 @@ rule performance_prepare_1kg:
     threads: 52
     resources:
         mem_mb=32_000,
-        runtime=120,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -101,8 +99,6 @@ rule performance_prepare_synth:
     threads: 52
     resources:
         mem_mb=32_000,
-        runtime=120,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -131,8 +127,6 @@ rule performance_data_inventory:
     threads: 1
     resources:
         mem_mb=4_000,
-        runtime=5,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -162,8 +156,6 @@ rule performance_query_scaling_one:
     threads: 1
     resources:
         mem_mb=16_000,
-        runtime=30,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -188,8 +180,6 @@ rule performance_query_scaling_collect:
     threads: 1
     resources:
         mem_mb=4_000,
-        runtime=5,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -216,8 +206,6 @@ rule performance_build_synth_gen:
     threads: 1
     resources:
         mem_mb=8_000,
-        runtime=30,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -243,9 +231,6 @@ rule performance_build_one:
     threads: lambda wc: int(wc.t)
     resources:
         mem_mb=lambda wc, threads: threads * 4_000,
-        runtime=120,
-        slurm_extra="--nodes=1",
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -273,8 +258,6 @@ rule performance_build_collect:
     threads: 1
     resources:
         mem_mb=4_000,
-        runtime=5,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -306,11 +289,8 @@ rule performance_annotate_one:
     threads: lambda wc: int(wc.t)
     resources:
         mem_mb=lambda wc, threads: max(8_000, threads * 2_000),
-        runtime=30,
-        slurm_extra="--nodes=1",
     params:
         max_subset=max(ONEKG_SUBSETS),
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -338,8 +318,6 @@ rule performance_annotate_collect:
     threads: 1
     resources:
         mem_mb=4_000,
-        runtime=5,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -368,8 +346,6 @@ rule performance_bcftools_one:
     threads: 1
     resources:
         mem_mb=16_000,
-        runtime=60,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -395,8 +371,6 @@ rule performance_bcftools_concordance:
     threads: 1
     resources:
         mem_mb=16_000,
-        runtime=30,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -422,8 +396,6 @@ rule performance_bcftools_collect:
     threads: 1
     resources:
         mem_mb=4_000,
-        runtime=5,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
@@ -466,8 +438,6 @@ rule performance_plot:
     threads: 1
     resources:
         mem_mb=4_000,
-        runtime=15,
-    conda: config["conda_env_file"]
     shell:
         """
         set -euo pipefail
