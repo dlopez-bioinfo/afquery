@@ -17,13 +17,13 @@ onstart:
     os.makedirs("logs/download_1kg", exist_ok=True)
 
 # Derive paths from ONEKG_DIR (set by root Snakefile, updated by _set_data_dir()).
-# Using Path(str(...)) avoids stale references if ONEKG_DIR is reassigned.
-_ONEKG_VCF_DIR    = Path(str(ONEKG_DIR)) / "vcfs"
+# Using Path(str(...)).resolve() ensures absolute paths even if ONEKG_DIR is relative.
+_ONEKG_VCF_DIR    = (Path(str(ONEKG_DIR)) / "vcfs").resolve()
 _ONEKG_MERGED_VCF = (
-    Path(str(ONEKG_DIR))
-    / "ALL.chr22.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz"
+    (Path(str(ONEKG_DIR))
+    / "ALL.chr22.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz").resolve()
 )
-_ONEKG_PANEL = Path(str(ONEKG_DIR)) / "integrated_call_samples_v3.20130502.ALL.panel"
+_ONEKG_PANEL = (Path(str(ONEKG_DIR)) / "integrated_call_samples_v3.20130502.ALL.panel").resolve()
 
 _FTP_BASE   = "https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502"
 _CHR22_VCF  = "ALL.chr22.phase3_shapeit2_mvncall_integrated_v5b.20130502.genotypes.vcf.gz"
