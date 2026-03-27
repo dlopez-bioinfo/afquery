@@ -41,13 +41,17 @@ MASKED_DIR = CAPTURE_DIR / "masked"
 MANIFEST_DIR = CAPTURE_DIR / "manifests"
 DB_DIR = CAPTURE_DIR / "dbs"
 RESULTS_DIR = CAPTURE_DIR / "results"
-FIGURES_DIR = Path(__file__).resolve().parent / "figures"
+FIGURES_DIR = DATA_DIR / "figures"
 
 # ---------------------------------------------------------------------------
 # Parameters
 # ---------------------------------------------------------------------------
 N_SAMPLES = 1000
 THREADS = os.cpu_count() or 1
+
+# Smoke test: reduce scale for quick validation
+if os.environ.get("AFQUERY_BENCH_SMOKE"):
+    N_SAMPLES = 50
 
 SCENARIOS = {
     "balanced": {"SureSelect_v5": 334, "SureSelect_v6": 333, "SureSelect_v7": 333},

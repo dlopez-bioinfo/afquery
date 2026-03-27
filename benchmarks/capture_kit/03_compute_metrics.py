@@ -72,7 +72,11 @@ def dump_db(
         include_ac_zero=include_ac_zero,
     )
     buf.seek(0)
-    return pd.read_csv(buf)
+    content = buf.read()
+    if not content.strip():
+        logger.warning("dump_db: empty result for %s (by_tech=%s)", db_path, by_tech)
+        return pd.DataFrame(columns=["chrom", "pos", "ref", "alt", "AC", "AN", "AF"])
+    return pd.read_csv(StringIO(content))
 
 
 def compute_kit_coverage(
@@ -265,7 +269,7 @@ def main():
         "Computing kit coverage for %d unique positions...",
         wgs_df["pos"].nunique(),
     )
-    coverage_df = compute_kit_coverage(wgs_df["pos"], AFQUERY_BED_DIR, chrom=ONEKG_CHROM)
+    coverage_df = compute_kit_coverage(wgs_df["pos"], AFQUERY_BED_DIR, chrom="chr" + ONEKG_CHROM)
     kit_dist = coverage_df["n_kits"].value_counts().sort_index()
     logger.info("Kit coverage distribution:\n%s", kit_dist.to_string())
 

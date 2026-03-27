@@ -9,6 +9,7 @@ No subprocess calls: this script is purely Python.
 Per-sample VCF splitting and BED masking are handled as separate Snakemake rules.
 """
 
+import hashlib
 import json
 import logging
 import random
@@ -103,9 +104,16 @@ def main():
             dst.symlink_to(src)
 
     # 4. Build scenario assignments: {scenario: {sample: tech}}
+    #    Use a per-scenario seed so that technology assignments are independent
+    #    across scenarios (not correlated by sharing the same shuffle order).
     scenarios = {}
     for scenario_name, scenario_dist in SCENARIOS.items():
-        scenarios[scenario_name] = assign_technologies(selected, scenario_dist, SEED)
+        scenario_seed = int(
+            hashlib.sha256(f"{SEED}_{scenario_name}".encode()).hexdigest()[:8], 16,
+        )
+        scenarios[scenario_name] = assign_technologies(
+            selected, scenario_dist, scenario_seed,
+        )
 
     # 5. Write assignments.json
     assignments = {

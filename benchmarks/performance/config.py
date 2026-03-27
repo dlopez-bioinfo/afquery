@@ -35,8 +35,8 @@ SYNTH_DIR = DATA_DIR / "synth"
 SYNTH_DB_DIR = DATA_DIR / "synth_dbs"
 
 # Results and figures
-RESULTS_DIR = DATA_DIR
-FIGURES_DIR = BENCHMARKS_DIR / "figures"
+RESULTS_DIR = DATA_DIR / "perf_results"
+FIGURES_DIR = DATA_DIR / "figures"
 
 # ---------------------------------------------------------------------------
 # Experiment parameters
@@ -60,10 +60,12 @@ QUERY_WARMUP = 3  # discarded warmup iterations
 # Build scaling (Experiment 2)
 BUILD_THREAD_COUNTS = [1, 4, 8, 16, 32]
 BUILD_SCALES = [1_000, 5_000, 10_000]
+BUILD_REPS = 3
 
 # Annotation throughput (Experiment 3)
 ANNOTATE_THREAD_COUNTS = [1, 4, 8, 16, 32]
 ANNOTATE_VARIANT_COUNTS = [10_000, 50_000, 100_000]
+ANNOTATE_REPS = 3
 
 # bcftools comparison (Experiment 4)
 BCFTOOLS_REPS = 10
