@@ -43,6 +43,8 @@ BUILD_SCALES          = list(_pc.BUILD_SCALES)
 BUILD_THREAD_COUNTS   = list(_pc.BUILD_THREAD_COUNTS)
 ANNOTATE_VARIANT_COUNTS = list(_pc.ANNOTATE_VARIANT_COUNTS)
 ANNOTATE_THREAD_COUNTS  = list(_pc.ANNOTATE_THREAD_COUNTS)
+BUILD_REPS            = _pc.BUILD_REPS
+ANNOTATE_REPS         = _pc.ANNOTATE_REPS
 
 # Smoke test: shrink parameter space for quick validation
 if config.get("smoke_test"):
@@ -52,6 +54,11 @@ if config.get("smoke_test"):
     BUILD_THREAD_COUNTS     = [1, 4]
     ANNOTATE_VARIANT_COUNTS = [10_000]
     ANNOTATE_THREAD_COUNTS  = [1, 4]
+    BUILD_REPS              = 1
+    ANNOTATE_REPS           = 1
+
+BUILD_REPS_LIST    = list(range(1, BUILD_REPS + 1))
+ANNOTATE_REPS_LIST = list(range(1, ANNOTATE_REPS + 1))
 
 # Intermediate per-run outputs live under results/raw/ (or results/raw_smoke/)
 PERF_RAW = PERF_RESULTS / ("raw_smoke" if config.get("smoke_test") else "raw")
@@ -218,16 +225,17 @@ rule performance_build_synth_gen:
 
 
 rule performance_build_one:
-    """Run one (n_samples, threads) build benchmark combination."""
+    """Run one (n_samples, threads, rep) build benchmark combination."""
     wildcard_constraints:
         n=r"\d+",
         t=r"\d+",
+        r=r"\d+",
     input:
         gen=str(PERF_RAW / "build" / "gen_{n}.json"),
     output:
-        result=str(PERF_RAW / "build" / "build_{n}_{t}t.json"),
+        result=str(PERF_RAW / "build" / "build_{n}_{t}t_r{r}.json"),
     log:
-        "logs/performance/build_{n}_{t}t.log",
+        "logs/performance/build_{n}_{t}t_r{r}.log",
     threads: lambda wc: int(wc.t)
     resources:
         mem_mb=lambda wc, threads: threads * 4_000,
@@ -247,9 +255,10 @@ rule performance_build_collect:
     """Merge all build results into build_perf.json."""
     input:
         results=expand(
-            str(PERF_RAW / "build" / "build_{n}_{t}t.json"),
+            str(PERF_RAW / "build" / "build_{n}_{t}t_r{r}.json"),
             n=BUILD_SCALES,
             t=BUILD_THREAD_COUNTS,
+            r=BUILD_REPS_LIST,
         ),
     output:
         results=str(PERF_RESULTS / "build_perf.json"),
@@ -274,18 +283,19 @@ rule performance_build_collect:
 
 
 rule performance_annotate_one:
-    """Run one (n_variants, threads) annotation benchmark."""
+    """Run one (n_variants, threads, rep) annotation benchmark."""
     wildcard_constraints:
         n=r"\d+",
         t=r"\d+",
+        r=r"\d+",
     input:
         done=str(PERF_RAW / "prepare" / "1kg_{max_subset}.json".format(
             max_subset=max(ONEKG_SUBSETS)
         )),
     output:
-        result=str(PERF_RAW / "annotate" / "annotate_{n}_{t}t.json"),
+        result=str(PERF_RAW / "annotate" / "annotate_{n}_{t}t_r{r}.json"),
     log:
-        "logs/performance/annotate_{n}_{t}t.log",
+        "logs/performance/annotate_{n}_{t}t_r{r}.log",
     threads: lambda wc: int(wc.t)
     resources:
         mem_mb=lambda wc, threads: max(8_000, threads * 2_000),
@@ -307,9 +317,10 @@ rule performance_annotate_collect:
     """Merge all annotation results and compute speedup ratios."""
     input:
         results=expand(
-            str(PERF_RAW / "annotate" / "annotate_{n}_{t}t.json"),
+            str(PERF_RAW / "annotate" / "annotate_{n}_{t}t_r{r}.json"),
             n=ANNOTATE_VARIANT_COUNTS,
             t=ANNOTATE_THREAD_COUNTS,
+            r=ANNOTATE_REPS_LIST,
         ),
     output:
         results=str(PERF_RESULTS / "annotate_throughput.json"),

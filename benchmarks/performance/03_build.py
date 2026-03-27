@@ -55,9 +55,10 @@ def _run_build_timed(manifest_path: str, db_dir: str, threads: int) -> dict:
     if os.path.exists(db_dir):
         shutil.rmtree(db_dir)
 
+    afquery_bin = Path(sys.executable).parent / "afquery"
     cmd = [
         "/usr/bin/time", "-v",
-        sys.executable, "-m", "afquery",
+        str(afquery_bin),
         "create-db",
         "--manifest", manifest_path,
         "--output-dir", db_dir,
@@ -73,8 +74,10 @@ def _run_build_timed(manifest_path: str, db_dir: str, threads: int) -> dict:
     wall_s = time.perf_counter() - t0
 
     if result.returncode != 0:
-        logger.error("Build failed:\nstdout: %s\nstderr: %s", result.stdout, result.stderr)
-        return {"error": result.stderr, "wall_s": wall_s}
+        raise RuntimeError(
+            f"Build failed (exit {result.returncode}):\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
 
     # Parse peak RSS from /usr/bin/time -v output
     peak_rss_kb = 0
@@ -142,7 +145,9 @@ def _build_one(n_samples: int, threads: int, output_path: Path):
     vcf_dir = build_dir / f"synth_{n_samples}" / "vcfs"
     raw_vcf_size_mb = round(_dir_size_bytes(vcf_dir) / (1024 * 1024), 1)
 
-    db_dir = build_dir / f"db_{n_samples}_{threads}t"
+    # Use output stem (e.g. "build_5000_1t_r2") to derive a unique db_dir
+    # so that parallel reps don't collide on the same directory.
+    db_dir = build_dir / f"db_{output_path.stem}"
     logger.info("=== Build: %d samples, %d threads ===", n_samples, threads)
 
     metrics = _run_build_timed(str(manifest_path), str(db_dir), threads)

@@ -59,7 +59,17 @@ def build_db(manifest_path: Path, db_dir: Path, bed_dir: Path | None = None):
         threads=THREADS,
     )
     elapsed = time.perf_counter() - t0
-    logger.info("Built %s in %.1fs", db_dir.name, elapsed)
+
+    # Validate that the build produced variant data
+    variants_dir = db_dir / "variants"
+    parquet_files = list(variants_dir.rglob("*.parquet"))
+    if not parquet_files:
+        raise RuntimeError(
+            f"Build of {db_dir.name} produced no variant parquet files. "
+            "Check that VCF chromosomes match the genome build and BED file naming."
+        )
+
+    logger.info("Built %s in %.1fs (%d parquet file(s))", db_dir.name, elapsed, len(parquet_files))
 
 
 def main():

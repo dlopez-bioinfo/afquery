@@ -57,6 +57,12 @@ def time_ms(func, *args, **kwargs):
 
 def stats(times: list) -> dict:
     """Compute summary statistics for a list of times (ms)."""
+    if not times:
+        _nan = float("nan")
+        return {
+            "median_ms": _nan, "q1_ms": _nan, "q3_ms": _nan,
+            "min_ms": _nan, "max_ms": _nan,
+        }
     s = sorted(times)
     n = len(s)
     return {

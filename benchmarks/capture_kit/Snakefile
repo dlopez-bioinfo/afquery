@@ -28,6 +28,8 @@ CK_MANIFEST_DIR = Path(_ck.MANIFEST_DIR)
 CK_DIR = _bench / "capture_kit"
 
 SCENARIOS = list(_ck.SCENARIOS.keys())
+if config.get("smoke_test"):
+    SCENARIOS = ["balanced"]
 CK_SCENARIOS_ALL = ["wgs"] + SCENARIOS
 
 
@@ -65,7 +67,10 @@ rule capture_kit_mask_vcf:
         """
         set -euo pipefail
         LOG=$(realpath {log}) && mkdir -p "$(dirname "$LOG")" "$(dirname "{output.vcf}")"
-        bedtools intersect -a {input.vcf} -b {input.bed} -header -wa | bgzip > {output.vcf} 2>"$LOG"
+        zcat {input.vcf} \
+          | awk 'BEGIN{{OFS="\\t"}} /^#/ {{print; next}} {{$1="chr"$1; print}}' \
+          | bedtools intersect -a stdin -b {input.bed} -header -wa \
+          | bgzip > {output.vcf} 2>"$LOG"
         """
 
 
@@ -215,3 +220,5 @@ rule capture_kit_all:
     """Run the complete capture kit mixing benchmark."""
     input:
         rules.capture_kit_plot.output,
+    output:
+        touch(str(CK_RESULTS / ".capture_kit_done")),

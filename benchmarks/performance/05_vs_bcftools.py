@@ -15,6 +15,7 @@ import csv
 import json
 import logging
 import os
+import random
 import shutil
 import subprocess
 import sys
@@ -160,11 +161,13 @@ def _time_bcftools_dump(vcf_path: str, output_path: str) -> float:
 
 
 def _time_afquery_point(db_path: str, chrom: str, pos: int) -> float:
-    """Time an AFQuery point query. Returns ms."""
+    """Time an AFQuery point query (cold: includes Database init). Returns ms."""
     from afquery.database import Database
 
-    db = Database(db_path)
+    # Include Database() init in the timer so the comparison with bcftools
+    # (which includes subprocess spawn + VCF open) is symmetric.
     t0 = time.perf_counter()
+    db = Database(db_path)
     db.query(chrom=chrom, pos=pos)
     return (time.perf_counter() - t0) * 1000
 
@@ -172,21 +175,21 @@ def _time_afquery_point(db_path: str, chrom: str, pos: int) -> float:
 def _time_afquery_subset_point(
     db_path: str, chrom: str, pos: int, sex: str
 ) -> float:
-    """Time an AFQuery subset point query. Returns ms."""
+    """Time an AFQuery subset point query (cold). Returns ms."""
     from afquery.database import Database
 
-    db = Database(db_path)
     t0 = time.perf_counter()
+    db = Database(db_path)
     db.query(chrom=chrom, pos=pos, sex=sex)
     return (time.perf_counter() - t0) * 1000
 
 
 def _time_afquery_dump(db_path: str, chrom: str, output_path: str) -> float:
-    """Time an AFQuery full-chromosome dump. Returns ms."""
+    """Time an AFQuery full-chromosome dump (cold). Returns ms."""
     from afquery.database import Database
 
-    db = Database(db_path)
     t0 = time.perf_counter()
+    db = Database(db_path)
     db.dump(output=output_path, chrom=chrom)
     return (time.perf_counter() - t0) * 1000
 
@@ -265,6 +268,14 @@ def _compute_concordance(db_path: Path, vcf_path: str, chrom: str) -> dict:
             if afq["AN"] != bcf["AN"]:
                 an_mismatches += 1
 
+        # Sample AF pairs for scatter plot (deterministic, representative)
+        rng = random.Random(SEED)
+        _max_plot_pairs = 2000
+        if len(af_pairs) > _max_plot_pairs:
+            af_pairs_sample = rng.sample(af_pairs, _max_plot_pairs)
+        else:
+            af_pairs_sample = list(af_pairs)
+
         # R-squared
         if len(af_pairs) > 1:
             afq_afs = [p[0] for p in af_pairs]
@@ -284,7 +295,7 @@ def _compute_concordance(db_path: Path, vcf_path: str, chrom: str) -> dict:
             "ac_mismatches": ac_mismatches,
             "an_mismatches": an_mismatches,
             "r_squared": round(r_squared, 6) if r_squared is not None else None,
-            "af_pairs_sample": af_pairs[:100],  # first 100 for plotting
+            "af_pairs_sample": af_pairs_sample,
         }
 
 
@@ -425,6 +436,7 @@ def main():
             _create_subset_vcf(ONEKG_MERGED_VCF, sample_list, subset_vcf)
 
             chrom, pos = _find_test_locus(db_path)
+            bcf_chrom = ONEKG_CHROM  # bare "22" for bcftools on 1KG VCFs
             logger.info("  Test locus: %s:%d", chrom, pos)
 
             female_samples = _get_sample_list(db_path, sex="female")
@@ -434,13 +446,13 @@ def main():
             result = {"n_samples": n_samples, "chrom": chrom}
 
             logger.info("  Point query benchmark...")
-            bcf_times = [_time_bcftools_point(str(subset_vcf), chrom, pos) for _ in range(BCFTOOLS_REPS)]
+            bcf_times = [_time_bcftools_point(str(subset_vcf), bcf_chrom, pos) for _ in range(BCFTOOLS_REPS)]
             afq_times = [_time_afquery_point(str(db_path), chrom, pos) for _ in range(BCFTOOLS_REPS)]
             result["point_query"] = {"bcftools": _stats(bcf_times), "afquery": _stats(afq_times)}
 
             logger.info("  Subset query benchmark (females)...")
             bcf_sub_times = [
-                _time_bcftools_subset_point(str(subset_vcf), chrom, pos, str(females_file))
+                _time_bcftools_subset_point(str(subset_vcf), bcf_chrom, pos, str(females_file))
                 for _ in range(BCFTOOLS_REPS)
             ]
             afq_sub_times = [

@@ -68,6 +68,8 @@ if config.get("data_dir"):
 # they fall back to the default Path(".results") and cannot find pipeline outputs.
 import os as _os
 _os.environ["AFQUERY_BENCH_DATA"] = str(DATA_DIR.resolve())
+if config.get("smoke_test"):
+    _os.environ["AFQUERY_BENCH_SMOKE"] = "1"
 
 # Export constants to sub-Snakefiles via globals
 workflow._globals = {}  # not needed; sub-files access via import

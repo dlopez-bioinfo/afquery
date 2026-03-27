@@ -85,7 +85,7 @@ def plot_query_scaling():
     ax.set_xlabel("Number of samples")
     ax.set_ylabel("Latency (ms)")
     ax.set_title("Query Latency Scaling")
-    ax.legend(loc="upper left", frameon=False)
+    ax.legend(loc="lower right", frameon=False)
     ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{int(x):,}"))
 
     _save(fig, "fig1_query_scaling")
@@ -116,19 +116,33 @@ def plot_build_perf():
     for i, scale in enumerate(scales):
         positions = [j + i * bar_width for j in range(n_groups)]
         heights = []
+        yerr_lo = []
+        yerr_hi = []
+        has_iqr = False
         for t in threads:
             entry = next(
                 (r for r in data if r["n_samples"] == scale and r["threads"] == t),
                 None,
             )
-            heights.append(entry["wall_s"] if entry and "wall_s" in entry else 0)
+            h = entry["wall_s"] if entry and "wall_s" in entry else 0
+            heights.append(h)
+            if entry and "wall_s_q1" in entry:
+                has_iqr = True
+                yerr_lo.append(h - entry["wall_s_q1"])
+                yerr_hi.append(entry["wall_s_q3"] - h)
+            else:
+                yerr_lo.append(0)
+                yerr_hi.append(0)
 
         color = scale_colors[i % len(scale_colors)]
-        ax.bar(
-            positions, heights, bar_width,
+        bar_kwargs = dict(
             label=f"{scale:,} samples",
             color=color, edgecolor="white", linewidth=0.5,
         )
+        if has_iqr:
+            bar_kwargs["yerr"] = [yerr_lo, yerr_hi]
+            bar_kwargs["capsize"] = 2
+        ax.bar(positions, heights, bar_width, **bar_kwargs)
 
     ax.set_xticks([j + bar_width * (n_bars - 1) / 2 for j in range(n_groups)])
     ax.set_xticklabels([str(t) for t in threads])
@@ -262,7 +276,8 @@ def plot_concordance():
     afq_afs = [p[0] for p in pairs]
     bcf_afs = [p[1] for p in pairs]
 
-    ax.scatter(bcf_afs, afq_afs, s=8, alpha=0.5, color=COLORS["blue"], edgecolors="none")
+    ax.scatter(bcf_afs, afq_afs, s=4, alpha=0.3, color=COLORS["blue"], edgecolors="none",
+               rasterized=True)
     ax.plot([0, 1], [0, 1], "--", color=COLORS["black"], linewidth=0.8, alpha=0.5)
 
     ax.set_xlabel("bcftools AF")
