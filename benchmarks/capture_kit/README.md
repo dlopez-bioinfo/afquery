@@ -122,6 +122,9 @@ Two disease models with different stringency are tested:
 
 For each (scenario, disease) combination, variants are classified using AF_wgs (truth), AF_AFQuery, and AF_naive. The key metrics are:
 - **Discordance rate:** fraction of variants classified differently from truth
+- **Toward-pathogenic rate:** fraction of variants where the method predicts a more pathogenic-supporting class than truth (e.g., BS1→neutral, BA1→BS1). These are errors caused by AF deflation — the method underestimates allele frequency.
+- **Toward-benign rate:** fraction of variants where the method predicts a more benign-supporting class than truth (e.g., neutral→BS1). These reflect AF overestimation due to sampling variance in low-coverage kit positions.
+- **BS1 recall:** fraction of true BS1 variants correctly classified as BS1.
 - **False pathogenic (FP):** truth is benign (BA1/BS1), method calls PM2 (clinically dangerous: could trigger unnecessary follow-up)
 - **Missed pathogenic (MP):** truth is PM2, method calls benign (clinically dangerous: could miss a pathogenic variant)
 
@@ -153,7 +156,13 @@ Two subplots (cardiomyopathy and metabolic). Each shows grouped bars: naive vs. 
 
 **How to interpret:** AFQuery bars should be near zero (correct classification). Naive bars should grow with scenario severity. FP and MP counts are the clinically critical numbers -- even a small number of false pathogenic calls can trigger invasive follow-up. The metabolic model (stricter thresholds) should show more discordance than cardiomyopathy because the PM2 threshold (AC=0) is extremely sensitive to even small AN changes.
 
-### Figure 5: AN Inflation Histogram (`fig_capkit_an_ratio`)
+### Figure 5: Toward-Pathogenic Misclassification Rate (`fig_capkit_toward_pathogenic`)
+
+Two subplots (cardiomyopathy and metabolic). Grouped bars per scenario showing the percentage of variants misclassified in the toward-pathogenic direction (predicted class is more pathogenic-supporting than truth), for AFQuery vs. Naive.
+
+**How to interpret:** Naive's bars should dominate — AF deflation from AN inflation systematically converts benign evidence (BA1, BS1) into weaker or absent evidence (BS1→neutral, BA1→BS1). AFQuery's bars should be near zero because technology-aware AN eliminates this deflation. The gap between methods widens with kit imbalance (extreme scenario) and with stricter disease thresholds (metabolic). This figure provides the key clinical argument: Naive's errors are not random but systematically in the direction that increases VUS burden and misses benign evidence.
+
+### Figure 6: AN Inflation Histogram (`fig_capkit_an_ratio`)
 
 Three subplots (one per scenario). Histogram of AN_naive / AN_AFQuery per variant. Green dashed line at 1.0 (no inflation). Red dotted line at median.
 
@@ -165,7 +174,7 @@ Three subplots (one per scenario). Histogram of AN_naive / AN_AFQuery per varian
 
 - `results/merged.parquet` -- merged AF comparison table (all scenarios)
 - `results/nadi_summary.json` -- summary statistics per scenario
-- `results/acmg_results.json` -- misclassification counts per disease/scenario
+- `results/acmg_results.json` -- misclassification counts per disease/scenario (includes `toward_pathogenic`, `toward_benign`, `bs1_recall` per method)
 - `figures/fig_capkit_*.{pdf,png}` -- high-resolution plots
 
 ## Known Limitations
