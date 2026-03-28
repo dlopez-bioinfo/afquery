@@ -267,7 +267,56 @@ def plot_acmg(acmg_data):
 
 
 # ---------------------------------------------------------------------------
-# Figure 5: AN Inflation Histogram
+# Figure 5: Toward-Pathogenic Misclassification Rate
+# ---------------------------------------------------------------------------
+def plot_toward_pathogenic(acmg_data):
+    """Grouped bar: % variants misclassified toward pathogenicity, AFQuery vs Naive."""
+    fig, axes = plt.subplots(
+        1, 2, figsize=(DOUBLE_COL_WIDTH, 3.2), sharey=False,
+    )
+
+    disease_titles = {
+        "cardiomyopathy": "Cardiomyopathy\n(BS1>0.1%, PM2\u22640.01%)",
+        "metabolic": "Metabolic\n(BS1>0.01%, PM2=absent)",
+    }
+
+    bar_width = 0.35
+    x = np.arange(len(SCENARIO_ORDER))
+
+    for ax, disease in zip(axes, ["cardiomyopathy", "metabolic"]):
+        rates_afq, rates_naive = [], []
+        for scenario in SCENARIO_ORDER:
+            d = acmg_data[disease][scenario]
+            n = d["n_variants"]
+            rates_afq.append(100 * d["afquery"]["toward_pathogenic"] / n)
+            rates_naive.append(100 * d["naive"]["toward_pathogenic"] / n)
+
+        ax.bar(
+            x - bar_width / 2, rates_afq, bar_width,
+            label="AFQuery", color=COLORS["blue"], edgecolor="white",
+        )
+        ax.bar(
+            x + bar_width / 2, rates_naive, bar_width,
+            label="Naive", color=COLORS["orange"], edgecolor="white",
+        )
+
+        ax.set_xticks(x)
+        ax.set_xticklabels([s.capitalize() for s in SCENARIO_ORDER])
+        ax.set_title(disease_titles[disease], fontsize=9)
+        if ax is axes[0]:
+            ax.set_ylabel("Variants misclassified toward\npathogenicity (%)")
+        ax.legend(frameon=False, fontsize=8)
+
+    fig.suptitle(
+        "AN Distortion Drives Systematic Toward-Pathogenic Errors",
+        y=1.04, fontsize=11,
+    )
+    plt.tight_layout()
+    _save(fig, "fig_capkit_toward_pathogenic")
+
+
+# ---------------------------------------------------------------------------
+# Figure 6: AN Inflation Histogram
 # ---------------------------------------------------------------------------
 def plot_an_ratio(df):
     fig, axes = plt.subplots(
@@ -337,10 +386,12 @@ def main():
         acmg_data = json.loads(acmg_path.read_text())
         print("\nFigure 4: ACMG misclassification")
         plot_acmg(acmg_data)
+        print("\nFigure 5: Toward-pathogenic misclassification rate")
+        plot_toward_pathogenic(acmg_data)
     else:
-        print("\nSkipping Figure 4: acmg_results.json not found")
+        print("\nSkipping Figures 4-5: acmg_results.json not found")
 
-    print("\nFigure 5: AN inflation histogram")
+    print("\nFigure 6: AN inflation histogram")
     plot_an_ratio(df)
 
     print(f"\nAll figures saved to {FIGURES_DIR}/")

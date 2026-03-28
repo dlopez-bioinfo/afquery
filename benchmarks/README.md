@@ -21,7 +21,7 @@ Capture kit mixing impact on allele frequency classification:
 
 - Sample generation with three Agilent SureSelect kits (v5, v6, v7)
 - Three mixing scenarios (balanced, skewed, extreme)
-- ACMG classification discordance analysis
+- ACMG classification discordance analysis with directional error decomposition (toward-pathogenic vs. toward-benign)
 - Coverage overlap metrics
 
 ## Prerequisites

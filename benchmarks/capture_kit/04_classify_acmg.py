@@ -33,6 +33,9 @@ logger = logging.getLogger(__name__)
 
 CLASSES = ["BA1", "BS1", "PM2", "neutral"]
 
+# Ordinal ladder for directional error analysis: higher = more benign
+_ORDINAL = {"BA1": 3, "BS1": 2, "neutral": 1, "PM2": 0}
+
 
 def classify_variant(af: float, ac: int, thresholds: dict) -> str:
     """Classify variant into ACMG evidence category.
@@ -109,10 +112,35 @@ def analyze_scenario_disease(df: pd.DataFrame, thresholds: dict) -> dict:
             ).sum()
         )
 
+        # Directional errors: toward_pathogenic = predicted is more pathogenic
+        # (lower ordinal) than truth; toward_benign = predicted is more benign
+        toward_pathogenic = int(
+            (
+                (sub[col] != sub["class_truth"])
+                & sub["class_truth"].map(_ORDINAL).gt(sub[col].map(_ORDINAL))
+            ).sum()
+        )
+        toward_benign = int(
+            (
+                (sub[col] != sub["class_truth"])
+                & sub["class_truth"].map(_ORDINAL).lt(sub[col].map(_ORDINAL))
+            ).sum()
+        )
+
+        # BS1 recall: fraction of true BS1 variants correctly called BS1
+        bs1_mask = sub["class_truth"] == "BS1"
+        bs1_recall = (
+            round(float((sub.loc[bs1_mask, col] == "BS1").sum() / bs1_mask.sum()), 6)
+            if bs1_mask.sum() > 0 else 1.0
+        )
+
         result[method] = {
             "concordant": concordant,
             "discordant": discordant,
             "discordance_rate": round(discordant / n, 6) if n > 0 else 0,
+            "toward_pathogenic": toward_pathogenic,
+            "toward_benign": toward_benign,
+            "bs1_recall": bs1_recall,
             "false_pathogenic": false_pathogenic,
             "missed_pathogenic": missed_pathogenic,
             "confusion_matrix": compute_confusion(

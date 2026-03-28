@@ -200,6 +200,7 @@ rule capture_kit_plot:
                 "fig_capkit_error_by_coverage",
                 "fig_capkit_scatter",
                 "fig_capkit_acmg",
+                "fig_capkit_toward_pathogenic",
                 "fig_capkit_an_ratio",
             ],
             ext=["pdf", "png"],
