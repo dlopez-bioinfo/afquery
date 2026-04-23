@@ -1,13 +1,13 @@
 {% set name = "afquery" %}
-{% set version = "0.1.0" %}
+{% set version = "0.2.2" %}
 
 package:
   name: {{ name|lower }}
   version: {{ version }}
 
 source:
-  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: PLACEHOLDER
+  url: https://files.pythonhosted.org/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: 28ddc9afe5260ecdefab83679e0633684980666c49812215d1233ce3bae4fb7f
 
 build:
   noarch: python
@@ -16,14 +16,7 @@ build:
   entry_points:
     - afquery = afquery.cli:cli
   run_exports:
-    - python >=3.10
-    - pyroaring >=0.4.8
-    - pyarrow >=14.0
-    - duckdb >=0.10
-    - click >=8.1
-    - cyvcf2 >=0.30
-    - tqdm >=4.60
-    - pyranges >=0.1.2,<0.2
+    - {{ pin_subpackage("afquery", max_pin="x.x") }}
 
 requirements:
   host:
@@ -50,6 +43,7 @@ test:
 about:
   home: https://github.com/dlopez-bioinfo/afquery
   license: MIT
+  license_file: LICENSE
   summary: Genomic allele frequency query engine with bitmap-encoded genotypes
 
 extra:
