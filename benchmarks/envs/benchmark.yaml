@@ -13,4 +13,17 @@ dependencies:
   - scipy
   - wget
   - pip:
-    - afquery
+    - afquery==0.2.2
+    - click==8.3.1
+    - coloredlogs==15.0.1
+    - cyvcf2==0.32.1
+    - duckdb==1.5.1
+    - humanfriendly==10.0
+    - natsort==8.4.0
+    - ncls==0.0.70
+    - pyarrow==23.0.1
+    - pyranges==0.1.4
+    - pyroaring==1.0.4
+    - sorted_nearest==0.0.41
+    - tabulate==0.10.0
+    - tqdm==4.67.3
