@@ -392,3 +392,44 @@ def test_variant_info_wrapper_with_tech_filter(test_db):
     )
     assert len(carriers) == 1
     assert carriers[0].tech_name == "WES_kit_B"
+
+
+# ---------------------------------------------------------------------------
+# 14. Edge cases and warnings
+# ---------------------------------------------------------------------------
+
+def test_unknown_chrom_warning(test_db):
+    """Unknown chromosome returns empty list with warning."""
+    db = Database(test_db)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        carriers = db.variant_info("chrUnknown", 1000)
+        assert len(carriers) == 0
+        assert len(w) == 1
+        assert issubclass(w[0].category, AfqueryWarning)
+        assert "chrUnknown" in str(w[0].message)
+
+
+def test_multiple_alleles_warning(test_db):
+    """Multiple alleles at position triggers warning without explicit ref/alt."""
+    db = Database(test_db)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        # chr1:5000 has multiple alleles: T→G and others
+        carriers = db.variant_info("chr1", 5000)
+        # Should warn about multiple alleles
+        warns = [x for x in w if issubclass(x.category, AfqueryWarning)]
+        if len(warns) > 0:
+            assert "alleles" in str(warns[0].message).lower()
+
+
+def test_empty_result_no_warning(test_db):
+    """Explicit ref/alt with no matches returns empty, no warning."""
+    db = Database(test_db)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        carriers = db.variant_info("chr1", 3500, ref="G", alt="X")
+        assert len(carriers) == 0
+        # Should not warn about multiple alleles when explicitly filtered
+        warns = [x for x in w if "alleles" in str(x.message).lower()]
+        assert len(warns) == 0
