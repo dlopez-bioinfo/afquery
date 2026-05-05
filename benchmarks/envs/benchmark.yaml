@@ -1,29 +1,31 @@
 name: afquery_bench
 channels:
-  - bioconda
   - conda-forge
+  - bioconda
 dependencies:
-  - bcftools>=1.17
-  - bedtools
-  - matplotlib
-  - numpy
-  - pandas
-  - pip
-  - python>=3.10
-  - scipy
-  - wget
+  - python=3.11.15
+  - bcftools=1.23.1
+  - bedtools=2.31.1
+  - htslib=1.23.1
+  - matplotlib=3.10.9
+  - numpy=2.4.3
+  - pandas=3.0.2
+  - scipy=1.17.1
+  - pip=26.1.1
+  - wget=1.25.0
   - pip:
     - afquery==0.2.2
-    - click==8.3.1
-    - coloredlogs==15.0.1
+    - snakemake==9.20.0
     - cyvcf2==0.32.1
-    - duckdb==1.5.1
+    - duckdb==1.5.2
+    - pyarrow==24.0.0
+    - pyranges==0.1.4
+    - pyroaring==1.1.0
+    - click==8.3.3
+    - coloredlogs==15.0.1
     - humanfriendly==10.0
     - natsort==8.4.0
     - ncls==0.0.70
-    - pyarrow==23.0.1
-    - pyranges==0.1.4
-    - pyroaring==1.0.4
     - sorted_nearest==0.0.41
     - tabulate==0.10.0
     - tqdm==4.67.3
