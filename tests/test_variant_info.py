@@ -5,7 +5,7 @@ import warnings
 import pytest
 from click.testing import CliRunner
 
-from afquery import Database, SampleCarrier
+from afquery import Database, SampleCarrier, variant_info
 from afquery.cli import cli
 from afquery.models import AfqueryWarning
 
@@ -356,3 +356,39 @@ def test_cli_json_fail_sample(test_db):
     assert by_name["S00"]["genotype"] == "alt"
     assert by_name["S02"]["filter"] == "PASS"
     assert by_name["S02"]["genotype"] == "hom"
+
+
+# ---------------------------------------------------------------------------
+# 13. variant_info wrapper function
+# ---------------------------------------------------------------------------
+
+def test_variant_info_wrapper_function(test_db):
+    """Test the public variant_info() wrapper function directly."""
+    carriers = variant_info(test_db, "chr1", 3500, ref="G", alt="C")
+    assert len(carriers) == 1
+    assert carriers[0].sample_id == 7
+    assert carriers[0].sample_name == "S07"
+    assert carriers[0].genotype == "het"
+
+
+def test_variant_info_wrapper_with_filters(test_db):
+    """Test variant_info() wrapper with phenotype and sex filters."""
+    carriers = variant_info(
+        test_db, "chr1", 1500,
+        ref="A", alt="T",
+        phenotype=["E11.9"],  # S00 has this phenotype
+        sex="male"
+    )
+    assert len(carriers) > 0
+    assert all(c.sex == "male" for c in carriers)
+
+
+def test_variant_info_wrapper_with_tech_filter(test_db):
+    """Test variant_info() wrapper with technology filter."""
+    carriers = variant_info(
+        test_db, "chr1", 3500,
+        ref="G", alt="C",
+        tech=["WES_kit_B"]
+    )
+    assert len(carriers) == 1
+    assert carriers[0].tech_name == "WES_kit_B"
