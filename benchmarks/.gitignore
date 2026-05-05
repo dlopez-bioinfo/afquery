@@ -1,0 +1,20 @@
+# Benchmark data directories (large, external)
+# Users create these as needed via config.py
+
+# pycache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# benchmarking results
+results
+.snakemake
+
+# Snakemake log directory
+logs/
+
+# Default data directory
+.results/
+
+# Local test run logs
+smoke_test.log

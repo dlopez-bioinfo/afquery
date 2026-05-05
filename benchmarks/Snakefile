@@ -1,0 +1,103 @@
+"""Unified benchmark pipeline for AFQuery.
+
+Usage (run from benchmarks/ directory):
+    # All benchmarks
+    snakemake --cores 52 all
+
+    # Only performance benchmark
+    snakemake --cores 52 performance_all
+
+    # Only capture kit benchmark
+    snakemake --cores 52 capture_kit_all
+
+    # Only download 1KG data
+    snakemake --cores 52 download_1kg
+
+    # Dry run (preview rules to execute)
+    snakemake --cores 52 --dry-run all
+
+    # Smoke test (fast validation with small scales)
+    snakemake --cores 52 --config smoke_test=true all
+"""
+
+import sys
+from pathlib import Path
+
+# Make shared/ importable from within Snakemake rules
+_bench = Path(workflow.basedir)
+sys.path.insert(0, str(_bench))
+
+from shared.config import (  # noqa: E402
+    DATA_DIR,
+    ONEKG_DIR,
+    ONEKG_MANIFEST,
+    SEED,
+)
+
+# ---------------------------------------------------------------------------
+# Global settings
+# ---------------------------------------------------------------------------
+configfile: "config.yaml"
+
+# NOTE: conda env management is DISABLED. Dependencies are installed manually
+# in the snakemake environment. Conda path normalization is no longer needed.
+# if config.get("conda_env_file"):
+#     _conda_env = Path(config["conda_env_file"])
+#     if not _conda_env.is_absolute():
+#         config["conda_env_file"] = str((_bench / _conda_env).resolve())
+
+
+
+# Guard: data_dir must be set
+if not config.get("data_dir", "").strip():
+    raise WorkflowError(
+        "config.yaml: 'data_dir' is not set. "
+        "Edit config.yaml or pass --config data_dir=/path/to/data"
+    )
+
+# Override DATA_DIR from config if provided
+if config.get("data_dir"):
+    import shared.config as _sc
+    _sc._set_data_dir(Path(config["data_dir"]))
+    DATA_DIR     = _sc.DATA_DIR
+    ONEKG_DIR    = _sc.ONEKG_DIR
+    ONEKG_MANIFEST = _sc.ONEKG_MANIFEST
+
+# Propagate the resolved DATA_DIR to all child processes via environment.
+# Python scripts import shared.config fresh in each subprocess; without this
+# they fall back to the default Path(".results") and cannot find pipeline outputs.
+import os as _os
+_os.environ["AFQUERY_BENCH_DATA"] = str(DATA_DIR.resolve())
+if config.get("smoke_test"):
+    _os.environ["AFQUERY_BENCH_SMOKE"] = "1"
+
+# Export constants to sub-Snakefiles via globals
+workflow._globals = {}  # not needed; sub-files access via import
+
+# ---------------------------------------------------------------------------
+# Create log directories before any rule runs (Snakemake does not auto-create
+# log dirs, unlike output dirs).
+# ---------------------------------------------------------------------------
+onstart:
+    import os
+    for subdir in ["performance", "capture_kit"]:
+        os.makedirs(f"logs/{subdir}", exist_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# Include sub-pipelines
+# ---------------------------------------------------------------------------
+include: "shared/rules/download_1kg.smk"
+include: "performance/Snakefile"
+include: "capture_kit/Snakefile"
+
+# ---------------------------------------------------------------------------
+# Top-level targets
+# ---------------------------------------------------------------------------
+
+
+rule all:
+    """Run both benchmarks end-to-end."""
+    input:
+        rules.performance_all.output,
+        rules.capture_kit_all.output,

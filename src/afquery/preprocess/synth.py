@@ -54,7 +54,7 @@ def generate_synthetic_manifest(
         _write_synthetic_vcf(vcf_path, sample_name, chrom_variants, rng)
 
         manifest_lines.append(
-            f"{sample_name}\t{sex}\tWGS\t{vcf_path}\tE11.9"
+            f"{sample_name}\t{sex}\tWGS\t{vcf_path.resolve()}\tE11.9"
         )
 
     manifest_path = output_dir / "manifest.tsv"

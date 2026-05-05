@@ -1,0 +1,21 @@
+# Snakemake configuration for AFQuery benchmarks.
+# Override any value on the command line: --config key=value
+
+# Path to benchmark data directory (must have ~200 GB free for 1KG + databases).
+# REQUIRED: set to a directory with ~200 GB free space.
+# Example: data_dir: "/scratch/myuser/afquery_bench_data"
+# Or override at runtime: snakemake --config data_dir=/path/to/data ...
+data_dir: "./results"
+
+# DuckDB memory limit per build worker
+build_memory: "8GB"
+
+# Thread count for CPU-intensive rules (build, annotate).
+threads: 52
+
+# Set to true to run a minimal smoke test (tiny scales, few reps)
+smoke_test: false
+
+# Path to the conda/micromamba environment spec (DEPRECATED).
+# Dependencies are now installed manually in the snakemake environment.
+# conda_env_file: "envs/benchmark.yaml"
