@@ -33,6 +33,7 @@ Male samples should have haploid genotype calls at chrX non-PAR regions (GT=`1`,
 - **Non-PASS genotypes**: Masking them as missing ensures that low-quality calls do not inflate AC. AFQuery tracks these as N_FAIL.
 - **Homozygous reference calls**: Removing ref/ref genotypes reduces file size and speeds ingestion; they contribute AC=0 and are not needed
 - **INFO fields**: Stripping INFO reduces file size and speeds ingestion. Additionally, malformed or non-standard INFO fields produced by some variant callers can break downstream parsing; stripping them pre-emptively prevents these errors.
+- **FORMAT fields**: Only `GT`, `DP`, and `GQ` are preserved. `GT` is the genotype required by AFQuery for all queries. `DP` and `GQ` are read by Phase 2 quality filters (`afquery create-db --min-dp / --min-gq / --min-qual / --min-covered`) to populate the `quality_pass_bitmap` and `filtered_bitmap` columns. VCFs without `DP`/`GQ` are still valid; their carriers simply contribute no quality evidence to the cohort. All other FORMAT fields (`PL`, `AD`, etc.) are dropped to reduce file size.
 
 ---
 

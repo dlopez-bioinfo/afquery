@@ -97,7 +97,7 @@ Batch queries support variants across multiple chromosomes in a single file.
 Human-readable, one block per variant:
 
 ```
-chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1231  N_FAIL=0
+chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1231  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 ### tsv
@@ -109,8 +109,8 @@ afquery query --db ./db/ --region chr1:900000-1000000 --format tsv
 ```
 
 ```
-chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HOM_REF	N_FAIL
-chr1	925952	G	A	142	2742	0.051782	1371	138	2	1231	0
+chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HOM_REF	N_FAIL	N_NO_COVERAGE
+chr1	925952	G	A	142	2742	0.051782	1371	138	2	1231	0	0
 ```
 
 
@@ -136,10 +136,43 @@ afquery query --db ./db/ --locus chr1:925952 --format json
     "N_HET": 138,
     "N_HOM_ALT": 2,
     "N_HOM_REF": 1231,
-    "N_FAIL": 0
+    "N_FAIL": 0,
+    "N_NO_COVERAGE": 0
   }
 ]
 ```
+
+---
+
+## Coverage-Evidence Filters (no_coverage)
+
+By default AFQuery counts every BED-covered WES sample without a variant call as
+hom-ref. With standard variant-only VCFs that assumption can be wrong: a missing
+position may simply mean the sample was not sequenced deeply enough at that locus.
+Three optional flags let you trade hom-ref aggressiveness for confidence. Samples
+that fall below a threshold are reported in **N_NO_COVERAGE** instead of N_HOM_REF
+(they remain in `eligible` and `AN`, like `N_FAIL`).
+
+| Flag | Meaning |
+|------|---------|
+| `--min-pass K` | A WES tech is valid for hom-ref at a position only if it has ≥K PASS carriers (het\|hom). Otherwise its non-carrier samples move to `N_NO_COVERAGE`. |
+| `--min-observed K` | Same as `--min-pass`, but counts any VCF entry (`het\|hom\|fail`). Useful when you want to include calls that failed FILTER as evidence the position was sequenced. |
+| `--min-quality-evidence K` | Phase 2 only. The DB must have been created with `--min-dp` / `--min-gq`. Requires ≥K quality-passing carriers per WES tech. |
+
+`--min-pass` and `--min-observed` combine with AND (both must hold). The defaults
+are `0` (no filtering, fully backward-compatible).
+
+```bash
+afquery query --db ./db/ --locus chr1:925952 --min-pass 1
+afquery query --db ./db/ --region chr1:900000-1000000 --min-observed 2 --min-pass 1
+```
+
+The genotype invariant becomes:
+`N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible`.
+
+WGS samples are never affected. Carrier samples (het/hom/fail) are never moved to
+`N_NO_COVERAGE`. See [Coverage Evidence](../advanced/coverage-evidence.md) for the
+underlying model.
 
 ---
 

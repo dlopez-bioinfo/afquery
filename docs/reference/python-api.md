@@ -454,7 +454,13 @@ class QueryResult:
     N_HOM_ALT: int           # Homozygous alt count
     N_HOM_REF: int           # Homozygous ref count
     N_FAIL: int              # Samples with alt allele called but FILTER≠PASS
+    N_NO_COVERAGE: int       # Eligible samples whose tech lacks evidence (excluded from N_HOM_REF)
 ```
+
+The new genotype invariant is
+`N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE == n_samples_eligible`.
+See [Coverage Evidence](../advanced/coverage-evidence.md) for details on
+`N_NO_COVERAGE`.
 
 ### VariantKey
 
@@ -479,7 +485,7 @@ class SampleCarrier:
     sex: str              # 'male' | 'female'
     tech_name: str        # Sequencing technology
     phenotypes: list[str] # Sorted phenotype codes
-    genotype: str         # 'het' | 'hom' | 'alt'
+    genotype: str         # 'het' | 'hom' | 'alt' | 'no_coverage'
     filter_pass: bool     # False = FILTER≠PASS
 ```
 
@@ -492,7 +498,7 @@ Returned by `Database.variant_info()`. Each instance represents one sample carry
 | `sex` | str | `"male"` or `"female"` |
 | `tech_name` | str | Sequencing technology name |
 | `phenotypes` | list[str] | Sorted list of phenotype codes |
-| `genotype` | str | `"het"` (heterozygous, PASS), `"hom"` (homozygous alt, PASS), or `"alt"` (non-ref, FILTER≠PASS) |
+| `genotype` | str | `"het"` (heterozygous, PASS), `"hom"` (homozygous alt, PASS), `"alt"` (non-ref, FILTER≠PASS), or `"no_coverage"` (WES sample whose tech lacks evidence — see [Coverage Evidence](../advanced/coverage-evidence.md)) |
 | `filter_pass` | bool | `True` if FILTER=PASS, `False` otherwise |
 
 ---
@@ -502,19 +508,30 @@ Returned by `Database.variant_info()`. Each instance represents one sample carry
 ```python
 @dataclass
 class SampleFilter:
-    phenotype_include: list[str] = []   # Empty = all samples
+    phenotype_include: list[str] = []     # Empty = all samples
     phenotype_exclude: list[str] = []
-    tech_include: list[str] = []        # Empty = all samples
+    tech_include: list[str] = []          # Empty = all samples
     tech_exclude: list[str] = []
-    sex: str = "both"                   # 'male' | 'female' | 'both'
+    sex: str = "both"                     # 'male' | 'female' | 'both'
+    min_pass: int = 0                     # WES tech needs ≥K PASS carriers
+    min_observed: int = 0                 # WES tech needs ≥K any-VCF entries
+    min_quality_evidence: int = 0         # Phase 2: WES tech needs ≥K quality_pass carriers
 
     @staticmethod
     def parse(
         phenotype_tokens: list[str],
         tech_tokens: list[str],
         sex: str = "both",
+        min_pass: int = 0,
+        min_observed: int = 0,
+        min_quality_evidence: int = 0,
     ) -> SampleFilter
 ```
+
+`min_pass`, `min_observed`, and `min_quality_evidence` control how
+non-carrier WES samples are classified at query time. See
+[Coverage Evidence](../advanced/coverage-evidence.md) for the model and the
+build-time companions (`--min-dp`, `--min-gq`, `--min-qual`, `--min-covered`).
 
 `SampleFilter.parse` handles the `^` prefix exclusion syntax:
 

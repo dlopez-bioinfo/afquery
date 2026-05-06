@@ -104,6 +104,7 @@ nav:
     - Benchmarking: advanced/benchmarking.md
     - Ploidy & Special Chromosomes: advanced/ploidy-and-sex-chroms.md
     - FILTER=PASS Tracking: advanced/filter-pass-tracking.md
+    - Coverage Evidence: advanced/coverage-evidence.md
     - Pipeline Integration: advanced/pipeline-integration.md
     - Multi-cohort Strategies: advanced/multi-cohort-strategies.md
     - Debugging Results: advanced/debugging-results.md

@@ -56,6 +56,24 @@ afquery update-db \
   --bed-dir ./beds/
 ```
 
+### Phase 2 (coverage-evidence) handling
+
+If the database was created with `--min-dp` / `--min-gq` / `--min-covered`
+(`schema_version = 3.0`), the existing thresholds are read from `manifest.json`
+and re-applied to all samples — old and new. There is no `update-db` flag to
+override them; thresholds are fixed at creation time so that aggregated
+`quality_pass_bitmap` values are comparable across batches.
+
+When new carriers push a WES tech above the `--min-covered` threshold at
+positions that were previously below it, those positions are removed from
+`filtered_bitmap` (i.e. their non-carrier WES samples will once again be
+counted as `N_HOM_REF`). The recomputation runs only for chromosomes touched
+by the new samples; existing rows on other chromosomes are not rewritten.
+
+VCFs added via `update-db` should preserve `FORMAT/DP` and `FORMAT/GQ` (the
+bundled `resources/normalize_vcf.sh` does so by default). Samples without those
+fields are still merged correctly but contribute no quality evidence.
+
 ---
 
 ## Remove Samples

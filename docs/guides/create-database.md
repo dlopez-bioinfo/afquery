@@ -101,6 +101,53 @@ See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) for details.
 
 ---
 
+## Coverage-Evidence Filters (Phase 2)
+
+Four optional flags enable per-sample, quality-aware tracking of which positions
+each WES technology actually covered. They are fully opt-in: omit them and the
+database behaves exactly as before.
+
+| Flag | Default | Effect |
+|------|---------|--------|
+| `--min-dp D`     | 0   | Minimum `FORMAT/DP` for a carrier to count as quality evidence. |
+| `--min-gq G`     | 0   | Minimum `FORMAT/GQ` for a carrier to count as quality evidence. |
+| `--min-qual Q`   | 0.0 | Minimum VCF `QUAL` field for a carrier to count as quality evidence. |
+| `--min-covered K`| 0   | Per WES tech, position is "trusted" only if at least K of its carriers pass the quality thresholds. Triggers Phase 2 storage when ≥1. |
+
+When any of these flags is non-zero AFQuery:
+
+1. Reads `FORMAT/DP`, `FORMAT/GQ`, and `QUAL` from each variant call during ingest.
+   Use the bundled `resources/normalize_vcf.sh` (which preserves these FORMAT
+   fields) or ensure your own preprocessing keeps them.
+2. Stores two new columns in each variant Parquet row:
+   - `quality_pass_bitmap` — carriers meeting all thresholds.
+   - `filtered_bitmap` — non-carrier WES samples whose tech failed the
+     `--min-covered` gate. The query layer reports these in `N_NO_COVERAGE`
+     instead of `N_HOM_REF`.
+3. Bumps `schema_version` from `2.0` to `3.0` and persists the chosen thresholds
+   under `coverage_filter` in `manifest.json`.
+
+Example:
+
+```bash
+afquery create-db \
+  --manifest samples.tsv \
+  --output-dir ./db/ \
+  --genome-build GRCh38 \
+  --bed-dir ./beds/ \
+  --min-dp 30 --min-gq 20 --min-covered 1
+```
+
+Phase 2 thresholds are fixed at creation time. `update-db --add-samples` reuses
+them and recomputes `quality_pass_bitmap` and `filtered_bitmap` for every
+position whose WES tech receives new samples (see
+[Update Database](update-database.md)).
+
+See [Coverage Evidence](../advanced/coverage-evidence.md) for the full data model
+and the query-time companion flag `--min-quality-evidence`.
+
+---
+
 ## Validating the Result
 
 After creation, run:
