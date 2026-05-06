@@ -30,6 +30,10 @@ def run_preprocess(
     tmp_dir: str | None = None,
     force: bool = False,
     db_version: str = "1.0",
+    min_dp: int = 0,
+    min_gq: int = 0,
+    min_qual: float = 0.0,
+    min_covered: int = 0,
 ) -> None:
     if genome_build not in VALID_GENOME_BUILDS:
         raise ValueError(
@@ -148,9 +152,21 @@ def run_preprocess(
             else effective_threads
         )
         logger.info("[build] Build memory limit: %s per worker", build_memory)
+
+        # Phase 2: pre-serialize WES tech bitmaps for picklable transfer to workers
+        wes_tech_bitmaps_bytes: dict[int, bytes] = {}
+        if min_covered > 0:
+            for tech_id, bm in build_tech_bitmaps(samples).items():
+                tech_obj = next((t for t in technologies if t.tech_id == tech_id), None)
+                if tech_obj is not None and tech_obj.bed_path is not None:
+                    wes_tech_bitmaps_bytes[tech_id] = serialize(bm)
+
         build_all_parquets(actual_tmp, variants_dir, n_workers=build_workers,
                            consolidated_path=consolidated, resume=(not force),
-                           memory_limit=build_memory)
+                           memory_limit=build_memory,
+                           min_dp=min_dp, min_gq=min_gq, min_qual=min_qual,
+                           min_covered=min_covered,
+                           wes_tech_bitmaps_bytes=wes_tech_bitmaps_bytes or None)
         success = True
     finally:
         if auto_tmp and success:
@@ -162,7 +178,10 @@ def run_preprocess(
             )
 
     logger.debug("[preprocess] Writing manifest.json...")
-    _write_manifest(output_dir, genome_build, len(samples), db_version=db_version)
+    _write_manifest(
+        output_dir, genome_build, len(samples), db_version=db_version,
+        min_dp=min_dp, min_gq=min_gq, min_qual=min_qual, min_covered=min_covered,
+    )
 
     logger.info("[preprocess] Database complete: %s", output_dir)
 
@@ -269,14 +288,26 @@ def _write_manifest(
     genome_build: str,
     sample_count: int,
     db_version: str = "1.0",
+    min_dp: int = 0,
+    min_gq: int = 0,
+    min_qual: float = 0.0,
+    min_covered: int = 0,
 ) -> None:
+    coverage_filter = {
+        "min_dp": min_dp,
+        "min_gq": min_gq,
+        "min_qual": min_qual,
+        "min_covered": min_covered,
+    }
+    has_quality_filter = (min_dp > 0 or min_gq > 0 or min_qual > 0 or min_covered > 0)
     manifest = {
         "genome_build": genome_build,
         "version": "0.1.0",
         "db_version": db_version,
         "sample_count": sample_count,
-        "schema_version": "2.0",
+        "schema_version": "3.0" if has_quality_filter else "2.0",
         "pass_only_filter": True,
+        "coverage_filter": coverage_filter,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     with open(os.path.join(output_dir, "manifest.json"), "w") as f:

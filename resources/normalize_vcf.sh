@@ -83,7 +83,7 @@ TARGETS="${TARGETS%,}"
 # Normalize VCF
 # -----------------------------
 bcftools annotate \
-    -x INFO,^FORMAT/GT \
+    -x INFO,^FORMAT/GT,^FORMAT/DP,^FORMAT/GQ \
     --force \
     --rename-chrs "${CHR_MAP}" \
     "${VCF}" | \

@@ -13,12 +13,18 @@ class SampleFilter:
     tech_include: list[str] = field(default_factory=list)       # [] = todas
     tech_exclude: list[str] = field(default_factory=list)
     sex: str = "both"  # 'male' | 'female' | 'both'
+    min_pass: int = 0      # WES tech needs ≥K PASS carriers (het|hom) at position
+    min_observed: int = 0  # WES tech needs ≥K any-VCF entries (het|hom|fail) at position
+    min_quality_evidence: int = 0  # WES tech needs ≥K quality_pass carriers (Phase 2 DB only)
 
     @staticmethod
     def parse(
         phenotype_tokens: list[str],
         tech_tokens: list[str],
         sex: str = "both",
+        min_pass: int = 0,
+        min_observed: int = 0,
+        min_quality_evidence: int = 0,
     ) -> "SampleFilter":
         """Parsea tokens con prefijo ^ (exclusión) estilo bcftools."""
         return SampleFilter(
@@ -27,6 +33,9 @@ class SampleFilter:
             tech_include=[t for t in tech_tokens if not t.startswith("^")],
             tech_exclude=[t[1:] for t in tech_tokens if t.startswith("^")],
             sex=sex,
+            min_pass=min_pass,
+            min_observed=min_observed,
+            min_quality_evidence=min_quality_evidence,
         )
 
 
@@ -73,6 +82,7 @@ class QueryResult:
     N_HOM_ALT: int = 0
     N_HOM_REF: int = 0
     N_FAIL: int = 0
+    N_NO_COVERAGE: int = 0
 
 
 @dataclass
@@ -83,5 +93,5 @@ class SampleCarrier:
     sex: str            # 'male' | 'female'
     tech_name: str
     phenotypes: list[str]
-    genotype: str       # 'het' | 'hom' | 'alt' (FILTER≠PASS, ploidy unknown)
+    genotype: str       # 'het' | 'hom' | 'alt' (FILTER≠PASS) | 'no_coverage' (uncertain hom-ref)
     filter_pass: bool   # False = FILTER≠PASS

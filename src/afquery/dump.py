@@ -83,6 +83,9 @@ def _build_groups(engine, base_sf, by_sex, by_tech, by_phenotype, all_groups):
             ),
             tech_exclude=list(base_sf.tech_exclude),
             sex=sex_override if sex_override is not None else base_sf.sex,
+            min_pass=base_sf.min_pass,
+            min_observed=base_sf.min_observed,
+            min_quality_evidence=base_sf.min_quality_evidence,
         )
         groups.append((label, sf))
 
@@ -155,9 +158,9 @@ def _dump_bucket_worker(
         where_clause = "WHERE pos BETWEEN ? AND ?"
         params = [str(parquet_file), range_start, range_end]
 
-    fail_col = ", fail_bitmap"
+    cols = engine._select_cols(with_pos=True)
     sql = (
-        f"SELECT pos, ref, alt, het_bitmap, hom_bitmap{fail_col}"
+        f"SELECT {cols}"
         f" FROM read_parquet(?)"
         f" {where_clause}"
     )
@@ -178,7 +181,8 @@ def _dump_bucket_worker(
 
     result_rows = []
     for row in rows:
-        pos, ref, alt, het_bytes, hom_bytes, fail_bytes = row
+        pos, ref, alt = row[0], row[1], row[2]
+        het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = engine._unpack_bitmaps(row[3:])
 
         # Base eligible / AN
         if pos not in pos_cache:
@@ -187,10 +191,6 @@ def _dump_bucket_worker(
 
         if AN == 0:
             continue
-
-        het_bm = deserialize(bytes(het_bytes))
-        hom_bm = deserialize(bytes(hom_bytes))
-        fail_bm = deserialize(bytes(fail_bytes)) if fail_bytes is not None else None
 
         haploid_elig, diploid_elig = split_ploidy(
             eligible, engine._male_bm, engine._female_bm, chrom, pos, engine._genome_build
@@ -211,8 +211,16 @@ def _dump_bucket_worker(
             len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
         )
         AF = AC / AN
-        N_FAIL = len(fail_bm & eligible) if fail_bm is not None else None
-        N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - (N_FAIL if N_FAIL is not None else 0)
+        N_FAIL = len(fail_bm & eligible)
+        no_cov_bm = engine._compute_no_coverage_bm(
+            eligible, het_bm, hom_bm, fail_bm,
+            base_sf.min_pass, base_sf.min_observed,
+            filtered_bm=filtered_bm,
+            quality_pass_bm=quality_pass_bm,
+            min_quality_evidence=base_sf.min_quality_evidence,
+        )
+        N_NO_COVERAGE = len(no_cov_bm)
+        N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL - N_NO_COVERAGE
 
         out_row: dict = {
             "chrom": chrom,
@@ -226,10 +234,12 @@ def _dump_bucket_worker(
             "N_HOM_ALT": N_HOM_ALT,
             "N_HOM_REF": N_HOM_REF,
             "N_FAIL": N_FAIL,
+            "N_NO_COVERAGE": N_NO_COVERAGE,
         }
 
         # Per-group columns
         for g_idx, (label, g_bm) in enumerate(group_bms):
+            g_sf = groups[g_idx][1]
             cache_key = (g_idx, pos)
             if cache_key not in group_pos_cache:
                 group_pos_cache[cache_key] = engine._compute_eligible(chrom, pos, g_bm)
@@ -250,10 +260,17 @@ def _dump_bucket_worker(
                 len(g_hom_elig & g_diploid) + len((g_het_elig | g_hom_elig) & g_haploid)
             )
             g_AF = g_AC / g_AN if g_AN > 0 else 0.0
-            g_N_FAIL = len(fail_bm & g_eligible) if fail_bm is not None else None
+            g_N_FAIL = len(fail_bm & g_eligible)
+            g_no_cov_bm = engine._compute_no_coverage_bm(
+                g_eligible, het_bm, hom_bm, fail_bm,
+                g_sf.min_pass, g_sf.min_observed,
+                filtered_bm=filtered_bm,
+                quality_pass_bm=quality_pass_bm,
+                min_quality_evidence=g_sf.min_quality_evidence,
+            )
+            g_N_NO_COVERAGE = len(g_no_cov_bm)
             g_N_HOM_REF = (
-                len(g_eligible) - g_N_HET - g_N_HOM_ALT
-                - (g_N_FAIL if g_N_FAIL is not None else 0)
+                len(g_eligible) - g_N_HET - g_N_HOM_ALT - g_N_FAIL - g_N_NO_COVERAGE
             )
 
             out_row[f"AC_{label}"] = g_AC
@@ -263,6 +280,7 @@ def _dump_bucket_worker(
             out_row[f"N_HOM_ALT_{label}"] = g_N_HOM_ALT
             out_row[f"N_HOM_REF_{label}"] = g_N_HOM_REF
             out_row[f"N_FAIL_{label}"] = g_N_FAIL
+            out_row[f"N_NO_COVERAGE_{label}"] = g_N_NO_COVERAGE
 
         result_rows.append(out_row)
 
@@ -358,14 +376,14 @@ def dump_database(
 
     # Build CSV header
     base_cols = ["chrom", "pos", "ref", "alt", "AC", "AN", "AF",
-                 "N_HET", "N_HOM_ALT", "N_HOM_REF", "N_FAIL"]
+                 "N_HET", "N_HOM_ALT", "N_HOM_REF", "N_FAIL", "N_NO_COVERAGE"]
 
     group_cols = []
     for label, _ in groups:
         group_cols += [
             f"AC_{label}", f"AN_{label}", f"AF_{label}",
             f"N_HET_{label}", f"N_HOM_ALT_{label}", f"N_HOM_REF_{label}",
-            f"N_FAIL_{label}",
+            f"N_FAIL_{label}", f"N_NO_COVERAGE_{label}",
         ]
 
     fieldnames = base_cols + group_cols

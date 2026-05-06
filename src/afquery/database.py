@@ -17,11 +17,17 @@ class Database:
         self._engine = QueryEngine(str(self._path))
         self._manifest = json.loads((self._path / "manifest.json").read_text())
 
-    def _make_filter(self, phenotype, sex, tech=None) -> SampleFilter:
+    def _make_filter(
+        self, phenotype, sex, tech=None,
+        min_pass: int = 0, min_observed: int = 0, min_quality_evidence: int = 0,
+    ) -> SampleFilter:
         return SampleFilter.parse(
             phenotype_tokens=phenotype or [],
             tech_tokens=tech or [],
             sex=sex,
+            min_pass=min_pass,
+            min_observed=min_observed,
+            min_quality_evidence=min_quality_evidence,
         )
 
     def query(
@@ -33,8 +39,11 @@ class Database:
         ref: str | None = None,
         alt: str | None = None,
         tech: list[str] | None = None,
+        min_pass: int = 0,
+        min_observed: int = 0,
+        min_quality_evidence: int = 0,
     ) -> list[QueryResult]:
-        sf = self._make_filter(phenotype, sex, tech)
+        sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
         params = QueryParams(chrom=chrom, pos=pos, filter=sf, ref=ref, alt=alt)
         return self._engine.query(params)
 
@@ -45,8 +54,11 @@ class Database:
         phenotype: list[str] | None = None,
         sex: str = "both",
         tech: list[str] | None = None,
+        min_pass: int = 0,
+        min_observed: int = 0,
+        min_quality_evidence: int = 0,
     ) -> list[QueryResult]:
-        sf = self._make_filter(phenotype, sex, tech)
+        sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
         return self._engine.query_batch(chrom, variants, sf)
 
     def query_batch_multi(
@@ -55,6 +67,9 @@ class Database:
         phenotype: list[str] | None = None,
         sex: str = "both",
         tech: list[str] | None = None,
+        min_pass: int = 0,
+        min_observed: int = 0,
+        min_quality_evidence: int = 0,
     ) -> list[QueryResult]:
         """Query variants across multiple chromosomes, preserving input order.
 
@@ -71,7 +86,7 @@ class Database:
             List of :class:`~afquery.models.QueryResult` objects in input order
             (by original index). Variants not found in the database are omitted.
         """
-        sf = self._make_filter(phenotype, sex, tech)
+        sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
         return self._engine.query_batch_multi(variants, sf)
 
     def query_region(
@@ -82,8 +97,11 @@ class Database:
         phenotype: list[str] | None = None,
         sex: str = "both",
         tech: list[str] | None = None,
+        min_pass: int = 0,
+        min_observed: int = 0,
+        min_quality_evidence: int = 0,
     ) -> list[QueryResult]:
-        sf = self._make_filter(phenotype, sex, tech)
+        sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
         return self._engine.query_region(chrom, start, end, sf)
 
     def variant_info(
@@ -95,6 +113,9 @@ class Database:
         phenotype: list[str] | None = None,
         sex: str = "both",
         tech: list[str] | None = None,
+        min_pass: int = 0,
+        min_observed: int = 0,
+        min_quality_evidence: int = 0,
     ) -> list[SampleCarrier]:
         """Return all samples carrying a variant, with their metadata.
 
@@ -116,7 +137,7 @@ class Database:
             ``sample_id``.  Empty list if the variant is absent or no eligible
             carrier exists.
         """
-        sf = self._make_filter(phenotype, sex, tech)
+        sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
         params = QueryParams(chrom=chrom, pos=pos, filter=sf, ref=ref, alt=alt)
         return self._engine.variant_info(params)
 
@@ -126,6 +147,9 @@ class Database:
         phenotype: list[str] | None = None,
         sex: str = "both",
         tech: list[str] | None = None,
+        min_pass: int = 0,
+        min_observed: int = 0,
+        min_quality_evidence: int = 0,
     ) -> list[QueryResult]:
         """Query variants across multiple genomic regions (may span chromosomes).
 
@@ -140,7 +164,7 @@ class Database:
             genomic order (chr1, chr2, …, chr22, chrX, chrY, chrM).
             Overlapping regions are deduplicated.
         """
-        sf = self._make_filter(phenotype, sex, tech)
+        sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
         return self._engine.query_region_multi(regions, sf)
 
     def dump(
@@ -158,9 +182,12 @@ class Database:
         end: int | None = None,
         n_workers: int | None = None,
         include_ac_zero: bool = False,
+        min_pass: int = 0,
+        min_observed: int = 0,
+        min_quality_evidence: int = 0,
     ) -> dict:
         from .dump import dump_database, _build_groups
-        base_sf = self._make_filter(phenotype, sex, tech)
+        base_sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
         groups = _build_groups(
             self._engine, base_sf, by_sex, by_tech,
             by_phenotype or [], all_groups,
@@ -178,8 +205,11 @@ class Database:
         sex: str = "both",
         n_workers: int | None = None,
         tech: list[str] | None = None,
+        min_pass: int = 0,
+        min_observed: int = 0,
+        min_quality_evidence: int = 0,
     ) -> dict:
-        sf = self._make_filter(phenotype, sex, tech)
+        sf = self._make_filter(phenotype, sex, tech, min_pass, min_observed, min_quality_evidence)
         from .annotate import annotate_vcf as _annotate
         return _annotate(self._engine, input_vcf, output_vcf, sf, n_workers=n_workers)
 

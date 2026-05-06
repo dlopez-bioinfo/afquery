@@ -67,7 +67,8 @@ def _write_vcf_with_filter(path: Path, sample_name: str, records: list[tuple]) -
 
 def _write_parquet(path: Path, rows: list[tuple]) -> None:
     """Write ingest-schema Parquet. rows = [(chrom, pos, ref, alt, gt_ac, sample_id[, filter_pass]), ...]
-    filter_pass defaults to True if not provided."""
+    filter_pass defaults to True if not provided. Quality columns (dp/gq/qual) default to None."""
+    n = len(rows)
     table = pa.table(
         {
             "chrom":       pa.array([r[0] for r in rows], type=pa.utf8()),
@@ -77,6 +78,9 @@ def _write_parquet(path: Path, rows: list[tuple]) -> None:
             "gt_ac":       pa.array([r[4] for r in rows], type=pa.uint8()),
             "sample_id":   pa.array([r[5] for r in rows], type=pa.uint32()),
             "filter_pass": pa.array([r[6] if len(r) > 6 else True for r in rows], type=pa.bool_()),
+            "dp":          pa.array([None] * n, type=pa.int32()),
+            "gq":          pa.array([None] * n, type=pa.int32()),
+            "qual":        pa.array([None] * n, type=pa.float32()),
         },
         schema=INGEST_SCHEMA,
     )
