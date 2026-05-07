@@ -180,33 +180,6 @@ Carriers are never included; the same sample is never counted twice.
 
 ---
 
-## Where `N_NO_COVERAGE` appears
-
-- `query`, `query_region`, `query_batch_multi`, `dump`, and `annotate`
-  outputs all expose `N_NO_COVERAGE` as a first-class field/column.
-- `dump` adds per-group columns named `N_NO_COVERAGE_<label>` whenever you
-  disaggregate by sex, technology, or phenotype.
-- `variant-info` lists individual filtered samples with
-  `genotype = "no_coverage"`. Their FILTER column is empty (text/tsv) or
-  `null` (json) — `PASS`/`FAIL` does not apply because there is no call.
-- VCF annotation adds INFO field `AFQUERY_N_NO_COVERAGE` (`Number=A`, one
-  value per ALT allele).
-
----
-
-## Caveats
-
-- AFQuery never fabricates hom-ref calls. Samples missing entirely from a
-  VCF stay invisible to the database; the only choice is whether to assume
-  hom-ref or label `N_NO_COVERAGE`.
-- AFQuery does not read per-sample BAM coverage. Cohorts that need true
-  per-sample coverage tracking should provide per-sample BEDs (see
-  [issue #29](https://github.com/dlopez-bioinfo/afquery/issues/29)).
-- These flags do not change `AC`. Allele counts are still computed only
-  from carriers that survive ploidy adjustment.
-
----
-
 ## Next Steps
 
 - [Understanding Output](../getting-started/understanding-output.md) —
