@@ -8,11 +8,14 @@ on:
       - 'mkdocs.yml'
       - 'src/**'
   workflow_dispatch:
+    inputs:
+      bootstrap:
+        description: 'Wipe gh-pages before deploying (one-time when migrating from mkdocs gh-deploy to mike)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -21,11 +24,10 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -34,5 +36,17 @@ jobs:
       - name: Install docs dependencies
         run: pip install -e ".[docs]"
 
-      - name: Build and deploy docs
-        run: mkdocs gh-deploy --force
+      - name: Configure git for mike
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch gh-pages
+        run: git fetch origin gh-pages --depth=1 || true
+
+      - name: Bootstrap gh-pages (wipe old flat-deploy content)
+        if: ${{ inputs.bootstrap == true }}
+        run: mike delete --all --push --allow-empty
+
+      - name: Deploy dev docs with mike
+        run: mike deploy --push --update-aliases dev
