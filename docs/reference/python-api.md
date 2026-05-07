@@ -513,9 +513,9 @@ class SampleFilter:
     tech_include: list[str] = []          # Empty = all samples
     tech_exclude: list[str] = []
     sex: str = "both"                     # 'male' | 'female' | 'both'
-    min_pass: int = 0                     # WES tech needs ≥K PASS carriers
-    min_observed: int = 0                 # WES tech needs ≥K any-VCF entries
-    min_quality_evidence: int = 0         # Phase 2: WES tech needs ≥K quality_pass carriers
+    min_pass: int = 0                     # partially-covered tech needs ≥K PASS carriers
+    min_observed: int = 0                 # partially-covered tech needs ≥K any-VCF entries
+    min_quality_evidence: int = 0         # partially-covered tech needs ≥K quality_pass carriers (DB built with --min-dp/--min-gq)
 
     @staticmethod
     def parse(

@@ -27,6 +27,7 @@ afquery annotate \
 | `AFQUERY_N_HOM_ALT` | Integer | A (per ALT) | Homozygous alt sample count |
 | `AFQUERY_N_HOM_REF` | Integer | A (per ALT) | Homozygous ref sample count |
 | `AFQUERY_N_FAIL` | Integer | 1 (per site) | Samples with FILTER≠PASS and alt allele called. Mutually exclusive with N_HET/N_HOM_ALT/N_HOM_REF. |
+| `AFQUERY_N_NO_COVERAGE` | Integer | A (per ALT) | Eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF` to keep AC/AN conservative. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 
 !!! note "Multi-allelic sites"
     Number=A fields have one value per ALT allele (comma-separated for multi-allelic sites). Number=1 fields are shared across all ALT alleles at the same position.

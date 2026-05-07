@@ -1,79 +1,109 @@
 # Coverage Evidence
 
-`N_HOM_REF` is computed as a residual:
-`len(eligible) − N_HET − N_HOM_ALT − N_FAIL`. For WGS samples that residual is
-exactly right: every covered sample without a variant call is hom-ref. For WES
-samples it is a *best-effort* assumption: the BED capture region tells us a
-position *could* be sequenced, but not that it *was* sequenced at adequate
-depth in this particular sample. Standard variant-only VCFs do not contain
-hom-ref calls, so AFQuery cannot distinguish "true hom-ref" from "no coverage"
-for non-carrier WES samples.
+Standard variant-only VCFs do not record hom-ref calls. When a sample has no
+entry at a position, AFQuery has to decide whether the sample is genuinely
+homozygous reference or simply was not sequenced there. For **fully-covered
+techs** — those registered without a BED capture file in the manifest, so
+every position is assumed to be sequenced — the answer is unambiguous. For
+**partially-covered techs** (whole-exome kits, gene panels), the BED proves a
+position was *targeted* by the assay, not that *this* sample was sequenced
+deeply enough to call a confident hom-ref.
 
-Two opt-in mechanisms let users tighten that assumption. Together they expose
-a new field, **`N_NO_COVERAGE`**, that holds samples whose hom-ref status is
-not trusted under the chosen criteria. The new genotype invariant is:
+`N_NO_COVERAGE` lets you label that uncertain subset instead of forcing it
+into `N_HOM_REF`. The flags below decide *which* samples land there.
+
+---
+
+## What `N_NO_COVERAGE` represents
+
+`N_NO_COVERAGE` counts eligible samples whose hom-ref status is not trusted
+under the active criteria. The genotype invariant becomes:
 
 ```
 N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible
 ```
 
-Samples in `N_NO_COVERAGE` remain in `eligible` and `AN` (just like
-`N_FAIL`), so allele frequencies stay conservative.
+Samples in `N_NO_COVERAGE` remain in `eligible` and contribute to `AN` (just
+like `N_FAIL`), so AC/AN/AF stay conservative — the field never inflates
+allele frequencies. Two rules always hold:
 
-WGS samples are never re-classified as `N_NO_COVERAGE`. Carrier samples
-(`het` / `hom` / `fail`) are never affected by these filters — only WES
-non-carriers can move between `N_HOM_REF` and `N_NO_COVERAGE`.
+- **Carriers are never reclassified.** A sample with a `het`, `hom`, or
+  `fail` call at the position stays in its category. `N_NO_COVERAGE` only
+  draws from non-carriers.
+- **Fully-covered samples are never gated.** Every coverage flag is a
+  *per-tech* decision evaluated only on partially-covered techs. Samples on
+  fully-covered techs are always treated as hom-ref when they have no
+  carrier call.
 
 ---
 
-## Phase 1 — Query-time, evidence-counting
+## Cohort-evidence gates at query time
 
-No schema change. AFQuery counts existing carriers per WES tech at each
-position and applies a per-tech gate.
+These flags use only the carriers already present in your cohort to decide
+whether each partially-covered tech has enough evidence to trust hom-ref at a
+position. They run at query time, so no database rebuild is needed.
 
-| Flag | Counts |
+| Flag | Effect |
 |------|--------|
-| `--min-pass K`     | `het ∪ hom` PASS carriers within the tech |
-| `--min-observed K` | `het ∪ hom ∪ fail` carriers within the tech |
+| `--min-pass K`     | A partially-covered tech must have ≥K PASS carriers (`het ∪ hom`) at the position. If it falls short, all of its non-carrier samples move from `N_HOM_REF` to `N_NO_COVERAGE`. |
+| `--min-observed K` | Same shape, but counts every recorded carrier (`het ∪ hom ∪ fail`). Useful when a non-PASS call still proves the position was sequenced. |
 
-If the tech falls below either threshold, *all of its non-carrier samples* at
-that position move from `N_HOM_REF` to `N_NO_COVERAGE`. When both flags are
-set, both must hold (AND). Default `0` ⇒ no filtering, identical to legacy
-behaviour.
+When both flags are >0, both must hold (AND). The default `0` disables the
+gate.
+
+!!! tip
+    If your VCFs do not carry `FORMAT/DP` or `FORMAT/GQ`, these are the
+    flags you want. They are the cheapest option and apply to any database.
+
+### Worked example
+
+The numbers below are illustrative; concrete values depend on your cohort.
+
+Default query — every BED-covered non-carrier counts as hom-ref:
+
+```bash
+afquery query --db ./db/ --locus chr1:925952
+```
+
+```
+chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1231  N_FAIL=0  N_NO_COVERAGE=0
+```
+
+Now require at least one PASS carrier per partially-covered tech:
 
 ```bash
 afquery query --db ./db/ --locus chr1:925952 --min-pass 1
 ```
 
-Cost: a few extra bitmap intersections per WES tech per position. Suitable for
-existing databases without re-creation.
+```
+chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1108  N_FAIL=0  N_NO_COVERAGE=123
+```
+
+Samples on partially-covered techs that did not contribute a single PASS
+carrier at this position have moved out of `N_HOM_REF` and into
+`N_NO_COVERAGE`. `AC`, `AN`, and `AF` are unchanged: the samples are still
+eligible, they just no longer count as confident hom-refs.
 
 ---
 
-## Phase 2 — Build-time, quality-aware
+## Quality-aware filtering at database creation
 
-Phase 2 stores the result of a quality decision so the query layer does no
-extra work. It requires a one-time creation with quality thresholds:
+If your VCFs carry `FORMAT/DP`, `FORMAT/GQ`, or you trust the `QUAL` column,
+you can demand that carriers meet quality thresholds before they count as
+evidence for hom-ref. These flags apply when you create the database, so the
+coverage decision is baked in.
 
 | Flag (`create-db`) | Effect |
 |--------------------|--------|
-| `--min-dp D`     | Minimum `FORMAT/DP` for a carrier to count as quality evidence. |
-| `--min-gq G`     | Minimum `FORMAT/GQ` for a carrier to count as quality evidence. |
-| `--min-qual Q`   | Minimum `QUAL` field for a carrier to count as quality evidence. |
-| `--min-covered K`| Per WES tech, position is "trusted" only if at least K carriers pass the quality thresholds. |
+| `--min-dp D`     | Minimum `FORMAT/DP` per carrier. |
+| `--min-gq G`     | Minimum `FORMAT/GQ` per carrier. |
+| `--min-qual Q`   | Minimum VCF `QUAL` per carrier. |
+| `--min-covered K`| Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as `N_NO_COVERAGE`. |
 
-Two new Parquet columns are written per `(chrom, pos, ref, alt)`:
-
-- `quality_pass_bitmap` — carriers that meet `min_dp` AND `min_gq` AND `min_qual`.
-- `filtered_bitmap` — non-carrier WES samples whose tech failed the
-  `min_covered` gate.
-
-`schema_version` is bumped to `3.0` and the chosen thresholds are recorded in
-`manifest.json` under `coverage_filter`. They are immutable; they apply to
-samples added later via `update-db --add-samples`.
-
-At query time `filtered_bitmap` is intersected with `eligible` and added to
-`N_NO_COVERAGE` automatically — no additional flag needed.
+A carrier counts as quality-passing only if **all** active thresholds hold
+(unset thresholds are simply ignored). At least one of these flags must be
+non-zero to enable quality-aware coverage filtering — without that, queries
+fall back to the cohort-evidence gates above.
 
 ```bash
 afquery create-db \
@@ -84,67 +114,106 @@ afquery create-db \
   --min-dp 30 --min-gq 20 --min-covered 1
 ```
 
-### Query-time companion: `--min-quality-evidence K`
+!!! note
+    The chosen thresholds are recorded with the database and re-applied
+    automatically when you grow it via `update-db --add-samples`. You do
+    not re-pass them on each update.
 
-Only valid against `schema_version ≥ 3.0` databases. Tightens the build-time
-gate: at query time, a WES tech needs ≥K samples in `quality_pass_bitmap`,
-otherwise its remaining (non-carrier, not-already-filtered) samples join
-`N_NO_COVERAGE`.
+Enabling quality-aware filtering requires creating (or re-creating) the
+database; existing databases without quality data must be rebuilt.
+
+### Tightening at query time — `--min-quality-evidence`
+
+Once a database has been built with at least one of `--min-dp`,
+`--min-gq`, `--min-qual`, or `--min-covered`, you can tighten the gate at
+query time without rebuilding:
 
 ```bash
 afquery query --db ./db/ --locus chr1:925952 --min-quality-evidence 5
 ```
 
-Using this flag against an older DB raises a `ValueError` with a clear message.
+`--min-quality-evidence K` requires each partially-covered tech to have ≥K
+quality-passing carriers at the position. Non-carriers of failing techs
+(other than those already filtered at build time) move to `N_NO_COVERAGE`.
 
----
+Running the flag against a database that was not built with quality data
+exits with a clear error:
 
-## Combining Phase 1 and Phase 2
-
-The two phases are additive. `N_NO_COVERAGE` is the *union* of:
-
-1. Stored `filtered_bitmap & eligible` (Phase 2, automatic).
-2. Phase 1 dynamic filtering driven by `--min-pass` / `--min-observed`.
-3. Phase 2 query-time tightening driven by `--min-quality-evidence`.
-
-Carriers are never included; samples cannot be double-counted.
+```
+This database was not built with coverage quality data.
+Re-create with --min-dp / --min-gq to use --min-quality-evidence.
+```
 
 ---
 
 ## Choosing thresholds
 
-- **Pure genotyping (no quality info available)**: use `--min-pass 1` or
-  `--min-observed 1` at query time. No DB rebuild needed. Conservative;
-  positions that were probably sequenced but happen to have zero PASS calls
-  in your cohort flip to `N_NO_COVERAGE`.
-- **Real cohorts with DP/GQ available**: rebuild with
-  `--min-dp 20 --min-gq 20 --min-covered 1`. Carriers with low confidence stop
-  validating positions. `N_NO_COVERAGE` rises only where the cohort signal is
-  truly weak.
-- **High-stakes clinical use**: layer on `--min-quality-evidence 3` (or
-  similar) at query time to demand multiple independent quality calls per
-  tech.
+Three concrete profiles, ordered from cheapest to strictest:
+
+- **Pure-genotype cohorts** (no `FORMAT/DP` / `FORMAT/GQ` / reliable `QUAL`)
+  Use `--min-pass 1` at query time. Or `--min-observed 1` if you want
+  failed calls to also count as evidence the position was sequenced.
+  No rebuild needed; conservative — positions where your cohort happens to
+  have zero PASS calls flip to `N_NO_COVERAGE`.
+
+- **Cohorts with `FORMAT/DP` and `FORMAT/GQ`**
+  Build with `--min-dp 20 --min-gq 20 --min-covered 1`. Carriers with low
+  confidence stop validating positions, and the decision is stored in the
+  database — every query benefits without further flags.
+
+- **High-stakes clinical interpretation**
+  Layer `--min-quality-evidence 3` (or higher) on top of a quality-aware
+  database to demand multiple independent quality-passing carriers per tech
+  before trusting hom-ref.
 
 ---
 
-## Output channels
+## How the filters combine
 
-- `query` / `query_region` / `query_batch_multi` / `dump` / `annotate` all
-  expose `N_NO_COVERAGE` as a first-class field/column, plus per-group variants
-  in `dump` (`N_NO_COVERAGE_<label>`).
-- `variant_info` lists individual filtered samples with `genotype = "no_coverage"`.
-- The annotate INFO field is `AFQUERY_N_NO_COVERAGE` (Number=A, one entry per
-  ALT allele).
+`N_NO_COVERAGE` is the union of:
+
+1. samples whose tech failed the build-time `--min-covered` gate;
+2. samples whose tech failed `--min-pass` / `--min-observed` at query time;
+3. samples whose tech failed `--min-quality-evidence`.
+
+Carriers are never included; the same sample is never counted twice.
 
 ---
 
-## What it does *not* do
+## Where `N_NO_COVERAGE` appears
 
-- It does not fabricate hom-ref calls. Samples that lack any VCF record at a
-  position remain invisible to AFQuery; the only choice is whether to assume
-  hom-ref or fall back to `N_NO_COVERAGE`.
-- It does not import per-sample BAM coverage. Cohorts that need true per-sample
-  coverage tracking should provide per-sample BEDs (see
+- `query`, `query_region`, `query_batch_multi`, `dump`, and `annotate`
+  outputs all expose `N_NO_COVERAGE` as a first-class field/column.
+- `dump` adds per-group columns named `N_NO_COVERAGE_<label>` whenever you
+  disaggregate by sex, technology, or phenotype.
+- `variant-info` lists individual filtered samples with
+  `genotype = "no_coverage"`. Their FILTER column is empty (text/tsv) or
+  `null` (json) — `PASS`/`FAIL` does not apply because there is no call.
+- VCF annotation adds INFO field `AFQUERY_N_NO_COVERAGE` (`Number=A`, one
+  value per ALT allele).
+
+---
+
+## Caveats
+
+- AFQuery never fabricates hom-ref calls. Samples missing entirely from a
+  VCF stay invisible to the database; the only choice is whether to assume
+  hom-ref or label `N_NO_COVERAGE`.
+- AFQuery does not read per-sample BAM coverage. Cohorts that need true
+  per-sample coverage tracking should provide per-sample BEDs (see
   [issue #29](https://github.com/dlopez-bioinfo/afquery/issues/29)).
-- It does not change `AC`. Allele counts are still computed only from
-  carriers that survive ploidy adjustment.
+- These flags do not change `AC`. Allele counts are still computed only
+  from carriers that survive ploidy adjustment.
+
+---
+
+## Next Steps
+
+- [Understanding Output](../getting-started/understanding-output.md) —
+  field definitions for `N_HOM_REF`, `N_FAIL`, and `N_NO_COVERAGE`
+- [FILTER=PASS Tracking](filter-pass-tracking.md) —
+  the related `N_FAIL` field for failed-quality carrier calls
+- [Technology Integration](../use-cases/technology-integration.md) —
+  mixing whole-genome, whole-exome, and panel data in one cohort
+- [Debugging Results](debugging-results.md) —
+  diagnosing unexpected `N_NO_COVERAGE` or AN values

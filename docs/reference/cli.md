@@ -24,10 +24,10 @@ afquery create-db [OPTIONS]
 | `--bed-dir` | TEXT | None | Directory containing BED files for WES technologies |
 | `--force` | flag | False | Delete any partial results and restart from scratch |
 | `--db-version` | TEXT | `1.0` | Version label for this database |
-| `--min-dp` | INTEGER | `0` | Phase 2: minimum `FORMAT/DP` for a carrier to count as quality evidence (0 = disabled) |
-| `--min-gq` | INTEGER | `0` | Phase 2: minimum `FORMAT/GQ` for a carrier to count as quality evidence (0 = disabled) |
-| `--min-qual` | FLOAT | `0.0` | Phase 2: minimum `QUAL` for a carrier to count as quality evidence (0 = disabled) |
-| `--min-covered` | INTEGER | `0` | Phase 2: minimum quality-passing carriers per WES tech for hom-ref to be assumed. Triggers Phase 2 storage when ≥ 1 (0 = disabled) |
+| `--min-dp` | INTEGER | `0` | Minimum `FORMAT/DP` for a carrier to count as quality evidence (0 = disabled) |
+| `--min-gq` | INTEGER | `0` | Minimum `FORMAT/GQ` for a carrier to count as quality evidence (0 = disabled) |
+| `--min-qual` | FLOAT | `0.0` | Minimum `QUAL` for a carrier to count as quality evidence (0 = disabled) |
+| `--min-covered` | INTEGER | `0` | Minimum quality-passing carriers per partially-covered tech for hom-ref to be assumed (0 = disabled) |
 | `-v, --verbose` | flag | False | Verbose output with per-item progress |
 
 ---
@@ -54,9 +54,9 @@ Exactly one of `--locus`, `--region`, or `--from-file` must be provided.
 | `--ref` | TEXT | None | Filter to specific reference allele (only for `--locus`) |
 | `--alt` | TEXT | None | Filter to specific alternate allele (only for `--locus`) |
 | `--format` | `text`\|`json`\|`tsv` | `text` | Output format |
-| `--min-pass` | INTEGER | `0` | Min PASS carriers (`het\|hom`) per WES tech for hom-ref to be assumed. Non-carriers move to `N_NO_COVERAGE` if a WES tech falls below the threshold. (0 = disabled) |
-| `--min-observed` | INTEGER | `0` | Min any-VCF entries (`het\|hom\|fail`) per WES tech for hom-ref to be assumed. (0 = disabled) |
-| `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per WES tech (Phase 2 DBs only — created with `--min-dp`/`--min-gq`). (0 = disabled) |
+| `--min-pass` | INTEGER | `0` | Min PASS carriers (`het\|hom`) per partially-covered tech for hom-ref to be assumed. Non-carriers move to `N_NO_COVERAGE` if a tech falls below the threshold. (0 = disabled) |
+| `--min-observed` | INTEGER | `0` | Min any-VCF entries (`het\|hom\|fail`) per partially-covered tech for hom-ref to be assumed. (0 = disabled) |
+| `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per partially-covered tech. Requires a database built with `--min-dp`, `--min-gq`, `--min-qual`, or `--min-covered`. (0 = disabled) |
 | `--no-warn` | flag | False | Suppress warnings for unknown phenotypes, technologies, and chromosomes |
 
 ---
@@ -79,9 +79,9 @@ afquery annotate [OPTIONS]
 | `--tech` | TEXT | None | Technology filter. Repeatable; comma-separated or multiple flags. Use `^` prefix to exclude. |
 | `--threads` | INTEGER | all CPUs | Number of worker threads for parallel annotation |
 | `-v, --verbose` | flag | False | Verbose output with per-item progress |
-| `--min-pass` | INTEGER | `0` | Min PASS carriers per WES tech for hom-ref to be assumed (0 = disabled) |
-| `--min-observed` | INTEGER | `0` | Min any-VCF entries per WES tech (0 = disabled) |
-| `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per WES tech (Phase 2 DBs only) (0 = disabled) |
+| `--min-pass` | INTEGER | `0` | Min PASS carriers per partially-covered tech for hom-ref to be assumed (0 = disabled) |
+| `--min-observed` | INTEGER | `0` | Min any-VCF entries per partially-covered tech (0 = disabled) |
+| `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per partially-covered tech. Requires a database built with `--min-dp`, `--min-gq`, `--min-qual`, or `--min-covered`. (0 = disabled) |
 | `--no-warn` | flag | False | Suppress warnings for unknown phenotypes, technologies, and chromosomes |
 
 The annotated VCF gains `AFQUERY_AC`, `AFQUERY_AN`, `AFQUERY_AF`,
@@ -115,9 +115,9 @@ afquery dump [OPTIONS]
 | `--threads` | INTEGER | all CPUs | Number of worker threads for parallel export |
 | `--all-variants` | flag | False | Include variants with AC=0 (covered but not observed). WARNING: may produce very large output. |
 | `-v, --verbose` | flag | False | Verbose output with per-item progress |
-| `--min-pass` | INTEGER | `0` | Min PASS carriers per WES tech for hom-ref to be assumed (0 = disabled) |
-| `--min-observed` | INTEGER | `0` | Min any-VCF entries per WES tech (0 = disabled) |
-| `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per WES tech (Phase 2 DBs only) (0 = disabled) |
+| `--min-pass` | INTEGER | `0` | Min PASS carriers per partially-covered tech for hom-ref to be assumed (0 = disabled) |
+| `--min-observed` | INTEGER | `0` | Min any-VCF entries per partially-covered tech (0 = disabled) |
+| `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per partially-covered tech. Requires a database built with `--min-dp`, `--min-gq`, `--min-qual`, or `--min-covered`. (0 = disabled) |
 
 CSV output adds an `N_NO_COVERAGE` column (and per-group variants
 `N_NO_COVERAGE_<label>` when disaggregating).
@@ -142,12 +142,12 @@ afquery variant-info [OPTIONS]
 | `--sex` | `male`\|`female`\|`both` | `both` | Restrict to specified sex |
 | `--tech` | TEXT | None | Technology filter. Repeatable; comma-separated or multiple flags. Use `^` prefix to exclude. |
 | `--format` | `text`\|`json`\|`tsv` | `text` | Output format |
-| `--min-pass` | INTEGER | `0` | Min PASS carriers per WES tech (samples below threshold appear with `genotype=no_coverage`). (0 = disabled) |
-| `--min-observed` | INTEGER | `0` | Min any-VCF entries per WES tech. (0 = disabled) |
-| `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per WES tech (Phase 2 DBs only). (0 = disabled) |
+| `--min-pass` | INTEGER | `0` | Min PASS carriers per partially-covered tech (samples below threshold appear with `genotype=no_coverage`). (0 = disabled) |
+| `--min-observed` | INTEGER | `0` | Min any-VCF entries per partially-covered tech. (0 = disabled) |
+| `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per partially-covered tech. Requires a database built with `--min-dp`, `--min-gq`, `--min-qual`, or `--min-covered`. (0 = disabled) |
 | `--no-warn` | flag | False | Suppress `AfqueryWarning` messages |
 
-Returns one row per carrier sample with genotype (`het`/`hom`/`alt`/`no_coverage`) and FILTER status (`PASS`/`FAIL`). For `no_coverage` rows the FILTER column is empty in TSV, `null` in JSON, and `-` in text — these samples have no call at this position, so `PASS`/`FAIL` does not apply. Use `--ref`/`--alt` to restrict to a specific allele when multiple alleles share the same position. Samples reported as `no_coverage` are WES non-carriers excluded from the hom-ref assumption by one of the coverage filters.
+Returns one row per carrier sample with genotype (`het`/`hom`/`alt`/`no_coverage`) and FILTER status (`PASS`/`FAIL`). For `no_coverage` rows the FILTER column is empty in TSV, `null` in JSON, and `-` in text — these samples have no call at this position, so `PASS`/`FAIL` does not apply. Use `--ref`/`--alt` to restrict to a specific allele when multiple alleles share the same position. Samples reported as `no_coverage` are non-carriers on a partially-covered tech that has been excluded from the hom-ref assumption by one of the coverage filters.
 
 ---
 

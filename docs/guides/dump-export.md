@@ -65,8 +65,11 @@ All three disaggregation modes work on the same principle: add stratified column
 
 Base columns (always present):
 ```
-chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL
+chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL,N_NO_COVERAGE
 ```
+
+`N_NO_COVERAGE` is always emitted but is `0` unless a coverage-evidence
+filter is active (see [Coverage Evidence](../advanced/coverage-evidence.md)).
 
 === "--by-sex"
 
@@ -78,7 +81,7 @@ chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL
 
     Output columns:
     ```
-    chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL,AC_male,AN_male,AF_male,N_HET_male,N_HOM_ALT_male,N_HOM_REF_male,N_FAIL_male,AC_female,AN_female,AF_female,N_HET_female,N_HOM_ALT_female,N_HOM_REF_female,N_FAIL_female
+    chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL,N_NO_COVERAGE,AC_male,AN_male,AF_male,N_HET_male,N_HOM_ALT_male,N_HOM_REF_male,N_FAIL_male,N_NO_COVERAGE_male,AC_female,AN_female,AF_female,N_HET_female,N_HOM_ALT_female,N_HOM_REF_female,N_FAIL_female,N_NO_COVERAGE_female
     ```
 
 === "--by-tech"
@@ -89,7 +92,7 @@ chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL
     afquery dump --db ./db/ --by-tech --output by_tech.csv
     ```
 
-    Output columns include `AC_wgs`, `AN_wgs`, `AF_wgs`, `N_HET_wgs`, `N_HOM_ALT_wgs`, `N_HOM_REF_wgs`, `N_FAIL_wgs`, `AC_wes_v1`, `AN_wes_v1`, etc. (one group of seven columns per registered technology).
+    Output columns include `AC_wgs`, `AN_wgs`, `AF_wgs`, `N_HET_wgs`, `N_HOM_ALT_wgs`, `N_HOM_REF_wgs`, `N_FAIL_wgs`, `N_NO_COVERAGE_wgs`, `AC_wes_v1`, `AN_wes_v1`, etc. (one group of eight columns per registered technology).
 
 === "--by-phenotype"
 
@@ -102,7 +105,7 @@ chrom,pos,ref,alt,AC,AN,AF,N_HET,N_HOM_ALT,N_HOM_REF,N_FAIL
       --output by_phenotype.csv
     ```
 
-    Output includes `AC_E11.9`, `AN_E11.9`, `AF_E11.9`, `N_HET_E11.9`, `N_HOM_ALT_E11.9`, `N_HOM_REF_E11.9`, `N_FAIL_E11.9`, `AC_I10`, etc.
+    Output includes `AC_E11.9`, `AN_E11.9`, `AF_E11.9`, `N_HET_E11.9`, `N_HOM_ALT_E11.9`, `N_HOM_REF_E11.9`, `N_FAIL_E11.9`, `N_NO_COVERAGE_E11.9`, `AC_I10`, etc.
 
 === "--all-groups"
 

@@ -16,6 +16,7 @@ This page explains what each field in AFQuery output means and how to interpret 
 | **N_HOM_REF** | int | Number of eligible samples homozygous reference (GT=0/0 or GT=0) |
 | **n_eligible** | int | Number of samples in the eligible set (after sex/phenotype/tech filters) |
 | **N_FAIL** | int | Number of eligible samples with a non-ref allele called but FILTER≠PASS at this position. These samples are counted *only* in N_FAIL — not in N_HET, N_HOM_ALT, or N_HOM_REF. |
+| **N_NO_COVERAGE** | int | Number of eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF` to keep AC/AN conservative. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 
 
 ---
@@ -29,7 +30,7 @@ afquery query --db ./db/ --locus chr1:925952 --ref G --alt A
 ```
 
 ```
-chr1:925952 G>A  AC=3  AN=120  AF=0.0250  n_eligible=60  N_HET=1  N_HOM_ALT=1  N_HOM_REF=57  N_FAIL=0
+chr1:925952 G>A  AC=3  AN=120  AF=0.0250  n_eligible=60  N_HET=1  N_HOM_ALT=1  N_HOM_REF=57  N_FAIL=0  N_NO_COVERAGE=0
 ```
 
 ### TSV
@@ -39,8 +40,8 @@ afquery query --db ./db/ --locus chr1:925952 --ref G --alt A --format tsv
 ```
 
 ```
-chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HOM_REF	N_FAIL
-chr1	925952	G	A	3	120	0.025000	60	1	1	57	0
+chrom	pos	ref	alt	AC	AN	AF	n_eligible	N_HET	N_HOM_ALT	N_HOM_REF	N_FAIL	N_NO_COVERAGE
+chr1	925952	G	A	3	120	0.025000	60	1	1	57	0	0
 ```
 
 ### JSON
@@ -62,7 +63,8 @@ afquery query --db ./db/ --locus chr1:925952 --ref G --alt A --format json
   "N_HET": 1,
   "N_HOM_ALT": 1,
   "N_HOM_REF": 57,
-  "N_FAIL": 0
+  "N_FAIL": 0,
+  "N_NO_COVERAGE": 0
 }
 ```
 
@@ -126,6 +128,7 @@ When using `afquery annotate`, the following INFO fields are added to each varia
 | `AFQUERY_N_HOM_ALT` | A (per ALT) | Homozygous alt sample count per ALT allele |
 | `AFQUERY_N_HOM_REF` | A (per ALT) | Homozygous ref sample count per ALT allele |
 | `AFQUERY_N_FAIL` | 1 (per site) | Fail sample count — shared across all ALT alleles |
+| `AFQUERY_N_NO_COVERAGE` | A (per ALT) | Eligible samples whose tech lacks coverage evidence at this position. Always `0` unless a coverage-evidence filter is active. See [Coverage Evidence](../advanced/coverage-evidence.md). |
 
 !!! note "Multi-allelic sites"
     Number=A fields have one value per ALT allele (comma-separated for multi-allelic sites). Number=1 fields are shared across all ALT alleles at the same position.

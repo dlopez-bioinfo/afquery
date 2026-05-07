@@ -36,6 +36,10 @@ A sample that passes all query filters (sex, phenotype, technology) and has cove
 
 The count of eligible samples at a position where the genotype call had FILTER≠PASS in the source VCF. These samples are not counted in AC/AN. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
 
+## N_NO_COVERAGE
+
+The count of eligible samples whose tech lacks coverage evidence at this position. Excluded from `N_HOM_REF` to keep AC/AN conservative. Always `0` unless a coverage-evidence filter (`--min-pass`, `--min-observed`, `--min-quality-evidence`, or build-time `--min-covered`) is active. See [Coverage Evidence](../advanced/coverage-evidence.md).
+
 ## Manifest
 
 A TSV file that maps each sample to its VCF path, sex, sequencing technology, and phenotype codes. The manifest drives database creation and is parsed into `metadata.sqlite`. See [Manifest Format](../guides/manifest-format.md).
