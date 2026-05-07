@@ -22,11 +22,41 @@ INGEST_SCHEMA = pa.schema([
     ("gt_ac",       pa.uint8()),
     ("sample_id",   pa.uint32()),
     ("filter_pass", pa.bool_()),
+    ("dp",          pa.int32()),    # FORMAT/DP — None when absent
+    ("gq",          pa.int32()),    # FORMAT/GQ — None when absent
+    ("qual",        pa.float32()),  # VCF QUAL — None when '.'
 ])
 
 
 class IngestError(RuntimeError):
     pass
+
+
+def _read_format_int(variant, field: str) -> int | None:
+    """Read an integer FORMAT field for the (single) sample.
+
+    Returns None when the field is absent, missing (cyvcf2 sentinel), or non-numeric.
+    """
+    try:
+        arr = variant.format(field)
+    except Exception:
+        return None
+    if arr is None:
+        return None
+    try:
+        v = arr[0][0]
+    except (IndexError, TypeError):
+        return None
+    if v is None:
+        return None
+    try:
+        v_int = int(v)
+    except (TypeError, ValueError):
+        return None
+    # cyvcf2 returns -2147483648 for missing integers
+    if v_int < 0:
+        return None
+    return v_int
 
 
 def ingest_sample(sample_id: int, vcf_path: str, tmp_dir: str) -> tuple[str, float]:
@@ -43,6 +73,9 @@ def ingest_sample(sample_id: int, vcf_path: str, tmp_dir: str) -> tuple[str, flo
     gt_acs: list[int] = []
     sample_ids: list[int] = []
     filter_passes: list[bool] = []
+    dps: list[int | None] = []
+    gqs: list[int | None] = []
+    quals: list[float | None] = []
 
     vcf = cyvcf2.VCF(vcf_path)
     for variant in vcf:
@@ -58,6 +91,11 @@ def ingest_sample(sample_id: int, vcf_path: str, tmp_dir: str) -> tuple[str, flo
         # cyvcf2: FILTER is None for PASS/missing, string for others (e.g. "LowQual")
         fp = variant.FILTER is None or variant.FILTER == "PASS"
 
+        # Quality fields (None when missing/absent)
+        dp_val = _read_format_int(variant, "DP")
+        gq_val = _read_format_int(variant, "GQ")
+        qual_val = variant.QUAL  # float or None
+
         # Missing GT (./.) at a failed site: track as N_FAIL for all ALTs
         if not alleles:
             if not fp:
@@ -71,6 +109,9 @@ def ingest_sample(sample_id: int, vcf_path: str, tmp_dir: str) -> tuple[str, flo
                     gt_acs.append(0)
                     sample_ids.append(sample_id)
                     filter_passes.append(False)
+                    dps.append(dp_val)
+                    gqs.append(gq_val)
+                    quals.append(qual_val)
             continue
 
         for idx, alt_str in enumerate(variant.ALT):
@@ -88,6 +129,9 @@ def ingest_sample(sample_id: int, vcf_path: str, tmp_dir: str) -> tuple[str, flo
             gt_acs.append(ac)
             sample_ids.append(sample_id)
             filter_passes.append(fp)
+            dps.append(dp_val)
+            gqs.append(gq_val)
+            quals.append(qual_val)
 
     vcf.close()
 
@@ -100,6 +144,9 @@ def ingest_sample(sample_id: int, vcf_path: str, tmp_dir: str) -> tuple[str, flo
             "gt_ac":       pa.array(gt_acs,        type=pa.uint8()),
             "sample_id":   pa.array(sample_ids,    type=pa.uint32()),
             "filter_pass": pa.array(filter_passes, type=pa.bool_()),
+            "dp":          pa.array(dps,           type=pa.int32()),
+            "gq":          pa.array(gqs,           type=pa.int32()),
+            "qual":        pa.array(quals,         type=pa.float32()),
         },
         schema=INGEST_SCHEMA,
     )

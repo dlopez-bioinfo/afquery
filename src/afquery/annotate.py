@@ -17,8 +17,8 @@ def _compute_chunk_annotations(
     bucket_id: int,
     records: list[tuple[int, str, list[str]]],
     sf: SampleFilter,
-) -> dict[tuple[int, str, str], tuple[int, int, bool, int, int, int, int]]:
-    """Compute (AC, AN, in_parquet, N_FAIL, N_HET, N_HOM_ALT, N_HOM_REF) for each (pos, ref, alt).
+) -> dict[tuple[int, str, str], tuple[int, int, bool, int, int, int, int, int]]:
+    """Compute per-variant stats: (AC, AN, in_parquet, N_FAIL, N_HET, N_HOM_ALT, N_HOM_REF, N_NO_COVERAGE).
 
     No cyvcf2 dependency — safe to run in a subprocess worker.
     """
@@ -44,10 +44,13 @@ def _compute_chunk_annotations(
 
     valid_positions = [p for p in unique_positions if pos_data[p][1] > 0]
 
-    variant_data: dict[tuple[int, str, str], tuple[bytes, bytes, bytes]] = {}
+    # Bitmap suffix length: 3 (legacy) or 5 (Phase 2)
+    n_bitmap_cols = 5 if engine._has_coverage_data else 3
+    variant_data: dict[tuple[int, str, str], tuple] = {}
     _db = Path(db_path)
     bucket_start = bucket_id * 1_000_000
     bucket_end = (bucket_id + 1) * 1_000_000 - 1
+    cols = ", ".join(engine._bitmap_cols(with_pos=True))
 
     if chrom in engine._partitioned_chroms:
         parquet_file = _db / "variants" / chrom / f"bucket_{bucket_id}.parquet"
@@ -55,31 +58,31 @@ def _compute_chunk_annotations(
             con = duckdb.connect()
             placeholders = ", ".join("?" * len(valid_positions))
             rows = con.execute(
-                f"SELECT pos, ref, alt, het_bitmap, hom_bitmap, fail_bitmap"
+                f"SELECT {cols}"
                 f" FROM read_parquet('{parquet_file}') WHERE pos IN ({placeholders})",
                 valid_positions,
             ).fetchall()
             con.close()
             for row in rows:
-                pos, ref, alt, het_bytes, hom_bytes, fail_bytes = row
-                variant_data[(pos, ref, alt)] = (bytes(het_bytes), bytes(hom_bytes), bytes(fail_bytes))
+                pos, ref, alt = row[0], row[1], row[2]
+                variant_data[(pos, ref, alt)] = tuple(bytes(b) for b in row[3:3 + n_bitmap_cols])
     else:
         parquet_file = _db / "variants" / f"{chrom}.parquet"
         if valid_positions and parquet_file.exists():
             con = duckdb.connect()
             rows = con.execute(
-                f"SELECT pos, ref, alt, het_bitmap, hom_bitmap, fail_bitmap"
+                f"SELECT {cols}"
                 f" FROM read_parquet('{parquet_file}') WHERE pos BETWEEN ? AND ?",
                 [bucket_start, bucket_end],
             ).fetchall()
             con.close()
             valid_pos_set = set(valid_positions)
             for row in rows:
-                pos, ref, alt, het_bytes, hom_bytes, fail_bytes = row
+                pos, ref, alt = row[0], row[1], row[2]
                 if pos in valid_pos_set:
-                    variant_data[(pos, ref, alt)] = (bytes(het_bytes), bytes(hom_bytes), bytes(fail_bytes))
+                    variant_data[(pos, ref, alt)] = tuple(bytes(b) for b in row[3:3 + n_bitmap_cols])
 
-    result: dict[tuple[int, str, str], tuple[int, int, bool, int, int, int, int]] = {}
+    result: dict[tuple[int, str, str], tuple[int, int, bool, int, int, int, int, int]] = {}
     for pos, ref, alts in records:
         eligible, AN = pos_data[pos]
         for alt in alts:
@@ -87,13 +90,11 @@ def _compute_chunk_annotations(
             if key in result:
                 continue  # dedup
             if AN == 0:
-                result[key] = (0, 0, False, 0, 0, 0, 0)
+                result[key] = (0, 0, False, 0, 0, 0, 0, 0)
             elif key in variant_data:
-                het_bytes, hom_bytes, fail_bytes = variant_data[key]
-                het_bm = deserialize(het_bytes)
-                hom_bm = deserialize(hom_bytes)
-                N_HET = len(het_bm & eligible)
-                N_HOM_ALT = len(hom_bm & eligible)
+                het_bm, hom_bm, fail_bm, filtered_bm, quality_pass_bm = engine._unpack_bitmaps(
+                    variant_data[key]
+                )
                 haploid_elig, diploid_elig = split_ploidy(
                     eligible, male_bm, female_bm, chrom, pos, engine._genome_build
                 )
@@ -102,11 +103,26 @@ def _compute_chunk_annotations(
                 AC = (len((het_elig | hom_elig) & haploid_elig)
                       + len(het_elig & diploid_elig)
                       + 2 * len(hom_elig & diploid_elig))
-                N_FAIL: int = len(deserialize(fail_bytes) & eligible)
-                N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL
-                result[key] = (AC, AN, True, N_FAIL, N_HET, N_HOM_ALT, N_HOM_REF)
+                N_HET = len(het_elig & diploid_elig)
+                N_HOM_ALT = (
+                    len(hom_elig & diploid_elig) + len((het_elig | hom_elig) & haploid_elig)
+                )
+                N_FAIL: int = len(fail_bm & eligible)
+                no_cov_bm = engine._compute_no_coverage_bm(
+                    eligible, het_bm, hom_bm, fail_bm,
+                    sf.min_pass, sf.min_observed,
+                    filtered_bm=filtered_bm,
+                    quality_pass_bm=quality_pass_bm,
+                    min_quality_evidence=sf.min_quality_evidence,
+                )
+                N_NO_COVERAGE = len(no_cov_bm)
+                N_HOM_REF = len(eligible) - N_HET - N_HOM_ALT - N_FAIL - N_NO_COVERAGE
+                result[key] = (AC, AN, True, N_FAIL, N_HET, N_HOM_ALT, N_HOM_REF, N_NO_COVERAGE)
             else:
-                result[key] = (0, AN, False, 0, 0, 0, len(eligible))
+                # Position covered (AN>0) but variant not in Parquet → assume hom-ref
+                # for all eligible samples. Phase 1/2 filters do not apply because
+                # there are no carriers at all to evaluate against.
+                result[key] = (0, AN, False, 0, 0, 0, len(eligible), 0)
 
     return result
 
@@ -158,6 +174,11 @@ def annotate_vcf(
     vcf.add_info_to_header({
         "ID": "AFQUERY_N_FAIL", "Number": "1", "Type": "Integer",
         "Description": "Eligible samples with FILTER!=PASS for this variant",
+    })
+    vcf.add_info_to_header({
+        "ID": "AFQUERY_N_NO_COVERAGE", "Number": "A", "Type": "Integer",
+        "Description": "Count of eligible samples whose tech lacks evidence at this "
+                       "position (excluded from N_HOM_REF) per alt allele",
     })
     writer = cyvcf2.Writer(output_vcf, vcf)
 
@@ -232,13 +253,14 @@ def annotate_vcf(
             n_het_list = []
             n_hom_alt_list = []
             n_hom_ref_list = []
+            n_no_cov_list = []
             any_found = False
             fail_count_total = 0
 
             for alt in variant.ALT:
                 key = (pos, variant.REF, alt)
-                AC, _, in_parquet, n_fail, n_het, n_hom_alt, n_hom_ref = ann.get(
-                    key, (0, AN, False, 0, 0, 0, 0)
+                AC, _, in_parquet, n_fail, n_het, n_hom_alt, n_hom_ref, n_no_cov = ann.get(
+                    key, (0, AN, False, 0, 0, 0, 0, 0)
                 )
                 if in_parquet:
                     any_found = True
@@ -247,6 +269,7 @@ def annotate_vcf(
                 n_het_list.append(n_het)
                 n_hom_alt_list.append(n_hom_alt)
                 n_hom_ref_list.append(n_hom_ref)
+                n_no_cov_list.append(n_no_cov)
                 fail_count_total += n_fail
 
             # cyvcf2 Number=A fields must be set as comma-separated strings
@@ -257,6 +280,7 @@ def annotate_vcf(
             variant.INFO["AFQUERY_N_HOM_ALT"] = ",".join(str(v) for v in n_hom_alt_list)
             variant.INFO["AFQUERY_N_HOM_REF"] = ",".join(str(v) for v in n_hom_ref_list)
             variant.INFO["AFQUERY_N_FAIL"] = fail_count_total
+            variant.INFO["AFQUERY_N_NO_COVERAGE"] = ",".join(str(v) for v in n_no_cov_list)
             if any_found:
                 stats["n_annotated"] += 1
             writer.write_record(variant)

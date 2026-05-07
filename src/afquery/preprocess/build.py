@@ -22,12 +22,14 @@ logger = logging.getLogger(__name__)
 BUCKET_SIZE = 1_000_000
 
 PARQUET_SCHEMA = pa.schema([
-    ("pos",         pa.uint32()),
-    ("ref",         pa.large_utf8()),
-    ("alt",         pa.large_utf8()),
-    ("het_bitmap",  pa.large_binary()),
-    ("hom_bitmap",  pa.large_binary()),
-    ("fail_bitmap", pa.large_binary()),
+    ("pos",                 pa.uint32()),
+    ("ref",                 pa.large_utf8()),
+    ("alt",                 pa.large_utf8()),
+    ("het_bitmap",          pa.large_binary()),
+    ("hom_bitmap",          pa.large_binary()),
+    ("fail_bitmap",         pa.large_binary()),
+    ("filtered_bitmap",     pa.large_binary()),  # Phase 2: WES non-carriers w/ uncertain coverage
+    ("quality_pass_bitmap", pa.large_binary()),  # Phase 2: carriers meeting DP/GQ/QUAL thresholds
 ])
 
 
@@ -112,15 +114,21 @@ def get_chroms_in_temp_files(tmp_dir: str) -> list[str]:
     return [r[0] for r in rows if r[0] in ALL_CHROMS]
 
 
-def _make_table(positions, refs, alts, het_bitmaps, hom_bitmaps, fail_bitmaps) -> pa.Table:
+def _make_table(
+    positions, refs, alts,
+    het_bitmaps, hom_bitmaps, fail_bitmaps,
+    filtered_bitmaps, quality_pass_bitmaps,
+) -> pa.Table:
     return pa.table(
         {
-            "pos":         pa.array(positions,    type=pa.uint32()),
-            "ref":         pa.array(refs,         type=pa.large_utf8()),
-            "alt":         pa.array(alts,         type=pa.large_utf8()),
-            "het_bitmap":  pa.array(het_bitmaps,  type=pa.large_binary()),
-            "hom_bitmap":  pa.array(hom_bitmaps,  type=pa.large_binary()),
-            "fail_bitmap": pa.array(fail_bitmaps, type=pa.large_binary()),
+            "pos":                 pa.array(positions,            type=pa.uint32()),
+            "ref":                 pa.array(refs,                 type=pa.large_utf8()),
+            "alt":                 pa.array(alts,                 type=pa.large_utf8()),
+            "het_bitmap":          pa.array(het_bitmaps,          type=pa.large_binary()),
+            "hom_bitmap":          pa.array(hom_bitmaps,          type=pa.large_binary()),
+            "fail_bitmap":         pa.array(fail_bitmaps,         type=pa.large_binary()),
+            "filtered_bitmap":     pa.array(filtered_bitmaps,     type=pa.large_binary()),
+            "quality_pass_bitmap": pa.array(quality_pass_bitmaps, type=pa.large_binary()),
         },
         schema=PARQUET_SCHEMA,
     )
@@ -129,14 +137,76 @@ def _make_table(positions, refs, alts, het_bitmaps, hom_bitmaps, fail_bitmaps) -
 def _write_flat(
     chrom: str,
     variants_dir: str,
-    positions, refs, alts, het_bitmaps, hom_bitmaps, fail_bitmaps,
+    positions, refs, alts,
+    het_bitmaps, hom_bitmaps, fail_bitmaps,
+    filtered_bitmaps, quality_pass_bitmaps,
     row_group_size: int,
 ) -> None:
-    table = _make_table(positions, refs, alts, het_bitmaps, hom_bitmaps, fail_bitmaps)
+    table = _make_table(
+        positions, refs, alts,
+        het_bitmaps, hom_bitmaps, fail_bitmaps,
+        filtered_bitmaps, quality_pass_bitmaps,
+    )
     out_path = os.path.join(variants_dir, f"{chrom}.parquet")
     tmp_path = out_path + ".tmp"
     pq.write_table(table, tmp_path, row_group_size=row_group_size)
     os.rename(tmp_path, out_path)
+
+
+def _passes_quality(dp, gq, qual, min_dp: int, min_gq: int, min_qual: float) -> bool:
+    """A sample passes quality if all configured thresholds are met (None always passes)."""
+    if min_dp > 0 and (dp is None or dp < min_dp):
+        return False
+    if min_gq > 0 and (gq is None or gq < min_gq):
+        return False
+    if min_qual > 0 and (qual is None or qual < min_qual):
+        return False
+    return True
+
+
+def _compute_phase2_bitmaps(
+    sample_ids: list[int],
+    gt_acs: list[int],
+    filter_passes: list[bool],
+    dps: list[int | None],
+    gqs: list[int | None],
+    quals: list[float | None],
+    het_ids: list[int],
+    hom_ids: list[int],
+    fail_ids: list[int],
+    min_dp: int,
+    min_gq: int,
+    min_qual: float,
+    min_covered: int,
+    wes_tech_bitmaps: dict[int, BitMap] | None,
+) -> tuple[list[int], list[int]]:
+    """Compute (quality_pass_ids, filtered_ids) for one (pos, ref, alt) row.
+
+    quality_pass_ids: PASS carriers (het|hom) meeting DP/GQ/QUAL thresholds.
+    filtered_ids: non-carrier samples of WES techs whose quality_pass count < min_covered.
+                  Query layer intersects this with `eligible` (BED-aware) to get the
+                  effective N_NO_COVERAGE.
+    """
+    # Quality-pass carriers
+    quality_pass_ids: list[int] = []
+    for sid, ac, fp, dp, gq, qual in zip(sample_ids, gt_acs, filter_passes, dps, gqs, quals):
+        if ac > 0 and fp and _passes_quality(dp, gq, qual, min_dp, min_gq, min_qual):
+            quality_pass_ids.append(sid)
+
+    # Filtered samples (non-carriers of failing WES techs)
+    if not wes_tech_bitmaps or min_covered <= 0:
+        return quality_pass_ids, []
+
+    quality_pass_set = set(quality_pass_ids)
+    carrier_set = set(het_ids) | set(hom_ids) | set(fail_ids)
+    filtered_ids: list[int] = []
+    for tech_bm in wes_tech_bitmaps.values():
+        qp_count = sum(1 for sid in quality_pass_set if sid in tech_bm)
+        if qp_count < min_covered:
+            for sid in tech_bm:
+                if sid not in carrier_set:
+                    filtered_ids.append(sid)
+    return quality_pass_ids, filtered_ids
 
 
 def _discover_bucket_ids(
@@ -174,11 +244,17 @@ def _build_one_bucket_worker(
     out_path: str,
     row_group_size: int,
     memory_limit: str,
+    min_dp: int = 0,
+    min_gq: int = 0,
+    min_qual: float = 0.0,
+    min_covered: int = 0,
+    wes_tech_bitmaps_bytes: dict[int, bytes] | None = None,
 ) -> tuple[int, int, float]:
     """Build one bucket Parquet file. Returns (bucket_id, variant_count, elapsed_seconds).
 
     Top-level function (picklable) for use with ProcessPoolExecutor.
     """
+    from ..bitmaps import deserialize as _deser
     t0 = time.monotonic()
     bucket_start = bucket_id * BUCKET_SIZE
     bucket_end = bucket_start + BUCKET_SIZE
@@ -186,6 +262,11 @@ def _build_one_bucket_worker(
         full_where = f"{base_where} AND pos >= {bucket_start} AND pos < {bucket_end}"
     else:
         full_where = f"WHERE pos >= {bucket_start} AND pos < {bucket_end}"
+
+    wes_tech_bitmaps = (
+        {tid: _deser(b) for tid, b in wes_tech_bitmaps_bytes.items()}
+        if wes_tech_bitmaps_bytes else None
+    )
 
     con = duckdb.connect()
     if memory_limit:
@@ -199,7 +280,10 @@ def _build_one_bucket_worker(
             pos, ref, alt,
             list(sample_id   ORDER BY sample_id) AS sample_ids,
             list(gt_ac       ORDER BY sample_id) AS gt_acs,
-            list(filter_pass ORDER BY sample_id) AS filter_passes
+            list(filter_pass ORDER BY sample_id) AS filter_passes,
+            list(dp          ORDER BY sample_id) AS dps,
+            list(gq          ORDER BY sample_id) AS gqs,
+            list(qual        ORDER BY sample_id) AS quals
         FROM read_parquet('{source}')
         {full_where}
         GROUP BY pos, ref, alt
@@ -217,19 +301,28 @@ def _build_one_bucket_worker(
     het_bitmaps = []
     hom_bitmaps = []
     fail_bitmaps = []
+    filtered_bitmaps = []
+    quality_pass_bitmaps = []
 
-    for pos, ref, alt, sample_ids, gt_acs, filter_passes in rows:
+    for pos, ref, alt, sample_ids, gt_acs, filter_passes, dps, gqs, quals in rows:
         het_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 1 and fp]
         hom_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 2 and fp]
         fail_ids = [sid for sid, fp in zip(sample_ids, filter_passes) if not fp]
         if not het_ids and not hom_ids and not fail_ids:
             continue
+        quality_pass_ids, filtered_ids = _compute_phase2_bitmaps(
+            sample_ids, gt_acs, filter_passes, dps, gqs, quals,
+            het_ids, hom_ids, fail_ids,
+            min_dp, min_gq, min_qual, min_covered, wes_tech_bitmaps,
+        )
         positions.append(pos)
         refs.append(ref)
         alts.append(alt)
         het_bitmaps.append(serialize(BitMap(het_ids)))
         hom_bitmaps.append(serialize(BitMap(hom_ids)))
         fail_bitmaps.append(serialize(BitMap(fail_ids)))
+        filtered_bitmaps.append(serialize(BitMap(filtered_ids)))
+        quality_pass_bitmaps.append(serialize(BitMap(quality_pass_ids)))
 
     del rows
 
@@ -238,7 +331,11 @@ def _build_one_bucket_worker(
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     tmp_path = out_path + ".tmp"
-    table = _make_table(positions, refs, alts, het_bitmaps, hom_bitmaps, fail_bitmaps)
+    table = _make_table(
+        positions, refs, alts,
+        het_bitmaps, hom_bitmaps, fail_bitmaps,
+        filtered_bitmaps, quality_pass_bitmaps,
+    )
     pq.write_table(table, tmp_path, row_group_size=row_group_size)
     os.rename(tmp_path, out_path)
 
@@ -253,9 +350,19 @@ def build_chromosome_parquet(
     partitioned: bool = False,
     memory_limit: str = "2GB",
     consolidated_path: str | None = None,
+    min_dp: int = 0,
+    min_gq: int = 0,
+    min_qual: float = 0.0,
+    min_covered: int = 0,
+    wes_tech_bitmaps_bytes: dict[int, bytes] | None = None,
 ) -> int:
     """Build Parquet for one chromosome. Returns variant count."""
+    from ..bitmaps import deserialize as _deser
     params: list = []
+    wes_tech_bitmaps = (
+        {tid: _deser(b) for tid, b in wes_tech_bitmaps_bytes.items()}
+        if wes_tech_bitmaps_bytes else None
+    )
     if consolidated_path is not None and os.path.isdir(consolidated_path):
         # Hive-partitioned: read chromosome-specific subdirectory (no WHERE needed)
         chrom_dir = os.path.join(consolidated_path, f"chrom={chrom}")
@@ -285,6 +392,7 @@ def build_chromosome_parquet(
             _, count, _ = _build_one_bucket_worker(
                 source, where_clause, params, bucket_id, out_path,
                 row_group_size, memory_limit,
+                min_dp, min_gq, min_qual, min_covered, wes_tech_bitmaps_bytes,
             )
             total_count += count
         return total_count
@@ -302,7 +410,10 @@ def build_chromosome_parquet(
             pos, ref, alt,
             list(sample_id   ORDER BY sample_id) AS sample_ids,
             list(gt_ac       ORDER BY sample_id) AS gt_acs,
-            list(filter_pass ORDER BY sample_id) AS filter_passes
+            list(filter_pass ORDER BY sample_id) AS filter_passes,
+            list(dp          ORDER BY sample_id) AS dps,
+            list(gq          ORDER BY sample_id) AS gqs,
+            list(qual        ORDER BY sample_id) AS quals
         FROM read_parquet('{source}')
         {where_clause}
         GROUP BY pos, ref, alt
@@ -320,19 +431,28 @@ def build_chromosome_parquet(
     het_bitmaps = []
     hom_bitmaps = []
     fail_bitmaps = []
+    filtered_bitmaps = []
+    quality_pass_bitmaps = []
 
-    for pos, ref, alt, sample_ids, gt_acs, filter_passes in rows:
+    for pos, ref, alt, sample_ids, gt_acs, filter_passes, dps, gqs, quals in rows:
         het_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 1 and fp]
         hom_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 2 and fp]
         fail_ids = [sid for sid, fp in zip(sample_ids, filter_passes) if not fp]
         if not het_ids and not hom_ids and not fail_ids:
             continue
+        quality_pass_ids, filtered_ids = _compute_phase2_bitmaps(
+            sample_ids, gt_acs, filter_passes, dps, gqs, quals,
+            het_ids, hom_ids, fail_ids,
+            min_dp, min_gq, min_qual, min_covered, wes_tech_bitmaps,
+        )
         positions.append(pos)
         refs.append(ref)
         alts.append(alt)
         het_bitmaps.append(serialize(BitMap(het_ids)))
         hom_bitmaps.append(serialize(BitMap(hom_ids)))
         fail_bitmaps.append(serialize(BitMap(fail_ids)))
+        filtered_bitmaps.append(serialize(BitMap(filtered_ids)))
+        quality_pass_bitmaps.append(serialize(BitMap(quality_pass_ids)))
 
     del rows  # free DuckDB result before PyArrow allocation
 
@@ -341,7 +461,9 @@ def build_chromosome_parquet(
 
     _write_flat(
         chrom, variants_dir,
-        positions, refs, alts, het_bitmaps, hom_bitmaps, fail_bitmaps,
+        positions, refs, alts,
+        het_bitmaps, hom_bitmaps, fail_bitmaps,
+        filtered_bitmaps, quality_pass_bitmaps,
         row_group_size,
     )
 
@@ -356,12 +478,19 @@ def _build_chrom_worker(
     partitioned: bool,
     memory_limit: str = "2GB",
     consolidated_path: str | None = None,
+    min_dp: int = 0,
+    min_gq: int = 0,
+    min_qual: float = 0.0,
+    min_covered: int = 0,
+    wes_tech_bitmaps_bytes: dict[int, bytes] | None = None,
 ) -> tuple[str, int, float]:
     """Top-level worker for ProcessPoolExecutor (must be picklable). Returns (chrom, count, elapsed)."""
     t0 = time.monotonic()
     count = build_chromosome_parquet(
         chrom, tmp_dir, variants_dir, row_group_size, partitioned, memory_limit,
         consolidated_path,
+        min_dp=min_dp, min_gq=min_gq, min_qual=min_qual, min_covered=min_covered,
+        wes_tech_bitmaps_bytes=wes_tech_bitmaps_bytes,
     )
     return chrom, count, time.monotonic() - t0
 
@@ -375,6 +504,11 @@ def build_all_parquets(
     memory_limit: str = "2GB",
     consolidated_path: str | None = None,
     resume: bool = True,
+    min_dp: int = 0,
+    min_gq: int = 0,
+    min_qual: float = 0.0,
+    min_covered: int = 0,
+    wes_tech_bitmaps_bytes: dict[int, bytes] | None = None,
 ) -> dict[str, int]:
     """Build Parquet for all discovered chromosomes. Returns {chrom: count}.
 
@@ -479,6 +613,8 @@ def build_all_parquets(
                         _build_one_bucket_worker,
                         source, base_where, params, bucket_id, out_path,
                         row_group_size, memory_limit,
+                        min_dp, min_gq, min_qual, min_covered,
+                        wes_tech_bitmaps_bytes,
                     ): (chrom, bucket_id)
                     for chrom, bucket_id, source, base_where, params, out_path in all_tasks
                 }
@@ -574,6 +710,8 @@ def build_all_parquets(
                     _build_chrom_worker,
                     chrom, tmp_dir, variants_dir, row_group_size, partitioned, memory_limit,
                     consolidated_path,
+                    min_dp, min_gq, min_qual, min_covered,
+                    wes_tech_bitmaps_bytes,
                 ): chrom
                 for chrom in to_build
             }

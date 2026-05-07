@@ -181,12 +181,14 @@ def _build_capture_indices(db_path: Path, data_dir: Path) -> None:
 
 def _build_parquet(db_path: Path) -> None:
     schema = pa.schema([
-        ("pos",         pa.uint32()),
-        ("ref",         pa.large_utf8()),
-        ("alt",         pa.large_utf8()),
-        ("het_bitmap",  pa.large_binary()),
-        ("hom_bitmap",  pa.large_binary()),
-        ("fail_bitmap", pa.large_binary()),
+        ("pos",                 pa.uint32()),
+        ("ref",                 pa.large_utf8()),
+        ("alt",                 pa.large_utf8()),
+        ("het_bitmap",          pa.large_binary()),
+        ("hom_bitmap",          pa.large_binary()),
+        ("fail_bitmap",         pa.large_binary()),
+        ("filtered_bitmap",     pa.large_binary()),
+        ("quality_pass_bitmap", pa.large_binary()),
     ])
 
     # Group variants by chromosome
@@ -194,22 +196,25 @@ def _build_parquet(db_path: Path) -> None:
     for chrom, pos, ref, alt, het_ids, hom_ids, fail_ids in VARIANTS:
         by_chrom.setdefault(chrom, []).append((pos, ref, alt, het_ids, hom_ids, fail_ids))
 
+    empty = serialize(BitMap())
     for chrom, rows in by_chrom.items():
         rows.sort(key=lambda r: r[0])  # sort by pos
         table = pa.table(
             {
-                "pos":         pa.array([r[0] for r in rows], type=pa.uint32()),
-                "ref":         pa.array([r[1] for r in rows], type=pa.large_utf8()),
-                "alt":         pa.array([r[2] for r in rows], type=pa.large_utf8()),
-                "het_bitmap":  pa.array(
+                "pos":                 pa.array([r[0] for r in rows], type=pa.uint32()),
+                "ref":                 pa.array([r[1] for r in rows], type=pa.large_utf8()),
+                "alt":                 pa.array([r[2] for r in rows], type=pa.large_utf8()),
+                "het_bitmap":          pa.array(
                     [serialize(BitMap(r[3])) for r in rows], type=pa.large_binary()
                 ),
-                "hom_bitmap":  pa.array(
+                "hom_bitmap":          pa.array(
                     [serialize(BitMap(r[4])) for r in rows], type=pa.large_binary()
                 ),
-                "fail_bitmap": pa.array(
+                "fail_bitmap":         pa.array(
                     [serialize(BitMap(r[5])) for r in rows], type=pa.large_binary()
                 ),
+                "filtered_bitmap":     pa.array([empty] * len(rows), type=pa.large_binary()),
+                "quality_pass_bitmap": pa.array([empty] * len(rows), type=pa.large_binary()),
             },
             schema=schema,
         )

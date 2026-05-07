@@ -122,17 +122,28 @@ def _merge_chromosome_parquet(
     db_dir: str,
     update_tmp_dir: str,
     row_group_size: int = 100_000,
+    coverage_filter: dict | None = None,
+    wes_tech_bitmaps: dict[int, BitMap] | None = None,
 ) -> tuple[int, int]:
-    """Merge new temp files into existing chrom Parquet. Returns (new_variants, updated_variants)."""
+    """Merge new temp files into existing chrom Parquet. Returns (new_variants, updated_variants).
+
+    For Phase 2 DBs (coverage_filter active): also merges quality_pass_bitmap and recomputes
+    filtered_bitmap per row using manifest thresholds and current WES tech bitmaps.
+    """
     variants_dir = os.path.join(db_dir, "variants")
     out_path = os.path.join(variants_dir, f"{chrom}.parquet")
 
     # Read existing Parquet via pyarrow (NOT DuckDB — need Python bitmap deserialization)
-    existing: dict[tuple, tuple[BitMap, BitMap, BitMap]] = {}
+    existing: dict[tuple, tuple[BitMap, BitMap, BitMap, BitMap, BitMap]] = {}
     existing_has_fail = False
+    existing_has_phase2 = False
     if os.path.exists(out_path):
         table = pq.read_table(out_path)
         existing_has_fail = "fail_bitmap" in table.schema.names
+        existing_has_phase2 = (
+            "filtered_bitmap" in table.schema.names
+            and "quality_pass_bitmap" in table.schema.names
+        )
         for i in range(len(table)):
             pos = table["pos"][i].as_py()
             ref = table["ref"][i].as_py()
@@ -140,15 +151,38 @@ def _merge_chromosome_parquet(
             het_bm = deserialize(table["het_bitmap"][i].as_py())
             hom_bm = deserialize(table["hom_bitmap"][i].as_py())
             fail_bm = deserialize(table["fail_bitmap"][i].as_py()) if existing_has_fail else BitMap()
-            existing[(pos, ref, alt)] = (het_bm, hom_bm, fail_bm)
+            if existing_has_phase2:
+                filt_bm = deserialize(table["filtered_bitmap"][i].as_py())
+                qp_bm = deserialize(table["quality_pass_bitmap"][i].as_py())
+            else:
+                filt_bm = BitMap()
+                qp_bm = BitMap()
+            existing[(pos, ref, alt)] = (het_bm, hom_bm, fail_bm, filt_bm, qp_bm)
 
     # Check if there are any new temp files
     parquet_files = glob_module.glob(os.path.join(update_tmp_dir, "sample_*.parquet"))
     if not parquet_files:
         return (0, 0)
 
+    # Detect whether new temp files include quality columns (dp/gq/qual).
+    # Old test fixtures may not include them; legacy ingest didn't either.
+    new_has_quality = False
+    try:
+        sample_schema = pq.read_schema(parquet_files[0])
+        new_has_quality = (
+            "dp" in sample_schema.names
+            and "gq" in sample_schema.names
+            and "qual" in sample_schema.names
+        )
+    except Exception:
+        new_has_quality = False
+
     # Aggregate new rows via DuckDB
     glob_pattern = os.path.join(update_tmp_dir, "sample_*.parquet").replace("'", "''")
+    quality_select = (
+        ", list(dp ORDER BY sample_id), list(gq ORDER BY sample_id), list(qual ORDER BY sample_id)"
+        if new_has_quality else ""
+    )
     con = duckdb.connect()
     try:
         rows = con.execute(
@@ -157,6 +191,7 @@ def _merge_chromosome_parquet(
                 list(sample_id   ORDER BY sample_id),
                 list(gt_ac       ORDER BY sample_id),
                 list(filter_pass ORDER BY sample_id)
+                {quality_select}
             FROM read_parquet('{glob_pattern}')
             WHERE chrom = ?
             GROUP BY pos, ref, alt
@@ -171,10 +206,25 @@ def _merge_chromosome_parquet(
     if not rows:
         return (0, 0)
 
+    coverage_filter = coverage_filter or {}
+    min_dp = coverage_filter.get("min_dp", 0)
+    min_gq = coverage_filter.get("min_gq", 0)
+    min_qual = coverage_filter.get("min_qual", 0.0)
+    min_covered = coverage_filter.get("min_covered", 0)
+    has_phase2 = (min_dp > 0 or min_gq > 0 or min_qual > 0 or min_covered > 0)
+
     new_variants = 0
     updated_variants = 0
 
-    for pos, ref, alt, sample_ids, gt_acs, filter_passes in rows:
+    for row in rows:
+        if new_has_quality:
+            pos, ref, alt, sample_ids, gt_acs, filter_passes, dps, gqs, quals = row
+        else:
+            pos, ref, alt, sample_ids, gt_acs, filter_passes = row
+            dps = [None] * len(sample_ids)
+            gqs = [None] * len(sample_ids)
+            quals = [None] * len(sample_ids)
+
         key = (pos, ref, alt)
         het_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 1 and fp]
         hom_ids  = [sid for sid, ac, fp in zip(sample_ids, gt_acs, filter_passes) if ac == 2 and fp]
@@ -183,13 +233,41 @@ def _merge_chromosome_parquet(
         new_hom = BitMap(hom_ids)
         new_fail = BitMap(fail_ids)
 
+        # New quality_pass_ids (only if Phase 2 active)
+        if has_phase2:
+            from .build import _passes_quality
+            new_qp_ids = [
+                sid for sid, ac, fp, dp, gq, qual in zip(
+                    sample_ids, gt_acs, filter_passes, dps, gqs, quals
+                )
+                if ac > 0 and fp and _passes_quality(dp, gq, qual, min_dp, min_gq, min_qual)
+            ]
+            new_qp = BitMap(new_qp_ids)
+        else:
+            new_qp = BitMap()
+
         if key in existing:
-            old_het, old_hom, old_fail = existing[key]
-            existing[key] = (old_het | new_het, old_hom | new_hom, old_fail | new_fail)
+            old_het, old_hom, old_fail, old_filt, old_qp = existing[key]
+            merged_het = old_het | new_het
+            merged_hom = old_hom | new_hom
+            merged_fail = old_fail | new_fail
+            merged_qp = old_qp | new_qp
+            existing[key] = (merged_het, merged_hom, merged_fail, old_filt, merged_qp)
             updated_variants += 1
         else:
-            existing[key] = (new_het, new_hom, new_fail)
+            existing[key] = (new_het, new_hom, new_fail, BitMap(), new_qp)
             new_variants += 1
+
+    # Phase 2: recompute filtered_bitmap per row (all rows, since merging may shift any tech)
+    if has_phase2 and wes_tech_bitmaps and min_covered > 0:
+        for key, (het, hom, fail, _old_filt, qp) in existing.items():
+            carrier_set = het | hom | fail
+            new_filt = BitMap()
+            for tech_bm in wes_tech_bitmaps.values():
+                qp_count = len(qp & tech_bm)
+                if qp_count < min_covered:
+                    new_filt |= (tech_bm - carrier_set)
+            existing[key] = (het, hom, fail, new_filt, qp)
 
     # Sort by (pos, alt) and write atomically
     sorted_keys = sorted(existing.keys(), key=lambda k: (k[0], k[2]))
@@ -200,15 +278,19 @@ def _merge_chromosome_parquet(
     het_bitmaps = [serialize(existing[k][0]) for k in sorted_keys]
     hom_bitmaps = [serialize(existing[k][1]) for k in sorted_keys]
     fail_bitmaps = [serialize(existing[k][2]) for k in sorted_keys]
+    filtered_bitmaps = [serialize(existing[k][3]) for k in sorted_keys]
+    quality_pass_bitmaps = [serialize(existing[k][4]) for k in sorted_keys]
 
     table = pa.table(
         {
-            "pos":         pa.array(positions,    type=pa.uint32()),
-            "ref":         pa.array(refs,         type=pa.large_utf8()),
-            "alt":         pa.array(alts,         type=pa.large_utf8()),
-            "het_bitmap":  pa.array(het_bitmaps,  type=pa.large_binary()),
-            "hom_bitmap":  pa.array(hom_bitmaps,  type=pa.large_binary()),
-            "fail_bitmap": pa.array(fail_bitmaps, type=pa.large_binary()),
+            "pos":                 pa.array(positions,            type=pa.uint32()),
+            "ref":                 pa.array(refs,                 type=pa.large_utf8()),
+            "alt":                 pa.array(alts,                 type=pa.large_utf8()),
+            "het_bitmap":          pa.array(het_bitmaps,          type=pa.large_binary()),
+            "hom_bitmap":          pa.array(hom_bitmaps,          type=pa.large_binary()),
+            "fail_bitmap":         pa.array(fail_bitmaps,         type=pa.large_binary()),
+            "filtered_bitmap":     pa.array(filtered_bitmaps,     type=pa.large_binary()),
+            "quality_pass_bitmap": pa.array(quality_pass_bitmaps, type=pa.large_binary()),
         },
         schema=PARQUET_SCHEMA,
     )
@@ -222,43 +304,59 @@ def _merge_chromosome_parquet(
 
 
 def _clear_bits_from_parquet(parquet_file: str, removal_ids: BitMap) -> None:
-    """Clear removal_ids bits from het/hom/fail bitmaps in a Parquet file. Rewrites atomically if dirty."""
+    """Clear removal_ids bits from het/hom/fail/filtered/quality_pass bitmaps. Rewrites atomically if dirty."""
     table = pq.read_table(parquet_file)
+    has_phase2 = (
+        "filtered_bitmap" in table.schema.names
+        and "quality_pass_bitmap" in table.schema.names
+    )
     dirty = False
 
     new_het_list = []
     new_hom_list = []
     new_fail_list = []
+    new_filtered_list = []
+    new_quality_pass_list = []
 
     for i in range(len(table)):
-        het_bytes = table["het_bitmap"][i].as_py()
-        hom_bytes = table["hom_bitmap"][i].as_py()
-        het_bm = deserialize(het_bytes)
-        hom_bm = deserialize(hom_bytes)
+        het_bm = deserialize(table["het_bitmap"][i].as_py())
+        hom_bm = deserialize(table["hom_bitmap"][i].as_py())
         fail_bm = deserialize(table["fail_bitmap"][i].as_py())
+        if has_phase2:
+            filt_bm = deserialize(table["filtered_bitmap"][i].as_py())
+            qp_bm = deserialize(table["quality_pass_bitmap"][i].as_py())
+        else:
+            filt_bm = BitMap()
+            qp_bm = BitMap()
 
-        combined = het_bm | hom_bm | fail_bm
+        combined = het_bm | hom_bm | fail_bm | filt_bm | qp_bm
         if removal_ids & combined:
             het_bm = het_bm - removal_ids
             hom_bm = hom_bm - removal_ids
             fail_bm = fail_bm - removal_ids
+            filt_bm = filt_bm - removal_ids
+            qp_bm = qp_bm - removal_ids
             dirty = True
 
         new_het_list.append(serialize(het_bm))
         new_hom_list.append(serialize(hom_bm))
         new_fail_list.append(serialize(fail_bm))
+        new_filtered_list.append(serialize(filt_bm))
+        new_quality_pass_list.append(serialize(qp_bm))
 
     if not dirty:
         return
 
     new_table = pa.table(
         {
-            "pos":         table["pos"],
-            "ref":         table["ref"],
-            "alt":         table["alt"],
-            "het_bitmap":  pa.array(new_het_list,  type=pa.large_binary()),
-            "hom_bitmap":  pa.array(new_hom_list,  type=pa.large_binary()),
-            "fail_bitmap": pa.array(new_fail_list, type=pa.large_binary()),
+            "pos":                 table["pos"],
+            "ref":                 table["ref"],
+            "alt":                 table["alt"],
+            "het_bitmap":          pa.array(new_het_list,          type=pa.large_binary()),
+            "hom_bitmap":          pa.array(new_hom_list,          type=pa.large_binary()),
+            "fail_bitmap":         pa.array(new_fail_list,         type=pa.large_binary()),
+            "filtered_bitmap":     pa.array(new_filtered_list,     type=pa.large_binary()),
+            "quality_pass_bitmap": pa.array(new_quality_pass_list, type=pa.large_binary()),
         },
         schema=PARQUET_SCHEMA,
     )
@@ -590,9 +688,35 @@ def add_samples(
             # 9. Collect chroms from new temp files
             chroms = get_chroms_in_temp_files(tmp_dir)
 
+            # Phase 2: build WES tech bitmaps from CURRENT DB state (existing + new samples)
+            # so that filtered_bitmap recomputation uses the merged cohort.
+            coverage_filter = manifest.get("coverage_filter", {})
+            wes_tech_bitmaps: dict[int, BitMap] = {}
+            if coverage_filter and coverage_filter.get("min_covered", 0) > 0:
+                rows = con.execute(
+                    "SELECT s.sample_id, s.tech_id, t.bed_path FROM samples s"
+                    " JOIN technologies t ON s.tech_id = t.tech_id"
+                    " WHERE t.bed_path IS NOT NULL"
+                ).fetchall()
+                for sid, tid, _ in rows:
+                    wes_tech_bitmaps.setdefault(tid, BitMap()).add(sid)
+                # Include new samples (not yet inserted into samples table)
+                for s in new_samples:
+                    tech_obj = next(
+                        (t for t in techs_raw if t.tech_name in tech_name_to_id
+                         and tech_name_to_id[t.tech_name] == s.tech_id),
+                        None,
+                    )
+                    if tech_obj is not None and tech_obj.bed_path is not None:
+                        wes_tech_bitmaps.setdefault(s.tech_id, BitMap()).add(s.sample_id)
+
             # 10. Merge Parquet files
             for chrom in chroms:
-                n, u = _merge_chromosome_parquet(chrom, db_dir, tmp_dir)
+                n, u = _merge_chromosome_parquet(
+                    chrom, db_dir, tmp_dir,
+                    coverage_filter=coverage_filter,
+                    wes_tech_bitmaps=wes_tech_bitmaps or None,
+                )
                 total_new += n
                 total_updated += u
                 logger.debug("  [add-samples] Merged %s: %d new, %d updated", chrom, n, u)

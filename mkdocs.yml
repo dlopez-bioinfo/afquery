@@ -1,5 +1,6 @@
 site_name: AFQuery
 site_description: Fast, file-based genomic allele frequency queries for large cohorts
+site_url: https://dlopez-bioinfo.github.io/afquery/
 repo_url: https://github.com/dlopez-bioinfo/afquery
 repo_name: afquery
 edit_uri: edit/master/docs/
@@ -55,6 +56,7 @@ extra:
 
 plugins:
   - search
+  - autorefs
   - mkdocstrings:
       handlers:
         python:
@@ -62,7 +64,7 @@ plugins:
           options:
             docstring_style: google
   - print-site:
-      add_to_navigation: false
+      add_to_navigation: true
       print_page_title: 'AFQuery — Complete Documentation'
       add_print_site_banner: false
 
@@ -104,6 +106,7 @@ nav:
     - Benchmarking: advanced/benchmarking.md
     - Ploidy & Special Chromosomes: advanced/ploidy-and-sex-chroms.md
     - FILTER=PASS Tracking: advanced/filter-pass-tracking.md
+    - Coverage Evidence: advanced/coverage-evidence.md
     - Pipeline Integration: advanced/pipeline-integration.md
     - Multi-cohort Strategies: advanced/multi-cohort-strategies.md
     - Debugging Results: advanced/debugging-results.md

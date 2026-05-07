@@ -125,7 +125,10 @@ def _print_carriers(carriers, variant_key, fmt: str) -> None:
                     "tech": c.tech_name,
                     "phenotypes": c.phenotypes,
                     "genotype": c.genotype,
-                    "filter": "PASS" if c.filter_pass else "FAIL",
+                    "filter": (
+                        None if c.filter_pass is None
+                        else ("PASS" if c.filter_pass else "FAIL")
+                    ),
                 }
                 for c in carriers
             ],
@@ -134,10 +137,14 @@ def _print_carriers(carriers, variant_key, fmt: str) -> None:
     elif fmt == "tsv":
         click.echo("sample_id\tsample_name\tsex\ttech\tphenotypes\tgenotype\tfilter")
         for c in carriers:
+            filter_cell = (
+                "" if c.filter_pass is None
+                else ("PASS" if c.filter_pass else "FAIL")
+            )
             click.echo(
                 f"{c.sample_id}\t{c.sample_name}\t{c.sex}\t{c.tech_name}\t"
                 f"{','.join(c.phenotypes)}\t{c.genotype}\t"
-                f"{'PASS' if c.filter_pass else 'FAIL'}"
+                f"{filter_cell}"
             )
     else:  # text
         if not carriers:
@@ -148,7 +155,11 @@ def _print_carriers(carriers, variant_key, fmt: str) -> None:
             [
                 str(c.sample_id), c.sample_name, c.sex, c.tech_name,
                 ",".join(c.phenotypes) if c.phenotypes else ".",
-                c.genotype, "PASS" if c.filter_pass else "FAIL",
+                c.genotype,
+                (
+                    "-" if c.filter_pass is None
+                    else ("PASS" if c.filter_pass else "FAIL")
+                ),
             ]
             for c in carriers
         ]
@@ -182,8 +193,12 @@ def cli():
 @click.option("--alt",   default=None, help="Filter to specific alternate allele (only for --locus).")
 @click.option("--tech",  multiple=True, help="Technology filter to include. Repeatable; comma-separated or multiple flags. Use ^ prefix to exclude. (default: include all samples)")
 @click.option("--format", "fmt", default="text", type=click.Choice(["text", "json", "tsv"]), help="Output format. Options: text, json, tsv. (default: text)")
+@click.option("--min-pass", default=0, type=int, help="Min PASS carriers (het|hom) per WES tech for hom-ref to be assumed. Non-carriers move to N_NO_COVERAGE if tech falls below the threshold. (default: 0 = disabled)")
+@click.option("--min-observed", default=0, type=int, help="Min any-VCF entries (het|hom|fail) per WES tech for hom-ref to be assumed. (default: 0 = disabled)")
+@click.option("--min-quality-evidence", default=0, type=int, help="Min quality-passing carriers per WES tech (Phase 2 DBs only — created with --min-dp/--min-gq). (default: 0 = disabled)")
 @click.option("--no-warn", is_flag=True, default=False, help="Suppress AfqueryWarning messages.")
-def query(db, locus, region, from_file, phenotype, sex, ref, alt, tech, fmt, no_warn):
+def query(db, locus, region, from_file, phenotype, sex, ref, alt, tech, fmt,
+          min_pass, min_observed, min_quality_evidence, no_warn):
     """Query allele frequencies.
 
     Exactly one of --locus, --region, or --from-file must be provided:
@@ -212,18 +227,24 @@ def query(db, locus, region, from_file, phenotype, sex, ref, alt, tech, fmt, no_
             chrom=chrom, pos=pos,
             phenotype=_expand_tokens(phenotype), sex=sex,
             ref=ref, alt=alt, tech=_expand_tokens(tech),
+            min_pass=min_pass, min_observed=min_observed,
+            min_quality_evidence=min_quality_evidence,
         )
     elif region is not None:
         chrom, start, end = _parse_region(region)
         results = database.query_region(
             chrom=chrom, start=start, end=end,
             phenotype=_expand_tokens(phenotype), sex=sex, tech=_expand_tokens(tech),
+            min_pass=min_pass, min_observed=min_observed,
+            min_quality_evidence=min_quality_evidence,
         )
     else:
         variants = _parse_variants_file(from_file)
         results = database.query_batch_multi(
             variants=variants,
             phenotype=_expand_tokens(phenotype), sex=sex, tech=_expand_tokens(tech),
+            min_pass=min_pass, min_observed=min_observed,
+            min_quality_evidence=min_quality_evidence,
         )
 
     _print_results(results, fmt)
@@ -238,8 +259,12 @@ def query(db, locus, region, from_file, phenotype, sex, ref, alt, tech, fmt, no_
 @click.option("--sex",   default="both", type=click.Choice(["male", "female", "both"]), help="Restrict to specified sex. Options: male, female, both. (default: both)")
 @click.option("--tech",  multiple=True, help="Technology filter. Repeatable; comma-separated or multiple flags. Use ^ prefix to exclude. (default: include all samples)")
 @click.option("--format", "fmt", default="text", type=click.Choice(["text", "json", "tsv"]), help="Output format. Options: text, json, tsv. (default: text)")
+@click.option("--min-pass", default=0, type=int, help="Min PASS carriers per WES tech for hom-ref to be assumed (samples below threshold show as 'no_coverage' genotype). (default: 0 = disabled)")
+@click.option("--min-observed", default=0, type=int, help="Min any-VCF entries per WES tech (default: 0 = disabled).")
+@click.option("--min-quality-evidence", default=0, type=int, help="Min quality-passing carriers per WES tech (Phase 2 DBs only). (default: 0 = disabled)")
 @click.option("--no-warn", is_flag=True, default=False, help="Suppress AfqueryWarning messages.")
-def variant_info_cmd(db, locus, ref, alt, phenotype, sex, tech, fmt, no_warn):
+def variant_info_cmd(db, locus, ref, alt, phenotype, sex, tech, fmt,
+                     min_pass, min_observed, min_quality_evidence, no_warn):
     """List samples carrying a specific variant, with their metadata.
 
     Returns one row per carrier sample with genotype (het/hom/alt) and FILTER
@@ -264,6 +289,8 @@ def variant_info_cmd(db, locus, ref, alt, phenotype, sex, tech, fmt, no_warn):
         ref=ref, alt=alt,
         phenotype=_expand_tokens(phenotype), sex=sex,
         tech=_expand_tokens(tech),
+        min_pass=min_pass, min_observed=min_observed,
+        min_quality_evidence=min_quality_evidence,
     )
 
     _variant_key = (chrom, pos, ref or ".", alt or ".")
@@ -280,8 +307,12 @@ def variant_info_cmd(db, locus, ref, alt, phenotype, sex, tech, fmt, no_warn):
 @click.option("--threads", default=None, type=int,
               help="Number of worker threads for parallel annotation. (default: all available CPU cores)")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output with per-item progress. (default: false)")
+@click.option("--min-pass", default=0, type=int, help="Min PASS carriers per WES tech for hom-ref to be assumed (default: 0).")
+@click.option("--min-observed", default=0, type=int, help="Min any-VCF entries per WES tech (default: 0).")
+@click.option("--min-quality-evidence", default=0, type=int, help="Min quality-passing carriers per WES tech (Phase 2 DBs only) (default: 0).")
 @click.option("--no-warn", is_flag=True, default=False, help="Suppress AfqueryWarning messages.")
-def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose, no_warn):
+def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose,
+             min_pass, min_observed, min_quality_evidence, no_warn):
     """Annotate a VCF with allele frequency INFO fields.
 
     The following INFO fields are added to each variant:
@@ -305,6 +336,8 @@ def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose, 
         input_vcf, output_vcf,
         phenotype=_expand_tokens(phenotype), sex=sex,
         tech=_expand_tokens(tech), n_workers=threads,
+        min_pass=min_pass, min_observed=min_observed,
+        min_quality_evidence=min_quality_evidence,
     )
     click.echo(
         f"Annotated {stats['n_annotated']} variants "
@@ -328,8 +361,12 @@ def annotate(db, input_vcf, output_vcf, phenotype, sex, tech, threads, verbose, 
 @click.option("--threads", default=None, type=int, help="Number of worker threads for parallel export. (default: all available CPU cores)")
 @click.option("--all-variants", is_flag=True, help="Include variants with AC=0 (covered but not observed). WARNING: may produce very large output on whole-genome databases. (default: false)")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output with per-item progress. (default: false)")
+@click.option("--min-pass", default=0, type=int, help="Min PASS carriers per WES tech for hom-ref to be assumed (default: 0).")
+@click.option("--min-observed", default=0, type=int, help="Min any-VCF entries per WES tech (default: 0).")
+@click.option("--min-quality-evidence", default=0, type=int, help="Min quality-passing carriers per WES tech (Phase 2 DBs only) (default: 0).")
 def dump(db, output, chrom, start, end, phenotype, sex, tech,
-         by_sex, by_tech, by_phenotype, all_groups, threads, all_variants, verbose):
+         by_sex, by_tech, by_phenotype, all_groups, threads, all_variants, verbose,
+         min_pass, min_observed, min_quality_evidence):
     """Export allele frequencies to CSV.
 
     By default only variants with AC > 0 are exported. Use --all-variants to
@@ -360,6 +397,9 @@ def dump(db, output, chrom, start, end, phenotype, sex, tech,
         end=end,
         n_workers=threads,
         include_ac_zero=all_variants,
+        min_pass=min_pass,
+        min_observed=min_observed,
+        min_quality_evidence=min_quality_evidence,
     )
     click.echo(
         f"{stats['n_rows']} row(s) exported from {stats['n_buckets']} bucket(s)"
@@ -483,8 +523,13 @@ def version_set(db, new_version):
 @click.option("--bed-dir",      default=None, help="Directory containing BED files for WES technologies.")
 @click.option("--force", is_flag=True, default=False, help="Delete any partial results and restart from scratch. (default: False)")
 @click.option("--db-version", "db_version", default="1.0", help="Version label for this database. (default: 1.0)")
+@click.option("--min-dp",      default=0,   type=int,   help="Phase 2: minimum FORMAT/DP for a carrier to count as quality evidence. (default: 0 = disabled)")
+@click.option("--min-gq",      default=0,   type=int,   help="Phase 2: minimum FORMAT/GQ for a carrier to count as quality evidence. (default: 0 = disabled)")
+@click.option("--min-qual",    default=0.0, type=float, help="Phase 2: minimum VCF QUAL for a carrier to count as quality evidence. (default: 0 = disabled)")
+@click.option("--min-covered", default=0,   type=int,   help="Phase 2: minimum quality-passing carriers per WES tech for hom-ref to be assumed. Triggers Phase 2 storage when > 0. (default: 0 = disabled)")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output with per-item progress. (default: false)")
-def create_db_command(manifest, output_dir, genome_build, threads: int | None, build_threads: int | None, build_memory: str, tmp_dir, bed_dir, force, db_version, verbose):
+def create_db_command(manifest, output_dir, genome_build, threads: int | None, build_threads: int | None, build_memory: str, tmp_dir, bed_dir, force, db_version,
+                      min_dp, min_gq, min_qual, min_covered, verbose):
     """Create a new query database from a VCF manifest."""
     _configure_logging(verbose)
     from .preprocess import run_preprocess
@@ -502,6 +547,10 @@ def create_db_command(manifest, output_dir, genome_build, threads: int | None, b
             tmp_dir=tmp_dir,
             force=force,
             db_version=db_version,
+            min_dp=min_dp,
+            min_gq=min_gq,
+            min_qual=min_qual,
+            min_covered=min_covered,
         )
         click.echo(f"Database written to {output_dir}")
     except (ManifestError, IngestError) as e:

@@ -60,3 +60,4 @@ src/afquery/_version.py
 *.parquet
 db/*
 site
+CONTEXT.md

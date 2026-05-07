@@ -101,6 +101,45 @@ See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) for details.
 
 ---
 
+## Coverage-Evidence Filters
+
+Four optional flags enable per-sample, quality-aware tracking of which positions
+each partially-covered technology (WES, panels) actually covered. They are
+fully opt-in.
+
+| Flag | Default | Effect |
+|------|---------|--------|
+| `--min-dp D`     | 0   | Minimum `FORMAT/DP` for a carrier to count as quality evidence. |
+| `--min-gq G`     | 0   | Minimum `FORMAT/GQ` for a carrier to count as quality evidence. |
+| `--min-qual Q`   | 0.0 | Minimum VCF `QUAL` field for a carrier to count as quality evidence. |
+| `--min-covered K`| 0   | Per partially-covered tech, the position is "trusted" only if at least K of its carriers pass the quality thresholds. Non-carriers of failing positions are recorded as `N_NO_COVERAGE`. |
+
+When any of these flags is non-zero AFQuery reads `FORMAT/DP`, `FORMAT/GQ`,
+and `QUAL` from each variant call during ingest. Use the bundled
+`resources/normalize_vcf.sh` (which preserves these FORMAT fields) or ensure
+your own preprocessing keeps them.
+
+Example:
+
+```bash
+afquery create-db \
+  --manifest samples.tsv \
+  --output-dir ./db/ \
+  --genome-build GRCh38 \
+  --bed-dir ./beds/ \
+  --min-dp 30 --min-gq 20 --min-covered 1
+```
+
+Thresholds are fixed at creation time. `update-db --add-samples` reuses them
+and re-applies them to every position whose partially-covered tech receives
+new samples (see [Update Database](update-database.md)).
+
+See [Coverage Evidence](../advanced/coverage-evidence.md) for when to reach
+for each flag, how `N_NO_COVERAGE` is computed, and the query-time companion
+flag `--min-quality-evidence`.
+
+---
+
 ## Validating the Result
 
 After creation, run:

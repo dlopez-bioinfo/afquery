@@ -59,12 +59,15 @@ class TestHaploidPointQuery:
 class TestHaploidInvariants:
 
     def test_genotype_sum_equals_eligible(self, test_db):
-        """N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL == n_eligible for all variants."""
+        """N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE == n_eligible for all variants."""
         db = Database(test_db)
         for chrom, pos in [("chr1", 1500), ("chr1", 3500), ("chr1", 5000),
                            ("chrX", 5000000), ("chrY", 500000), ("chrM", 100)]:
             for r in db.query(chrom=chrom, pos=pos):
-                total = r.N_HET + r.N_HOM_ALT + r.N_HOM_REF + (r.N_FAIL or 0)
+                total = (
+                    r.N_HET + r.N_HOM_ALT + r.N_HOM_REF
+                    + (r.N_FAIL or 0) + (r.N_NO_COVERAGE or 0)
+                )
                 assert total == r.n_samples_eligible, \
                     f"Sum mismatch at {chrom}:{pos}: {total} != {r.n_samples_eligible}"
 

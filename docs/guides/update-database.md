@@ -56,6 +56,28 @@ afquery update-db \
   --bed-dir ./beds/
 ```
 
+### Coverage-evidence handling
+
+If the database was created with `--min-dp` / `--min-gq` / `--min-qual` /
+`--min-covered`, the existing thresholds are read from the database and
+re-applied to all samples — old and new. There is no `update-db` flag to
+override them; thresholds are fixed at creation time so that quality
+decisions are comparable across batches.
+
+When new carriers push a partially-covered tech above the `--min-covered`
+threshold at positions that were previously below it, those positions are
+re-evaluated and their non-carrier samples once again count as `N_HOM_REF`
+instead of `N_NO_COVERAGE`. The recomputation runs only for chromosomes
+touched by the new samples; existing rows on other chromosomes are not
+rewritten.
+
+VCFs added via `update-db` should preserve `FORMAT/DP` and `FORMAT/GQ` (the
+bundled `resources/normalize_vcf.sh` does so by default). Samples without
+those fields are still merged correctly but contribute no quality evidence.
+
+See [Coverage Evidence](../advanced/coverage-evidence.md) for the full flag
+reference and when to use each one.
+
 ---
 
 ## Remove Samples

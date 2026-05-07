@@ -63,26 +63,42 @@ def compact_database(db_path: Path) -> dict:
     for parquet_file in all_parquets:
         table = pq.read_table(str(parquet_file))
         rows_processed += len(table)
+        has_phase2 = (
+            "filtered_bitmap" in table.schema.names
+            and "quality_pass_bitmap" in table.schema.names
+        )
 
         keep_indices = []
         new_het_list = []
         new_hom_list = []
         new_fail_list = []
+        new_filtered_list = []
+        new_quality_pass_list = []
         dirty = False
 
         for i in range(len(table)):
             het_bm = deserialize(table["het_bitmap"][i].as_py())
             hom_bm = deserialize(table["hom_bitmap"][i].as_py())
             fail_bm = deserialize(table["fail_bitmap"][i].as_py())
+            if has_phase2:
+                filt_bm = deserialize(table["filtered_bitmap"][i].as_py())
+                qp_bm = deserialize(table["quality_pass_bitmap"][i].as_py())
+            else:
+                filt_bm = BitMap()
+                qp_bm = BitMap()
 
             new_het = het_bm & active_ids
             new_hom = hom_bm & active_ids
             new_fail = fail_bm & active_ids
+            new_filt = filt_bm & active_ids
+            new_qp = qp_bm & active_ids
 
-            if new_het != het_bm or new_hom != hom_bm or new_fail != fail_bm:
+            if (new_het != het_bm or new_hom != hom_bm or new_fail != fail_bm
+                    or new_filt != filt_bm or new_qp != qp_bm):
                 dirty = True
 
-            if not new_het and not new_hom and not new_fail:
+            if (not new_het and not new_hom and not new_fail
+                    and not new_filt and not new_qp):
                 # No active samples carry this variant — remove the row
                 rows_removed += 1
                 dirty = True
@@ -92,6 +108,8 @@ def compact_database(db_path: Path) -> dict:
             new_het_list.append(serialize(new_het))
             new_hom_list.append(serialize(new_hom))
             new_fail_list.append(serialize(new_fail))
+            new_filtered_list.append(serialize(new_filt))
+            new_quality_pass_list.append(serialize(new_qp))
 
         if not dirty:
             logger.debug("  [compact] %s: no changes", parquet_file.name)
@@ -101,12 +119,14 @@ def compact_database(db_path: Path) -> dict:
         orig_keep = table.take(keep_indices)
         new_table = pa.table(
             {
-                "pos":         orig_keep["pos"],
-                "ref":         orig_keep["ref"],
-                "alt":         orig_keep["alt"],
-                "het_bitmap":  pa.array(new_het_list,  type=pa.large_binary()),
-                "hom_bitmap":  pa.array(new_hom_list,  type=pa.large_binary()),
-                "fail_bitmap": pa.array(new_fail_list, type=pa.large_binary()),
+                "pos":                 orig_keep["pos"],
+                "ref":                 orig_keep["ref"],
+                "alt":                 orig_keep["alt"],
+                "het_bitmap":          pa.array(new_het_list,          type=pa.large_binary()),
+                "hom_bitmap":          pa.array(new_hom_list,          type=pa.large_binary()),
+                "fail_bitmap":         pa.array(new_fail_list,         type=pa.large_binary()),
+                "filtered_bitmap":     pa.array(new_filtered_list,     type=pa.large_binary()),
+                "quality_pass_bitmap": pa.array(new_quality_pass_list, type=pa.large_binary()),
             },
             schema=PARQUET_SCHEMA,
         )
