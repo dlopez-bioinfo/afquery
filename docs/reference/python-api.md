@@ -485,8 +485,8 @@ class SampleCarrier:
     sex: str              # 'male' | 'female'
     tech_name: str        # Sequencing technology
     phenotypes: list[str] # Sorted phenotype codes
-    genotype: str         # 'het' | 'hom' | 'alt' | 'no_coverage'
-    filter_pass: bool     # False = FILTER≠PASS
+    genotype: str            # 'het' | 'hom' | 'alt' | 'no_coverage'
+    filter_pass: bool | None # True=PASS, False=FILTER≠PASS, None=no call (no_coverage)
 ```
 
 Returned by `Database.variant_info()`. Each instance represents one sample carrying the queried variant.
@@ -499,7 +499,7 @@ Returned by `Database.variant_info()`. Each instance represents one sample carry
 | `tech_name` | str | Sequencing technology name |
 | `phenotypes` | list[str] | Sorted list of phenotype codes |
 | `genotype` | str | `"het"` (heterozygous, PASS), `"hom"` (homozygous alt, PASS), `"alt"` (non-ref, FILTER≠PASS), or `"no_coverage"` (WES sample whose tech lacks evidence — see [Coverage Evidence](../advanced/coverage-evidence.md)) |
-| `filter_pass` | bool | `True` if FILTER=PASS, `False` otherwise |
+| `filter_pass` | bool \| None | `True` if FILTER=PASS, `False` if FILTER≠PASS, `None` when `genotype == "no_coverage"` (the sample has no call at this position) |
 
 ---
 

@@ -147,7 +147,7 @@ afquery variant-info [OPTIONS]
 | `--min-quality-evidence` | INTEGER | `0` | Min quality-passing carriers per WES tech (Phase 2 DBs only). (0 = disabled) |
 | `--no-warn` | flag | False | Suppress `AfqueryWarning` messages |
 
-Returns one row per carrier sample with genotype (`het`/`hom`/`alt`/`no_coverage`) and FILTER status (`PASS`/`FAIL`). Use `--ref`/`--alt` to restrict to a specific allele when multiple alleles share the same position. Samples reported as `no_coverage` are WES non-carriers excluded from the hom-ref assumption by one of the coverage filters.
+Returns one row per carrier sample with genotype (`het`/`hom`/`alt`/`no_coverage`) and FILTER status (`PASS`/`FAIL`). For `no_coverage` rows the FILTER column is empty in TSV, `null` in JSON, and `-` in text — these samples have no call at this position, so `PASS`/`FAIL` does not apply. Use `--ref`/`--alt` to restrict to a specific allele when multiple alleles share the same position. Samples reported as `no_coverage` are WES non-carriers excluded from the hom-ref assumption by one of the coverage filters.
 
 ---
 

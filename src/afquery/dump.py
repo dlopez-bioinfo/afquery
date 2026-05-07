@@ -158,7 +158,7 @@ def _dump_bucket_worker(
         where_clause = "WHERE pos BETWEEN ? AND ?"
         params = [str(parquet_file), range_start, range_end]
 
-    cols = engine._select_cols(with_pos=True)
+    cols = ", ".join(engine._bitmap_cols(with_pos=True))
     sql = (
         f"SELECT {cols}"
         f" FROM read_parquet(?)"

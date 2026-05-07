@@ -125,7 +125,10 @@ def _print_carriers(carriers, variant_key, fmt: str) -> None:
                     "tech": c.tech_name,
                     "phenotypes": c.phenotypes,
                     "genotype": c.genotype,
-                    "filter": "PASS" if c.filter_pass else "FAIL",
+                    "filter": (
+                        None if c.filter_pass is None
+                        else ("PASS" if c.filter_pass else "FAIL")
+                    ),
                 }
                 for c in carriers
             ],
@@ -134,10 +137,14 @@ def _print_carriers(carriers, variant_key, fmt: str) -> None:
     elif fmt == "tsv":
         click.echo("sample_id\tsample_name\tsex\ttech\tphenotypes\tgenotype\tfilter")
         for c in carriers:
+            filter_cell = (
+                "" if c.filter_pass is None
+                else ("PASS" if c.filter_pass else "FAIL")
+            )
             click.echo(
                 f"{c.sample_id}\t{c.sample_name}\t{c.sex}\t{c.tech_name}\t"
                 f"{','.join(c.phenotypes)}\t{c.genotype}\t"
-                f"{'PASS' if c.filter_pass else 'FAIL'}"
+                f"{filter_cell}"
             )
     else:  # text
         if not carriers:
@@ -148,7 +155,11 @@ def _print_carriers(carriers, variant_key, fmt: str) -> None:
             [
                 str(c.sample_id), c.sample_name, c.sex, c.tech_name,
                 ",".join(c.phenotypes) if c.phenotypes else ".",
-                c.genotype, "PASS" if c.filter_pass else "FAIL",
+                c.genotype,
+                (
+                    "-" if c.filter_pass is None
+                    else ("PASS" if c.filter_pass else "FAIL")
+                ),
             ]
             for c in carriers
         ]

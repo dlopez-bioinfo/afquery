@@ -50,7 +50,7 @@ def _compute_chunk_annotations(
     _db = Path(db_path)
     bucket_start = bucket_id * 1_000_000
     bucket_end = (bucket_id + 1) * 1_000_000 - 1
-    cols = engine._select_cols(with_pos=True)
+    cols = ", ".join(engine._bitmap_cols(with_pos=True))
 
     if chrom in engine._partitioned_chroms:
         parquet_file = _db / "variants" / chrom / f"bucket_{bucket_id}.parquet"

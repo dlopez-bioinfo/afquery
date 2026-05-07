@@ -12,6 +12,7 @@ from pyroaring import BitMap
 
 from afquery import Database
 from afquery.bitmaps import serialize
+from afquery.preprocess.build import PARQUET_SCHEMA
 
 
 def _db(test_db):
@@ -162,6 +163,19 @@ class TestVariantInfoNoCoverage:
             if c.sample_id in baseline_by_id:
                 assert c.genotype == baseline_by_id[c.sample_id]
 
+    def test_no_coverage_filter_pass_is_none(self, test_db):
+        """filter_pass must be None for no_coverage rows; True/False otherwise."""
+        db = _db(test_db)
+        carriers = db.variant_info(chrom="chr1", pos=3500, min_pass=2)
+        saw_no_cov = False
+        for c in carriers:
+            if c.genotype == "no_coverage":
+                saw_no_cov = True
+                assert c.filter_pass is None
+            else:
+                assert c.filter_pass in (True, False)
+        assert saw_no_cov, "expected at least one no_coverage carrier"
+
 
 # ---------------------------------------------------------------------------
 # Phase 2 — filtered_bitmap and quality_pass_bitmap
@@ -210,6 +224,7 @@ def _make_phase2_db(src_db: str, dst_dir: Path,
             "filtered_bitmap":     pa.array(new_filtered, type=pa.large_binary()),
             "quality_pass_bitmap": pa.array(new_quality, type=pa.large_binary()),
         },
+        schema=PARQUET_SCHEMA,
     )
     pq.write_table(new_table, str(parquet_file))
     return str(dst)

@@ -93,5 +93,5 @@ class SampleCarrier:
     sex: str            # 'male' | 'female'
     tech_name: str
     phenotypes: list[str]
-    genotype: str       # 'het' | 'hom' | 'alt' (FILTER≠PASS) | 'no_coverage' (uncertain hom-ref)
-    filter_pass: bool   # False = FILTER≠PASS
+    genotype: str              # 'het' | 'hom' | 'alt' (FILTER≠PASS) | 'no_coverage' (uncertain hom-ref)
+    filter_pass: bool | None   # True = PASS, False = FILTER≠PASS, None = no call (no_coverage)

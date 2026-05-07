@@ -15,13 +15,20 @@ from .ploidy import compute_AN, split_ploidy
 BATCH_IN_THRESHOLD = 10_000
 
 
+def _parse_schema_version(s: str) -> tuple[int, ...]:
+    try:
+        return tuple(int(p) for p in s.split("."))
+    except (ValueError, AttributeError):
+        return (0,)
+
+
 class QueryEngine:
     def __init__(self, db_path: str):
         self._db = Path(db_path)
         self._manifest = json.loads((self._db / "manifest.json").read_text())
         self._genome_build = self._manifest["genome_build"]
         self._schema_version = self._manifest.get("schema_version", "1.0")
-        self._has_coverage_data = self._schema_version >= "3.0"
+        self._has_coverage_data = _parse_schema_version(self._schema_version) >= (3, 0)
         self._coverage_filter = self._manifest.get("coverage_filter", {})
 
         con = sqlite3.connect(self._db / "metadata.sqlite")
@@ -202,10 +209,10 @@ class QueryEngine:
                 "Re-create with --min-dp / --min-gq to use --min-quality-evidence."
             )
         no_cov = BitMap()
+        all_carriers = het_bm | hom_bm | fail_bm
 
         # Phase 1: count-based gate
         if min_pass > 0 or min_observed > 0:
-            all_carriers = het_bm | hom_bm | fail_bm
             for tech_id, capture_idx in self._capture.items():
                 if capture_idx._always_covered:
                     continue
@@ -224,7 +231,6 @@ class QueryEngine:
 
         # Phase 2: quality_pass gate (--min-quality-evidence K)
         if quality_pass_bm is not None and min_quality_evidence > 0:
-            all_carriers_qe = (het_bm | hom_bm | fail_bm)
             already_filtered = filtered_bm if filtered_bm is not None else BitMap()
             for tech_id, capture_idx in self._capture.items():
                 if capture_idx._always_covered:
@@ -236,20 +242,21 @@ class QueryEngine:
                 quality_count = len(quality_pass_bm & tech_eligible)
                 if quality_count < min_quality_evidence:
                     # additionally filter non-carrier, not-already-filtered samples
-                    extra = tech_eligible - (all_carriers_qe & tech_eligible) - already_filtered
+                    extra = tech_eligible - (all_carriers & tech_eligible) - already_filtered
                     no_cov |= extra
 
         return no_cov
 
-    def _select_cols(self, with_pos: bool = False) -> str:
-        """Build the bitmap-column list for SELECT statements.
+    def _bitmap_cols(self, with_pos: bool = False) -> list[str]:
+        """List of SELECT columns for variant Parquet reads.
 
-        Returns 5 columns for legacy DBs and 7 columns for Phase 2 DBs.
+        Returns 5 entries for legacy DBs and 7 for Phase 2 DBs.
         """
-        cols = "pos, ref, alt" if with_pos else "ref, alt"
-        cols += ", het_bitmap, hom_bitmap, fail_bitmap"
+        cols = (["pos"] if with_pos else []) + [
+            "ref", "alt", "het_bitmap", "hom_bitmap", "fail_bitmap",
+        ]
         if self._has_coverage_data:
-            cols += ", filtered_bitmap, quality_pass_bitmap"
+            cols += ["filtered_bitmap", "quality_pass_bitmap"]
         return cols
 
     def _unpack_bitmaps(
@@ -342,7 +349,7 @@ class QueryEngine:
         if parquet_path is None:
             return []
 
-        cols = self._select_cols(with_pos=False)
+        cols = ", ".join(self._bitmap_cols(with_pos=False))
         con = duckdb.connect(config={"temp_directory": "/tmp"})
         rows = con.execute(
             f"SELECT {cols} FROM read_parquet(?) WHERE pos = ?",
@@ -536,7 +543,7 @@ class QueryEngine:
 
         escaped_glob = parquet_glob.replace("'", "''")
 
-        cols = self._select_cols(with_pos=True)
+        cols = ", ".join(self._bitmap_cols(with_pos=True))
         con = duckdb.connect(config={"temp_directory": "/tmp"})
         rows = con.execute(
             f"SELECT {cols}"
@@ -626,9 +633,9 @@ class QueryEngine:
 
         escaped_glob = parquet_glob.replace("'", "''")
 
-        cols = self._select_cols(with_pos=True)
-        # Build a v.-prefixed alias-form for the JOIN path
-        cols_aliased = ", ".join(f"v.{c.strip()}" for c in cols.split(","))
+        col_list = self._bitmap_cols(with_pos=True)
+        cols = ", ".join(col_list)
+        cols_aliased = ", ".join(f"v.{c}" for c in col_list)
 
         con = duckdb.connect(config={"temp_directory": "/tmp"})
         if len(valid_positions) < BATCH_IN_THRESHOLD:
@@ -741,7 +748,7 @@ class QueryEngine:
         if parquet_path is None:
             return []
 
-        cols = self._select_cols(with_pos=True)
+        cols = ", ".join(self._bitmap_cols(with_pos=True))
         con = duckdb.connect(config={"temp_directory": "/tmp"})
         rows = con.execute(
             f"SELECT {cols}"
@@ -806,7 +813,7 @@ class QueryEngine:
             for sid in sorted(no_cov_elig):
                 if sid not in seen:
                     seen.add(sid)
-                    carriers.append(self._make_carrier(sid, "no_coverage", True))
+                    carriers.append(self._make_carrier(sid, "no_coverage", None))
 
         carriers.sort(key=lambda c: c.sample_id)
         return carriers
@@ -815,7 +822,7 @@ class QueryEngine:
         self,
         sample_id: int,
         genotype: str,
-        filter_pass: bool,
+        filter_pass: bool | None,
     ) -> SampleCarrier:
         s = self._samples_by_id[sample_id]
         tech_name = self._tech_map[s.tech_id].tech_name

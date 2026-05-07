@@ -10,7 +10,6 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 from pyroaring import BitMap
-from pyroaring import BitMap
 
 from ..bitmaps import deserialize, serialize
 from .build import PARQUET_SCHEMA
