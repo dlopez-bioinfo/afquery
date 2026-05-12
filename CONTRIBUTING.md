@@ -2,7 +2,7 @@
 
 ## Documentation deployment
 
-The published site at <https://dlopez-bioinfo.github.io/afquery/> is built with [MkDocs](https://www.mkdocs.org/) (Material theme) and versioned with [mike](https://github.com/jimporter/mike). Source content lives under `docs/` and is configured by `mkdocs.yml`.
+The published site at <https://babelomics.github.io/afquery/> is built with [MkDocs](https://www.mkdocs.org/) (Material theme) and versioned with [mike](https://github.com/jimporter/mike). Source content lives under `docs/` and is configured by `mkdocs.yml`.
 
 ### CI workflows
 

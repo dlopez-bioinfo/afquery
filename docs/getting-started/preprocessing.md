@@ -2,7 +2,7 @@
 
 AFQuery ingests single-sample, normalized VCF files. While AFQuery itself does not perform VCF normalization, the accuracy of your allele frequency estimates depends on the quality and consistency of your input VCFs. This page explains why normalization matters and provides a reference pipeline.
 
-A ready-to-use normalization script is provided at [`resources/normalize_vcf.sh`](https://github.com/dlopez-bioinfo/afquery/blob/master/resources/normalize_vcf.sh).
+A ready-to-use normalization script is provided at [`resources/normalize_vcf.sh`](https://github.com/babelomics/afquery/blob/master/resources/normalize_vcf.sh).
 
 
 ---

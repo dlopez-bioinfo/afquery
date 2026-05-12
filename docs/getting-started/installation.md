@@ -16,7 +16,7 @@ pip install afquery
 To install the latest development version directly from GitHub:
 
 ```bash
-pip install git+https://github.com/dlopez-bioinfo/afquery.git
+pip install git+https://github.com/babelomics/afquery.git
 ```
 
 ---
@@ -38,10 +38,10 @@ mamba install bioconda::afquery
 
 ## Docker
 
-Official images are published to [GitHub Container Registry](https://github.com/dlopez-bioinfo/afquery/pkgs/container/afquery) for every release.
+Official images are published to [GitHub Container Registry](https://github.com/babelomics/afquery/pkgs/container/afquery) for every release.
 
 ```bash
-docker pull ghcr.io/dlopez-bioinfo/afquery:latest
+docker pull ghcr.io/babelomics/afquery:latest
 ```
 
 Run the CLI by mounting a local directory with your database:
@@ -49,7 +49,7 @@ Run the CLI by mounting a local directory with your database:
 ```bash
 docker run --rm \
   -v /path/to/db:/db \
-  ghcr.io/dlopez-bioinfo/afquery:latest \
+  ghcr.io/babelomics/afquery:latest \
   query --db /db --locus chr1:925952 --phenotype E11.9
 ```
 
@@ -61,7 +61,7 @@ docker run --rm \
 ## From Source
 
 ```bash
-git clone https://github.com/dlopez-bioinfo/afquery.git
+git clone https://github.com/babelomics/afquery.git
 cd afquery
 pip install -e .
 ```

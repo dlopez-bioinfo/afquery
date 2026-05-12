@@ -1,7 +1,7 @@
 site_name: AFQuery
 site_description: Fast, file-based genomic allele frequency queries for large cohorts
-site_url: https://dlopez-bioinfo.github.io/afquery/
-repo_url: https://github.com/dlopez-bioinfo/afquery
+site_url: https://babelomics.github.io/afquery/
+repo_url: https://github.com/babelomics/afquery
 repo_name: afquery
 edit_uri: edit/master/docs/
 

@@ -41,7 +41,7 @@ test:
     - afquery --help
 
 about:
-  home: https://github.com/dlopez-bioinfo/afquery
+  home: https://github.com/babelomics/afquery
   license: MIT
   license_file: LICENSE
   summary: Genomic allele frequency query engine with bitmap-encoded genotypes

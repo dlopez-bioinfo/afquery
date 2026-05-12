@@ -1,20 +1,20 @@
 # AFQuery
 
-[![CI](https://github.com/dlopez-bioinfo/afquery/actions/workflows/ci.yml/badge.svg)](https://github.com/dlopez-bioinfo/afquery/actions/workflows/ci.yml)
-[![Coverage](https://codecov.io/gh/dlopez-bioinfo/afquery/graph/badge.svg)](https://codecov.io/gh/dlopez-bioinfo/afquery)
-[![Docs](https://img.shields.io/website?url=https%3A%2F%2Fdlopez-bioinfo.github.io%2Fafquery%2F&label=docs)](https://dlopez-bioinfo.github.io/afquery/)
+[![CI](https://github.com/babelomics/afquery/actions/workflows/ci.yml/badge.svg)](https://github.com/babelomics/afquery/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/babelomics/afquery/graph/badge.svg)](https://codecov.io/gh/babelomics/afquery)
+[![Docs](https://img.shields.io/website?url=https%3A%2F%2Fbabelomics.github.io%2Fafquery%2F&label=docs)](https://babelomics.github.io/afquery/)
 <br>
 [![PyPI](https://img.shields.io/pypi/v/afquery.svg?color=blue)](https://pypi.org/project/afquery/)
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/afquery.svg)](https://anaconda.org/bioconda/afquery)
-[![Docker](https://img.shields.io/badge/ghcr.io-afquery-blue?logo=docker)](https://github.com/dlopez-bioinfo/afquery/pkgs/container/afquery)
+[![Docker](https://img.shields.io/badge/ghcr.io-afquery-blue?logo=docker)](https://github.com/babelomics/afquery/pkgs/container/afquery)
 [![Python](https://img.shields.io/pypi/pyversions/afquery.svg)](https://pypi.org/project/afquery/)
-[![License: MIT](https://img.shields.io/github/license/dlopez-bioinfo/afquery)](https://github.com/dlopez-bioinfo/afquery/blob/master/LICENSE)
+[![License: MIT](https://img.shields.io/github/license/babelomics/afquery)](https://github.com/babelomics/afquery/blob/master/LICENSE)
 
 AFQuery enables fast allele frequency queries on user-defined subsets of local genomic cohorts, without rescanning VCFs.
 
 AFQuery is a bitmap-indexed engine that efficiently recomputes AC/AN/AF for dynamically defined subcohorts (e.g., by phenotype, sex, or sequencing technology), a common requirement in ACMG/AMP variant classification. It stores per-variant genotype data as Roaring Bitmaps in Parquet files and resolves sample filters into bitmaps that can be intersected in microseconds, enabling sub-100 ms queries on large cohorts. The system accounts for ploidy in sex chromosomes, adjusts AN based on sequencing technology, supports incremental updates, and runs locally using a file-based setup (Parquet + SQLite) without requiring server or cloud infrastructure.
 
-[Full Documentation→](https://dlopez-bioinfo.github.io/afquery/)
+[Full Documentation→](https://babelomics.github.io/afquery/)
 
 ## When to use AFQuery
 
@@ -102,10 +102,10 @@ afquery update-db --db ./db/ --add-samples new_samples.tsv
 
 ## Documentation
 
-- [Full Documentation](https://dlopez-bioinfo.github.io/afquery/)
-- [Getting Started](https://dlopez-bioinfo.github.io/afquery/getting-started/)
-- [Why local allele frequencies?](https://dlopez-bioinfo.github.io/afquery/getting-started/motivation/)
-- [CLI Reference](https://dlopez-bioinfo.github.io/afquery/reference/cli/)
+- [Full Documentation](https://babelomics.github.io/afquery/)
+- [Getting Started](https://babelomics.github.io/afquery/getting-started/)
+- [Why local allele frequencies?](https://babelomics.github.io/afquery/getting-started/motivation/)
+- [CLI Reference](https://babelomics.github.io/afquery/reference/cli/)
 
 ## Citation
 
