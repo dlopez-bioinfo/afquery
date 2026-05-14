@@ -50,7 +50,7 @@ Expected scaling (50K samples, 2,500 buckets, GRCh38):
 | 32 | ~18 min | ~24× |
 | 52 | ~13 min | ~38× |
 
-Scaling is near-linear up to ~32 cores; beyond that, I/O and SQLite contention limit further gains.
+Scaling is near-linear up to ~32 cores; beyond that, disk I/O contention limits further gains.
 
 Total RAM required: `build_threads × build_memory`
 
@@ -80,7 +80,7 @@ afquery create-db ... --threads 32 --build-threads 16 --build-memory 4GB
 graph TD
     A["Query Request<br/>chr1:925952"]
     B["Open DuckDB<br/>connection"]
-    C["Locate Parquet<br/>bucket_0/data.parquet"]
+    C["Locate Parquet<br/>bucket_0.parquet"]
     D["Read rows<br/>matching pos"]
     E["Deserialize<br/>bitmaps"]
     F["Bitmap AND<br/>with eligible<br/>sample set"]

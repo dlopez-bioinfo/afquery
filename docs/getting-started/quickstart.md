@@ -135,6 +135,7 @@ The output VCF gains INFO fields (see [Annotate a VCF](../guides/annotate-vcf.md
 | `AFQUERY_N_HOM_ALT` | A (per ALT) | Homozygous alt sample count |
 | `AFQUERY_N_HOM_REF` | A (per ALT) | Homozygous ref sample count |
 | `AFQUERY_N_FAIL` | 1 (per site) | Samples with FILTER≠PASS |
+| `AFQUERY_N_NO_COVERAGE` | A (per ALT) | Eligible samples lacking coverage evidence (0 unless a coverage-evidence filter is active) |
 
 ---
 

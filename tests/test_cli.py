@@ -435,6 +435,34 @@ def test_query_tsv_with_fail_col(runner, test_db):
     assert "N_FAIL" in lines[0]
 
 
+def test_query_output_includes_n_no_coverage_all_formats(runner, test_db):
+    """N_FAIL and N_NO_COVERAGE appear in text/tsv/json output, and TSV columns line up."""
+    base = ["query", "--db", test_db, "--locus", "chr1:1500"]
+
+    text = runner.invoke(cli, base)
+    assert text.exit_code == 0
+    assert "N_FAIL=" in text.output
+    assert "N_NO_COVERAGE=" in text.output
+
+    tsv = runner.invoke(cli, base + ["--format", "tsv"])
+    assert tsv.exit_code == 0
+    tsv_lines = tsv.output.strip().splitlines()
+    assert len(tsv_lines) >= 2
+    header = tsv_lines[0].split("\t")
+    assert "N_FAIL" in header
+    assert header[-1] == "N_NO_COVERAGE"
+    for row in tsv_lines[1:]:
+        assert len(row.split("\t")) == len(header)
+
+    js = runner.invoke(cli, base + ["--format", "json"])
+    assert js.exit_code == 0
+    data = json.loads(js.output)
+    assert len(data) >= 1
+    for entry in data:
+        assert isinstance(entry["N_FAIL"], int)
+        assert isinstance(entry["N_NO_COVERAGE"], int)
+
+
 # --- afquery annotate: verbose flag ---
 
 def test_annotate_verbose(runner, test_db, tmp_path):

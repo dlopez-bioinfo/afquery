@@ -11,9 +11,10 @@ In VCF format, the FILTER column indicates whether a variant call passed quality
 - `PASS` or `.` (missing) — the variant passed all filters
 - Any other value (e.g., `LowQual`, `VQSRTrancheSNP99.90to100.00`) — the variant failed one or more filters
 
-AFQuery default behavior:
+AFQuery's default behavior:
 
-- **PASS-only**: only `FILTER=PASS` variants are counted in AC/AN. This is always enforced.
+- Only `FILTER=PASS` calls contribute to **AC** (and therefore to **AF**). This is always enforced.
+- **AN** is not affected by the filter — it counts every eligible sample at the position, failed calls included.
 
 ---
 
@@ -21,19 +22,19 @@ AFQuery default behavior:
 
 AFQuery stores a third bitmap per variant alongside `het_bitmap` and `hom_bitmap`:
 
-- **`fail_bitmap`** — bit set for each sample that has a non-ref genotype (AC>0) AND `FILTER≠PASS`
+- **`fail_bitmap`** — bit set for each sample whose call at this site has `FILTER≠PASS`. In practice this is two cases: a sample that carries the alt allele but whose call failed a filter, and a sample with a missing genotype (`./.`) at a site that itself failed a filter.
 
-This means:
+What this means for a sample in `fail_bitmap`:
 
-- A sample in `fail_bitmap` was genotyped with the alt allele but the call failed QC
-- Such samples are **not** counted in AC/AN (they don't affect AF)
-- Their count is exposed as `N_FAIL`
+- Its alt alleles are **not** counted in AC, so it does not raise AF.
+- It is still an eligible sample, so it **is** counted in AN. The failed call lowers AF by sitting in the denominator without contributing to the numerator.
+- Its count is exposed separately as `N_FAIL`.
 
 ---
 
 ## Database Creation
 
-The `fail_bitmap` is always written and always tracks PASS-only ingestion:
+The `fail_bitmap` is always written, regardless of build options:
 
 ```bash
 afquery create-db --manifest manifest.tsv --output-dir ./db/ --genome-build GRCh38
@@ -52,10 +53,10 @@ afquery query --db ./db/ --locus chr1:925952
 ```
 
 ```
-chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1231  N_FAIL=7
+chr1:925952 G>A  AC=142  AN=2742  AF=0.0518  n_eligible=1371  N_HET=138  N_HOM_ALT=2  N_HOM_REF=1224  N_FAIL=7
 ```
 
-`N_FAIL=7` means 7 eligible samples had the alt allele called but with FILTER≠PASS.
+`N_FAIL=7` means 7 eligible samples had a call with FILTER≠PASS at this site. They are part of `n_eligible` (and of AN), so the genotype counts still add up: 138 + 2 + 1224 + 7 = 1371.
 
 ### Python API
 
@@ -83,21 +84,23 @@ Each carrier row shows its `filter` column as `PASS` or `FAIL`, along with sampl
 
 ## VCF Annotation
 
-AFQuery adds an additional INFO field to annotated VCFs:
+Among the INFO fields `afquery annotate` writes, one reports the failed-call count:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `AFQUERY_N_FAIL` | Integer | Eligible samples with FILTER≠PASS at this variant |
+| `AFQUERY_N_FAIL` | Integer | Eligible samples with `FILTER≠PASS` at this variant |
 
 ```bash
 afquery annotate --db ./db/ --input variants.vcf --output annotated.vcf
 ```
 
+See [Understanding Output](../getting-started/understanding-output.md#vcf-annotation-fields) for the full set of `AFQUERY_*` fields.
+
 ---
 
 ## PASS-Only Enforcement
 
-AF reflects the quality-filtered allele frequency — the frequency of the alt allele among high-quality calls. This is appropriate for most clinical and research use cases. PASS-only ingestion is always enforced.
+PASS-only counting is always enforced and cannot be turned off. It applies to the numerator only: a failed call never adds an alt allele to AC, but the sample stays in the eligible set and so remains in AN. The result is a deliberately conservative AF — a failed carrier weighs on the denominator without lifting the numerator, which is the safe direction for clinical and research use.
 
 ---
 

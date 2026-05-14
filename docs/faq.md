@@ -149,7 +149,7 @@ On chrX non-PAR positions, males contribute AN=1 and females contribute AN=2. Wh
 
 ## What does N_FAIL mean in query output?
 
-`N_FAIL` is the count of eligible samples that had the alt allele called but with `FILTER≠PASS`. Shown as `N_FAIL=N` in text output. These samples are not counted in AC/AN. See [FILTER=PASS Tracking](advanced/filter-pass-tracking.md).
+`N_FAIL` is the count of eligible samples whose call had `FILTER≠PASS` at the position. Shown as `N_FAIL=N` in text output. These samples are excluded from AC, but they stay eligible and still count toward AN. See [FILTER=PASS Tracking](advanced/filter-pass-tracking.md).
 
 ---
 

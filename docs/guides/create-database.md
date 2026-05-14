@@ -27,8 +27,8 @@ afquery create-db \
 
 ## What Happens
 
-1. **Ingest phase** — Each VCF is parsed with cyvcf2. Genotypes and INFO fields are written to a SQLite temporary database, one row per variant per sample.
-2. **Build phase** — DuckDB reads the SQLite data, aggregates per 1-Mbp bucket, and writes Roaring Bitmap Parquet files partitioned by chromosome/bucket.
+1. **Ingest phase** — Each VCF is parsed with cyvcf2. Genotypes and quality fields are written to a temporary per-sample Parquet file, one row per variant per sample.
+2. **Build phase** — DuckDB reads the temporary Parquet files, aggregates per 1-Mbp bucket, and writes Roaring Bitmap Parquet files partitioned by chromosome and bucket.
 3. **Finalize** — `manifest.json` and `metadata.sqlite` are written to the output directory.
 
 ---
@@ -39,12 +39,10 @@ afquery create-db \
 ./db/
 ├── manifest.json          # Build configuration (genome build, schema version, etc.)
 ├── metadata.sqlite        # Sample/phenotype/technology/changelog metadata
-├── variants/              # Hive-partitioned Parquet files
+├── variants/              # Parquet files partitioned by chromosome and bucket
 │   ├── chr1/
-│   │   ├── bucket_0/      # Positions 0–999,999
-│   │   │   └── data.parquet
-│   │   ├── bucket_1/      # Positions 1,000,000–1,999,999
-│   │   │   └── data.parquet
+│   │   ├── bucket_0.parquet      # Positions 0–999,999
+│   │   ├── bucket_1.parquet      # Positions 1,000,000–1,999,999
 │   │   └── ...
 │   ├── chr2/
 │   └── ...
@@ -95,7 +93,7 @@ afquery create-db --manifest manifest.tsv --output-dir ./db/ --genome-build GRCh
 
 ## FILTER=PASS Behavior
 
-By default, only variants with `FILTER=PASS` (or no FILTER field) are counted in AC/AN. Variants that fail filters are tracked in `fail_bitmap`. PASS-only ingestion is always enforced — there is currently no CLI option to change this behaviour.
+Only `FILTER=PASS` calls (or calls with no FILTER field) contribute to AC, and therefore to AF. AN is not affected — it counts every eligible sample, failed calls included. Calls that fail a filter are tracked in `fail_bitmap` and surfaced as `N_FAIL`. PASS-only counting is always enforced — there is currently no CLI option to change this behaviour.
 
 See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md) for details.
 

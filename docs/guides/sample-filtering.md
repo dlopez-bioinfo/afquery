@@ -1,6 +1,6 @@
 # Sample Filtering
 
-AFQuery supports flexible metadata-based selection of samples for AF computation. Filters are available on all query commands (`query`, `annotate`, `dump`).
+AFQuery supports flexible metadata-based selection of samples for AF computation. Filters are available on all query commands (`query`, `annotate`, `dump`, `variant-info`).
 
 **Phenotype codes are arbitrary string labels** — you define them in your manifest. They can be ICD-10 codes, HPO terms, project tags (`control`, `pilot`), or any strings meaningful to your cohort. The filtering system does not interpret the codes — it matches them exactly as stored.
 

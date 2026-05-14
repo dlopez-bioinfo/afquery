@@ -77,7 +77,7 @@ AFQuery requires DuckDB to use Parquet for all temporary files. Arrow IPC is not
 
 **Cause:** A DuckDB float-division rounding bug was present in older AFQuery versions. When computing bucket IDs, `CAST(pos / 1000000 AS BIGINT)` rounds floats incorrectly (e.g., position 1,500,000 → bucket 2 instead of 1).
 
-**Fix:** Upgrade to the latest AFQuery version. The fix uses `CAST(pos AS BIGINT) / 1000000` for correct integer division. Rebuild the database after upgrading.
+**Fix:** Upgrade to the latest AFQuery version. The fix uses `CAST(pos AS BIGINT) // 1000000` — the integer-division operator — for correct bucket IDs. Rebuild the database after upgrading.
 
 ---
 

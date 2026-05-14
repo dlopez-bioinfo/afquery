@@ -10,12 +10,10 @@ This page documents the on-disk layout of an AFQuery database, including file fo
 <db_dir>/
 ├── manifest.json          # Build configuration
 ├── metadata.sqlite        # Sample/phenotype/technology/changelog metadata
-├── variants/              # Hive-partitioned Parquet variant data
+├── variants/              # Parquet variant data, partitioned by chromosome and bucket
 │   ├── chr1/
-│   │   ├── bucket_0/      # Positions 0–999,999
-│   │   │   └── data.parquet
-│   │   ├── bucket_1/      # Positions 1,000,000–1,999,999
-│   │   │   └── data.parquet
+│   │   ├── bucket_0.parquet      # Positions 0–999,999
+│   │   ├── bucket_1.parquet      # Positions 1,000,000–1,999,999
 │   │   └── ...
 │   ├── chr2/
 │   └── ...
@@ -33,11 +31,13 @@ Stores the build configuration used during `create-db`.
 | Field | Type | Description |
 |-------|------|-------------|
 | `genome_build` | string | `"GRCh37"` or `"GRCh38"` |
-| `schema_version` | string | `"2.0"` |
-| `pass_only_filter` | bool | Whether FILTER=PASS was enforced during ingest |
+| `version` | string | manifest.json format version |
 | `db_version` | string | User-specified version label |
+| `sample_count` | int | Number of samples at build time |
+| `schema_version` | string | `"2.0"`, or `"3.0"` when the database was built with coverage-quality filters |
+| `pass_only_filter` | bool | Always `true` — PASS-only counting is always enforced |
+| `coverage_filter` | object | The `min_dp` / `min_gq` / `min_qual` / `min_covered` thresholds used at build time (all `0` when unused) |
 | `created_at` | string | ISO 8601 timestamp |
-| `manifest_path` | string | Path to original manifest TSV |
 
 ---
 
@@ -102,11 +102,15 @@ Each bucket Parquet file has this schema:
 | `pos` | `uint32` | 1-based genomic position |
 | `ref` | `large_utf8` | Reference allele |
 | `alt` | `large_utf8` | Alternate allele |
-| `het_bitmap` | `large_binary` | Serialized Roaring Bitmap of heterozygous sample IDs |
-| `hom_bitmap` | `large_binary` | Serialized Roaring Bitmap of homozygous alt sample IDs |
-| `fail_bitmap` | `large_binary` | Serialized Roaring Bitmap of FILTER≠PASS sample IDs |
+| `het_bitmap` | `large_binary` | Roaring Bitmap of heterozygous, `FILTER=PASS` sample IDs |
+| `hom_bitmap` | `large_binary` | Roaring Bitmap of homozygous-alt, `FILTER=PASS` sample IDs |
+| `fail_bitmap` | `large_binary` | Roaring Bitmap of sample IDs whose call has `FILTER≠PASS` at this site |
+| `filtered_bitmap` | `large_binary` | Roaring Bitmap of WES non-carriers with uncertain coverage |
+| `quality_pass_bitmap` | `large_binary` | Roaring Bitmap of carriers meeting the DP/GQ/QUAL thresholds |
 
 Rows are sorted by `(pos, alt)` within each bucket.
+
+`filtered_bitmap` and `quality_pass_bitmap` back the [coverage-evidence](../advanced/coverage-evidence.md) feature. The columns are always present, but they are empty unless the database was built with coverage-quality filters (schema version `3.0`).
 
 !!! important "large_utf8 / large_binary"
     AFQuery uses `large_utf8` and `large_binary` (64-bit offsets) rather than `utf8` / `binary` (32-bit). This is required for compatibility with DuckDB's Parquet reader on large chromosomes.
@@ -118,9 +122,10 @@ Rows are sorted by `(pos, alt)` within each bucket.
 Bitmaps use the [Roaring Bitmap](https://roaringbitmap.org/) format, serialized by pyroaring's portable serialization.
 
 - Bit position = sample ID (0-indexed integer)
-- `het_bitmap`: bit set iff sample is heterozygous at this variant
-- `hom_bitmap`: bit set iff sample is homozygous alt at this variant
-- `fail_bitmap`: bit set iff sample has genotype AC>0 AND FILTER≠PASS
+- `het_bitmap`: bit set iff the sample is heterozygous with `FILTER=PASS`
+- `hom_bitmap`: bit set iff the sample is homozygous alt with `FILTER=PASS`
+- `fail_bitmap`: bit set iff the sample's call has `FILTER≠PASS` — either a carrier whose call failed a filter, or a missing genotype (`./.`) at a failed site
+- `filtered_bitmap`, `quality_pass_bitmap`: see the Parquet schema above; both are empty unless the database was built with coverage-quality filters
 
 To deserialize in Python:
 ```python
@@ -152,11 +157,11 @@ bucket_id = pos // 1_000_000
 ```
 
 !!! warning "DuckDB integer arithmetic"
-    When computing bucket IDs in DuckDB SQL, always use:
+    When computing bucket IDs in DuckDB SQL, always use the integer-division operator:
     ```sql
-    CAST(pos AS BIGINT) / 1000000
+    CAST(pos AS BIGINT) // 1000000
     ```
-    Not `CAST(pos / 1000000 AS BIGINT)` — DuckDB performs float division first and rounds, producing wrong bucket IDs.
+    Not `CAST(pos / 1000000 AS BIGINT)` — the `/` operator does float division, and casting the rounded result afterwards produces wrong bucket IDs.
 
 ---
 

@@ -86,7 +86,7 @@ Every query result includes the following fields:
 | **AC** | Allele count — alt allele copies in eligible samples |
 | **AN** | Allele number — total alleles examined (adjusted for coverage and ploidy) |
 | **AF** | Allele frequency — `AC / AN` |
-| **n_eligible** | Samples in the filtered set (before coverage or ploidy adjustments). Here, 10 = no filter applied. |
+| **n_eligible** | Eligible samples at this position — those passing the metadata filters *and* covered here. Ploidy is applied afterwards, to AN. Here, 10 = no filter applied and every sample is covered. |
 | **N_HET** | Eligible samples heterozygous for the alt allele |
 | **N_HOM_ALT** | Eligible samples homozygous for the alt allele |
 | **N_HOM_REF** | Eligible samples homozygous reference |
@@ -94,7 +94,7 @@ Every query result includes the following fields:
 
 For `chr1:925952`: AN=20 = 10 diploid samples × 2 alleles; AC=6 = 4 het samples (1 copy each) + 1 hom-alt (2 copies).
 
-**Accounting identity:** `n_eligible = N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL` always holds (10 = 4+1+5+0 ✓).
+**Accounting identity:** `n_eligible = N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE` always holds. `N_NO_COVERAGE` is 0 here (it only becomes non-zero with a coverage-evidence filter), so 10 = 4+1+5+0+0 ✓.
 
 ### N_FAIL in practice
 

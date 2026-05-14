@@ -61,7 +61,7 @@ All samples in one database, with phenotype codes distinguishing cohorts.
 ### Manifest Design
 
 ```tsv
-sample_id	vcf_path	sex	technology	phenotype_codes
+sample_name	vcf_path	sex	tech_name	phenotype_codes
 CARD_001	/data/card/001.vcf.gz	female	wgs	cardiology,EUR,control
 CARD_002	/data/card/002.vcf.gz	male	wgs	cardiology,EUR,case_HCM
 NEURO_001	/data/neuro/001.vcf.gz	female	wes	neurology,AFR,case_epilepsy
@@ -99,7 +99,7 @@ afquery query --db ./merged/ --locus chr1:12345678 --ref C --alt T \
 |-----------|-------------|
 | Single database to maintain | Rebuilding requires all VCFs accessible |
 | Cross-cohort queries via phenotype filters | Phenotype code design must be planned upfront |
-| One annotation pass covers all cohorts | Adding a new cohort requires `afquery update` |
+| One annotation pass covers all cohorts | Adding a new cohort requires `afquery update-db` |
 | Flexible ad-hoc stratification | Larger database, longer rebuild time |
 
 ---
@@ -134,7 +134,11 @@ Maintain both per-cohort and merged databases.
 afquery annotate --db /databases/institutional/cardiology/ \
   --input patient.vcf.gz --output step1.vcf.gz
 
-# Annotate against shared controls (use a different INFO prefix via Python API)
+# Annotate against shared controls in a second pass
+# Note: the AFQUERY_* INFO fields are overwritten on each pass — if you need
+# both sets of frequencies, extract the values from step1.vcf.gz first.
+afquery annotate --db /databases/shared/combined_controls/ \
+  --input step1.vcf.gz --output step2.vcf.gz
 ```
 
 ---

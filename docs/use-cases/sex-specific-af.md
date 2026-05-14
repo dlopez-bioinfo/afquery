@@ -34,10 +34,10 @@ afquery query --db ./db/ --locus chrX:153296777
 ```
 
 ```
-chrX:153296777 C>T  AC=15  AN=2500  AF=0.0060  n_eligible=1500  N_HET=5  N_HOM_ALT=0  N_HOM_REF=1495  N_FAIL=0
+chrX:153296777 C>T  AC=15  AN=2500  AF=0.0060  n_eligible=1500  N_HET=5  N_HOM_ALT=10  N_HOM_REF=1485  N_FAIL=0
 ```
 
-AN=2500: 500 males × 1 + 1000 females × 2 = 2500 (mixed ploidy)
+AN=2500: 500 males × 1 + 1000 females × 2 = 2500 (mixed ploidy). The 10 hemizygous male carriers land in N_HOM_ALT, not N_HET — on haploid positions there is no heterozygous state.
 
 ### 2. Query males only (hemizygous frequency)
 
@@ -46,10 +46,10 @@ afquery query --db ./db/ --locus chrX:153296777 --sex male
 ```
 
 ```
-chrX:153296777 C>T  AC=10  AN=500  AF=0.0200  n_eligible=500  N_HET=10  N_HOM_ALT=0  N_HOM_REF=490  N_FAIL=0
+chrX:153296777 C>T  AC=10  AN=500  AF=0.0200  n_eligible=500  N_HET=0  N_HOM_ALT=10  N_HOM_REF=490  N_FAIL=0
 ```
 
-Hemizygous rate: 2% (N_HET here represents hemizygous males, GT=1)
+Hemizygous rate: 2%. The carriers appear in N_HOM_ALT, not N_HET — males are haploid at chrX non-PAR, so `GT=1` carriers are counted as homozygous-alt.
 
 ### 3. Query females only (carrier frequency)
 

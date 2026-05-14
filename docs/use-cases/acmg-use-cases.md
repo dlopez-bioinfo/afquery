@@ -207,7 +207,7 @@ On chrX non-PAR regions, males contribute AN=1 and females AN=2. A cohort with 8
 
 ### High N_FAIL at the Variant Site
 
-`N_FAIL` counts eligible samples that were genotyped with the alt allele but failed quality filters (`FILTER≠PASS`). These samples are excluded from AC/AN, so AF is not directly inflated. However, a high N_FAIL indicates the site has systematic QC problems — and warrants caution before applying ACMG criteria.
+`N_FAIL` counts eligible samples whose call at the site failed quality filters (`FILTER≠PASS`). These samples are excluded from AC but stay in AN, so they cannot inflate AF — if anything they make it slightly more conservative. A high N_FAIL still indicates the site has systematic QC problems, and warrants caution before applying ACMG criteria.
 
 | N_FAIL / n_eligible | Interpretation |
 |---|---|

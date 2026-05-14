@@ -103,12 +103,12 @@ afquery query --db ./db/ --locus chrM:3243
 
 For every query result, the following identity holds:
 
-**N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL = n_eligible**
+**N_HET + N_HOM_ALT + N_HOM_REF + N_FAIL + N_NO_COVERAGE = n_eligible**
 
-This can be used to validate results. N_HOM_REF is the number of eligible samples that are homozygous reference (i.e., do not carry the alt allele and passed quality filters).
+This can be used to validate results. N_HOM_REF is the number of eligible samples that are homozygous reference (i.e., do not carry the alt allele and passed quality filters). N_NO_COVERAGE is 0 unless a coverage-evidence filter is active — see [Coverage Evidence](coverage-evidence.md).
 
 !!! note "Mutual exclusivity"
-    N_HET, N_HOM_ALT, N_HOM_REF, and N_FAIL are mutually exclusive. A sample with a non-ref allele but FILTER≠PASS is counted in N_FAIL only — it does not appear in N_HET or N_HOM_ALT. Likewise, N_HOM_REF counts only PASS-filtered samples.
+    N_HET, N_HOM_ALT, N_HOM_REF, N_FAIL, and N_NO_COVERAGE are mutually exclusive. A sample with a non-ref allele but FILTER≠PASS is counted in N_FAIL only — it does not appear in N_HET or N_HOM_ALT. Likewise, N_HOM_REF counts only PASS-filtered samples.
 
 ### chrX non-PAR
 

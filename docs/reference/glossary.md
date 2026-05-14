@@ -34,7 +34,7 @@ A sample that passes all query filters (sex, phenotype, technology) and has cove
 
 ## N_FAIL
 
-The count of eligible samples at a position where the genotype call had FILTER≠PASS in the source VCF. These samples are not counted in AC/AN. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
+The count of eligible samples whose call at a position had FILTER≠PASS in the source VCF. These samples are excluded from AC, but they remain eligible and so still count toward AN. See [FILTER=PASS Tracking](../advanced/filter-pass-tracking.md).
 
 ## N_NO_COVERAGE
 
@@ -66,7 +66,7 @@ A compressed bitset data structure that efficiently stores sets of integers. AFQ
 
 ## Schema Version
 
-The AFQuery database format version stored in `manifest.json`. Each variant stores `het_bitmap`, `hom_bitmap`, and `fail_bitmap`. See [Data Model](data-model.md).
+The AFQuery database format version stored in `manifest.json` — `2.0`, or `3.0` when the database was built with coverage-quality filters. See [Data Model](data-model.md).
 
 ## Technology
 

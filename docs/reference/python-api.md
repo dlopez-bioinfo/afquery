@@ -453,7 +453,7 @@ class QueryResult:
     N_HET: int               # Heterozygous count
     N_HOM_ALT: int           # Homozygous alt count
     N_HOM_REF: int           # Homozygous ref count
-    N_FAIL: int              # Samples with alt allele called but FILTER≠PASS
+    N_FAIL: int              # Eligible samples whose call had FILTER≠PASS (excluded from AC, kept in AN)
     N_NO_COVERAGE: int       # Eligible samples whose tech lacks evidence (excluded from N_HOM_REF)
 ```
 

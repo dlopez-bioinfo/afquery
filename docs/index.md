@@ -31,7 +31,7 @@ AFQuery pre-indexes genotypes as [Roaring Bitmaps](https://roaringbitmap.org/) i
 - **Ploidy-aware** — correct AN on chrX PAR/non-PAR, chrY, and chrM.
 - **Technology-aware AN** — per-position capture BED intersection across WGS, WES kits, and panels.
 - **Carrier lookup** — list samples carrying any variant with full metadata (sex, tech, phenotypes, genotype, FILTER status).
-- **VCF annotation** — add `AFQUERY_AC/AN/AF/N_HET/N_HOM_ALT/N_HOM_REF/N_FAIL` INFO fields from any sample subset.
+- **VCF annotation** — add `AFQUERY_AC/AN/AF/N_HET/N_HOM_ALT/N_HOM_REF/N_FAIL/N_NO_COVERAGE` INFO fields from any sample subset.
 - **Audit changelog** — every database operation is recorded for reproducibility.
 
 ---
@@ -43,7 +43,7 @@ graph TD
     A["🔍 Input VCFs<br/>single-sample"]
     B["📥 Ingest<br/>cyvcf2 reads VCFs →<br/>per-sample Parquet files emitted"]
     C["🏗️ Build<br/>DuckDB aggregates per bucket →<br/>Roaring Bitmaps → Parquet"]
-    D["💾 Database on Disk<br/>variants/chr*/bucket_*/<br/>capture/*.pkl<br/>metadata.sqlite<br/>manifest.json"]
+    D["💾 Database on Disk<br/>variants/chr*/bucket_*.parquet<br/>capture/*.pkl<br/>metadata.sqlite<br/>manifest.json"]
     E["⚡ Query Engine<br/>Load bitmap → filter samples →<br/>compute AC/AN/AF<br/>~10-100ms"]
     F["📊 Annotate"]
     G["🔄 Update"]

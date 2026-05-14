@@ -1,6 +1,6 @@
 # Update a Database
 
-`afquery update-db` supports three operations: adding new samples, removing existing samples, and compacting the database to reclaim space.
+`afquery update-db` adds new samples, removes existing samples, updates sample metadata, and compacts the database to reclaim space.
 
 ### Update Timeline
 

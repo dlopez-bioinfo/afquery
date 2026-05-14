@@ -126,13 +126,13 @@ graph TB
 
 ### Per-Variant Bitmaps
 
-For each variant row, AFQuery stores three [Roaring Bitmaps](https://roaringbitmap.org/):
+For each variant row, AFQuery stores per-sample genotype information as [Roaring Bitmaps](https://roaringbitmap.org/). Three of them drive every query:
 
-- **`het_bitmap`** — bit set for each sample that is heterozygous (GT=0/1 or 1/0)
-- **`hom_bitmap`** — bit set for each sample that is homozygous alt (GT=1/1 or GT=1)
-- **`fail_bitmap`** bit set for each sample called with FILTER≠PASS
+- **`het_bitmap`** — sample is heterozygous (`GT=0/1`) with `FILTER=PASS`
+- **`hom_bitmap`** — sample is homozygous alt (`GT=1/1`, or `GT=1` on haploid regions) with `FILTER=PASS`
+- **`fail_bitmap`** — the sample's call at this site has `FILTER≠PASS`
 
-Each sample has a stable integer ID (0-indexed). The bit position in the bitmap equals the sample ID.
+Each sample has a stable integer ID (0-indexed). The bit position in the bitmap equals the sample ID. Databases built with coverage-quality filters carry two additional bitmaps — see [Data Model](../reference/data-model.md#parquet-schema).
 
 ### Parquet Storage
 
@@ -141,8 +141,8 @@ Bitmaps are serialized and stored in Parquet files, partitioned by chromosome an
 ```
 variants/
   chr1/
-    bucket_0/   ← positions 0–999,999
-    bucket_1/   ← positions 1,000,000–1,999,999
+    bucket_0.parquet   ← positions 0–999,999
+    bucket_1.parquet   ← positions 1,000,000–1,999,999
     ...
   chr2/
     ...

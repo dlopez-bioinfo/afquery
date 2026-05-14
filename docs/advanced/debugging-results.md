@@ -34,13 +34,13 @@ A variant you expect to find is not in the database:
 | Check | Details |
 |-------|---------|
 | Was it in the source VCFs? | AFQuery only stores variants present in ingested VCFs |
-| Was it FILTER=PASS? | Default ingestion skips non-PASS variants. Check with `afquery info` for `pass_only_filter` |
+| Was the alt allele ever called? | A variant is stored only if at least one sample carries the alt allele or has a failed call there. A site seen only as `0/0` in every sample is genuinely absent. Note that non-PASS calls *are* kept (in `fail_bitmap`) — such a variant is not missing, it just shows `AC=0`. |
 | Multiallelic sites | AFQuery stores each ALT separately. Query the specific ALT allele, not just position |
 | Chromosome naming | Ensure consistent `chr` prefix usage |
 
 ### 4. Unexpected N_FAIL > 0
 
-`N_FAIL > 0` means some eligible samples had the alt allele called but with `FILTER≠PASS`. These samples are excluded from AC/AN. This is usually benign (1–2 samples), but a high N_FAIL warrants investigation:
+`N_FAIL > 0` means some eligible samples had a call with `FILTER≠PASS` at this position. These samples are excluded from AC, but they remain eligible and still count in AN. This is usually benign (1–2 samples), but a high N_FAIL warrants investigation:
 
 | N_FAIL relative to n_eligible | Likely cause |
 |---|---|
