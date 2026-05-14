@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/afquery.svg)](https://pypi.org/project/afquery/)
 [![License: MIT](https://img.shields.io/github/license/babelomics/afquery)](https://github.com/babelomics/afquery/blob/master/LICENSE)
 
-**Fast, capture-aware allele frequency queries on local genomic cohorts — without re-scanning VCFs.**
+**Fast, capture-aware allele frequency queries on local genomic cohorts**
 
 AFQuery is a bitmap-indexed engine that recomputes AC/AN/AF for arbitrary subcohorts (by phenotype, sex, sequencing technology, or any combination) in tens of milliseconds, independently of cohort size. It accounts for capture-kit heterogeneity, ploidy on sex chromosomes, and FILTER/coverage evidence, and runs locally as a file-based system (Parquet + SQLite) with no server or cluster required.
 
@@ -201,7 +201,6 @@ AFQuery indexes each variant as three Roaring Bitmaps — heterozygous PASS carr
 | Workload | AFQuery | bcftools | Speedup |
 |---|---|---|---|
 | Full-chromosome AC/AN/AF export | ~7.0 s | ~3.8 min | **~33×** |
-| AF concordance over 1,106,181 common variants | — | — | **R² > 0.99999** |
 
 Point-query latency on AFQuery is ~14 ms and constant from 1K to 50K samples (median over 50 replicates, warm cache).
 
@@ -220,7 +219,3 @@ If you use AFQuery in your work, please cite:
 
 > AFQuery: fast, capture-aware allele frequency queries on local genomic cohorts.
 > *(manuscript in preparation)*
-
-## License
-
-[MIT](LICENSE)
