@@ -74,29 +74,23 @@ def _print_results(results, fmt: str) -> None:
                 "ref": r.variant.ref, "alt": r.variant.alt,
                 "AC": r.AC, "AN": r.AN, "AF": r.AF, "n_eligible": r.n_samples_eligible,
                 "N_HET": r.N_HET, "N_HOM_ALT": r.N_HOM_ALT, "N_HOM_REF": r.N_HOM_REF,
+                "N_FAIL": r.N_FAIL, "N_NO_COVERAGE": r.N_NO_COVERAGE,
             }
-            if r.N_FAIL is not None:
-                entry["N_FAIL"] = r.N_FAIL
-            entry["N_NO_COVERAGE"] = r.N_NO_COVERAGE
             out.append(entry)
         click.echo(json.dumps(out, indent=2))
     elif fmt == "tsv":
-        has_fail = any(r.N_FAIL is not None for r in results)
-        header = "chrom\tpos\tref\talt\tAC\tAN\tAF\tn_eligible\tN_HET\tN_HOM_ALT\tN_HOM_REF"
-        if has_fail:
-            header += "\tN_FAIL"
-        header += "\tN_NO_COVERAGE"
+        header = (
+            "chrom\tpos\tref\talt\tAC\tAN\tAF\tn_eligible\t"
+            "N_HET\tN_HOM_ALT\tN_HOM_REF\tN_FAIL\tN_NO_COVERAGE"
+        )
         click.echo(header)
         for r in results:
             af = f"{r.AF:.6f}" if r.AF is not None else "NA"
             line = (
                 f"{r.variant.chrom}\t{r.variant.pos}\t{r.variant.ref}\t"
                 f"{r.variant.alt}\t{r.AC}\t{r.AN}\t{af}\t{r.n_samples_eligible}\t"
-                f"{r.N_HET}\t{r.N_HOM_ALT}\t{r.N_HOM_REF}"
+                f"{r.N_HET}\t{r.N_HOM_ALT}\t{r.N_HOM_REF}\t{r.N_FAIL}\t{r.N_NO_COVERAGE}"
             )
-            if has_fail:
-                line += f"\t{r.N_FAIL if r.N_FAIL is not None else '?'}"
-            line += f"\t{r.N_NO_COVERAGE}"
             click.echo(line)
     else:  # text
         if not results:
@@ -104,12 +98,11 @@ def _print_results(results, fmt: str) -> None:
             return
         for r in results:
             af = f"{r.AF:.4f}" if r.AF is not None else "NA"
-            fail_str = f"  N_FAIL={r.N_FAIL}" if r.N_FAIL is not None else ""
             click.echo(
                 f"{r.variant.chrom}:{r.variant.pos} {r.variant.ref}>{r.variant.alt}  "
                 f"AC={r.AC}  AN={r.AN}  AF={af}  n_eligible={r.n_samples_eligible}  "
-                f"N_HET={r.N_HET}  N_HOM_ALT={r.N_HOM_ALT}  N_HOM_REF={r.N_HOM_REF}"
-                f"{fail_str}  N_NO_COVERAGE={r.N_NO_COVERAGE}"
+                f"N_HET={r.N_HET}  N_HOM_ALT={r.N_HOM_ALT}  N_HOM_REF={r.N_HOM_REF}  "
+                f"N_FAIL={r.N_FAIL}  N_NO_COVERAGE={r.N_NO_COVERAGE}"
             )
 
 
